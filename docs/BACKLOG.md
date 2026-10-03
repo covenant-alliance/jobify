@@ -14,11 +14,13 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **B5. ✅ Entity used as request body.** `POST /jobs` binds `@RequestBody JobPost` (a JPA entity, with no `@Valid`), so clients can set `postId`, `employer`, `available` and so on. Introduce `CreateJobRequest` (title, description, rating, rate, location, workMode, employmentType, requiredSkills: string[]) with Bean Validation. Keep the JSON field names exactly as today so the front end doesn't break. A `PUT /jobs/{id}` (edit) is the natural companion.
 
-**B6. `jobRating` is employer-supplied.** The posting employer sets the "rating". Product question: is it really an employer rating or quality score? The UI exposes it as an input. Clarify before building on it (the fake match score uses it).
+**B6. ✅ `jobRating` is employer-supplied.** *(Decided by the PO on 2026-09-30: removed from the API, see P11 / #28.)* The posting employer sets the "rating". Product question: is it really an employer rating or quality score? The UI exposes it as an input. Clarify before building on it (the fake match score uses it).
 
 **B7. ✅ JWT secret and lifetime.** *(Done in sprint 1: `JWT_SECRET` env var, startup validation. Refresh tokens remain a follow-up spike.)* Secret is committed in `application.properties`. Move to `${JWT_SECRET}`, and fail startup if it's missing outside the `dev` profile. Consider refresh tokens. The front end just logs out on 401 or expiry.
 
 ## Product features the front end is waiting on (P1 is the big one)
+
+**P11. ✅ Job compensation model (#28).** `rate` + `rateType` (`HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`) replace `hourlyRate` and `jobRating`; `EmploymentType.B2B` added. Requested by the front end. Done in sprint 2. Follow-up (T3): drop the unused `job_rating` and `hourly_rate` columns with a real migration once no client reads `hourlyRate`.
 
 **P1. Applications.** Entity: seeker, job, status (`APPLIED, IN_REVIEW, INTERVIEW, OFFER, REJECTED, WITHDRAWN`), createdAt, updatedAt, optional cover note. Unique on (seeker, job). Endpoints: `POST /jobs/{id}/apply` (SEEKER), `GET /applications/me`, `DELETE /applications/{id}` (withdraw), `GET /jobs/{id}/applications` (owning EMPLOYER), `PUT /applications/{id}/status` (owning EMPLOYER). This replaces the fake stage in `applicationStage.ts`. Also unblocks the company pipeline and funnel widgets and the notification triggers.
 

@@ -28,8 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class JobEndpointsIntegrationTest {
 
     private static final String VALID_JOB = """
-            {"jobTitle":"Platform Engineer","jobDescription":"<p>Build things</p>","jobRating":4.0,
-             "hourlyRate":60,"location":"Remote","workMode":"REMOTE","employmentType":"FULL_TIME",
+            {"jobTitle":"Platform Engineer","jobDescription":"<p>Build things</p>","rate":60,"rateType":"HOURLY","location":"Remote","workMode":"REMOTE","employmentType":"FULL_TIME",
              "requiredSkills":["Java","Spring Boot"]}""";
 
     @Autowired
@@ -117,7 +116,7 @@ class JobEndpointsIntegrationTest {
     @Test
     void clientCannotForceOwnershipOrAvailabilityOnCreate() throws Exception {
         String body = """
-                {"jobTitle":"T","jobDescription":"<p>d</p>","available":false,"postId":9999,
+                {"jobTitle":"T","jobDescription":"<p>d</p>","rate":10,"rateType":"HOURLY","available":false,"postId":9999,
                  "employer":{"username":"startupxyz"}}""";
         mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(body))
@@ -129,13 +128,14 @@ class JobEndpointsIntegrationTest {
 
     @Test
     void invalidCreateRequestGets400WithReadableMessage() throws Exception {
-        String body = "{\"jobTitle\":\"\",\"jobDescription\":\"<p>d</p>\",\"jobRating\":9}";
+        String body = "{\"jobTitle\":\"\",\"jobDescription\":\"<p>d</p>\",\"rate\":0}";
         mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message", containsString("jobTitle is required")))
-                .andExpect(jsonPath("$.message", containsString("jobRating must be between 0 and 5")))
+                .andExpect(jsonPath("$.message", containsString("rate must be greater than 0")))
+                .andExpect(jsonPath("$.message", containsString("rateType is required")))
                 .andExpect(jsonPath("$.data").doesNotExist());
     }
 
@@ -150,7 +150,7 @@ class JobEndpointsIntegrationTest {
     @Test
     void oversizedDescriptionIsRejected() throws Exception {
         String big = "a".repeat(20_001);
-        String body = "{\"jobTitle\":\"T\",\"jobDescription\":\"" + big + "\"}";
+        String body = "{\"jobTitle\":\"T\",\"jobDescription\":\"" + big + "\",\"rate\":1,\"rateType\":\"HOURLY\"}";
         mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
@@ -162,7 +162,7 @@ class JobEndpointsIntegrationTest {
     @Test
     void scriptsAndEventHandlersAreStrippedOnCreate() throws Exception {
         String body = "{\"jobTitle\":\"T\",\"jobDescription\":\"<p onclick=\\\"x()\\\">Hi</p>"
-                + "<script>alert(1)</script><a href=\\\"javascript:alert(1)\\\">bad</a><strong>ok</strong>\"}";
+                + "<script>alert(1)</script><a href=\\\"javascript:alert(1)\\\">bad</a><strong>ok</strong>\",\"rate\":1,\"rateType\":\"HOURLY\"}";
         mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
@@ -218,5 +218,112 @@ class JobEndpointsIntegrationTest {
         mvc.perform(put("/jobs/987654").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(VALID_JOB))
                 .andExpect(status().isNotFound());
+    }
+
+    // ── P11: compensation model ───────────────────────────────────────────────
+
+    private String createJobJson(String rate, String rateType) {
+        return "{\"jobTitle\":\"Pay test\",\"jobDescription\":\"<p>x</p>\",\"rate\":" + rate
+                + (rateType == null ? "" : ",\"rateType\":\"" + rateType + "\"") + "}";
+    }
+
+    @Test
+    void hourlyRateIsReturnedAsIs() throws Exception {
+        mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
+                        .contentType(APPLICATION_JSON).content(createJobJson("75.5", "HOURLY")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.rate").value(75.5))
+                .andExpect(jsonPath("$.rateType").value("HOURLY"))
+                .andExpect(jsonPath("$.hourlyRate").value(75.5));
+    }
+
+    @Test
+    void monthlyYearlyAndContractRatesGetTheirHourlyEquivalent() throws Exception {
+        String token = bearer(mvc, "techcorp");
+        mvc.perform(post("/jobs").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
+                        .content(createJobJson("5200", "MONTHLY")))
+                .andExpect(jsonPath("$.rate").value(5200.0))
+                .andExpect(jsonPath("$.rateType").value("MONTHLY"))
+                .andExpect(jsonPath("$.hourlyRate").value(30.0));
+        mvc.perform(post("/jobs").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
+                        .content(createJobJson("104000", "YEARLY")))
+                .andExpect(jsonPath("$.hourlyRate").value(50.0));
+        mvc.perform(post("/jobs").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
+                        .content(createJobJson("20000", "CONTRACT_TOTAL")))
+                .andExpect(jsonPath("$.rate").value(20000.0))
+                .andExpect(jsonPath("$.rateType").value("CONTRACT_TOTAL"))
+                .andExpect(jsonPath("$.hourlyRate").value(0.0));
+    }
+
+    @Test
+    void rateMustBePositiveAndRateTypeRequired() throws Exception {
+        String token = bearer(mvc, "techcorp");
+        mvc.perform(post("/jobs").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
+                        .content(createJobJson("0", "HOURLY")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("rate must be greater than 0"));
+        mvc.perform(post("/jobs").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
+                        .content(createJobJson("-5", "HOURLY")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("rate must be greater than 0"));
+        mvc.perform(post("/jobs").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
+                        .content(createJobJson("50", null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("rateType is required"));
+        mvc.perform(post("/jobs").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
+                        .content("{\"jobTitle\":\"T\",\"jobDescription\":\"<p>x</p>\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("rate is required")));
+    }
+
+    @Test
+    void unknownRateTypeIs400() throws Exception {
+        mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
+                        .contentType(APPLICATION_JSON).content(createJobJson("50", "WEEKLY")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void legacyFieldsFromOldClientsAreIgnoredNotRejected() throws Exception {
+        String body = "{\"jobTitle\":\"Old client\",\"jobDescription\":\"<p>x</p>\",\"rate\":40,"
+                + "\"rateType\":\"HOURLY\",\"jobRating\":4.5,\"hourlyRate\":999}";
+        mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
+                        .contentType(APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.hourlyRate").value(40.0))
+                .andExpect(jsonPath("$.jobRating").doesNotExist());
+    }
+
+    @Test
+    void b2bIsAValidEmploymentType() throws Exception {
+        String body = "{\"jobTitle\":\"Contractor\",\"jobDescription\":\"<p>x</p>\",\"rate\":80,"
+                + "\"rateType\":\"HOURLY\",\"employmentType\":\"B2B\"}";
+        mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
+                        .contentType(APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.employmentType").value("B2B"));
+    }
+
+    @Test
+    void editingChangesTheCompensation() throws Exception {
+        String owner = bearer(mvc, "techcorp");
+        String created = mvc.perform(post("/jobs").header(AUTHORIZATION, owner)
+                        .contentType(APPLICATION_JSON).content(createJobJson("40", "HOURLY")))
+                .andReturn().getResponse().getContentAsString();
+        int id = JsonPath.read(created, "$.postId");
+        mvc.perform(put("/jobs/" + id).header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(createJobJson("6000", "MONTHLY")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rateType").value("MONTHLY"))
+                .andExpect(jsonPath("$.hourlyRate").value(34.62));
+    }
+
+    @Test
+    void seededJobsExposeRateAndHaveNoJobRating() throws Exception {
+        mvc.perform(get("/jobs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].rate").isNumber())
+                .andExpect(jsonPath("$[0].rateType").value("HOURLY"))
+                .andExpect(jsonPath("$[0].jobRating").doesNotExist());
     }
 }

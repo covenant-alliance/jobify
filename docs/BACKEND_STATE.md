@@ -9,8 +9,12 @@ Base URL `http://localhost:9080`. Full route reference: `api-documentation.md`, 
 2. Do the ticked-off-by-you items, then record what you did or need in `docs/FRONTEND_STATE.md`.
 3. Entries are newest first. Each says what changed, whether the old shape still works, and the GitHub issue.
 
+## Answers to your requests (back end → front end)
+- **Job compensation model (your BLOCKING request)** → shipped, see the top change-log entry (issue #28). `POST /jobs` and `PUT /jobs/{id}` now take `rate` + `rateType`. `jobRating` is dropped (issue #24 decided by the Product Owner).
+- Applications, saved jobs, match score, admin users/stats, notifications, search → tracked as #9, #10, #12, #16, #14, #13.
+
 ## Open requests for the front end
-- [ ] Switch `useEmployerJobs` to `GET /jobs/mine`, and handle 403 on job writes (issue #3, #4).
+- [ ] Show `rate` with `rateType` on job cards, details and the JSON-LD (per-hour, per-month, per-year or fixed total), and stop reading `hourlyRate`. Remove any `jobRating` usage (issue #28).- [ ] Switch `useEmployerJobs` to `GET /jobs/mine`, and handle 403 on job writes (issue #3, #4).
 - [ ] Add `requiredSkills: string[]` to `Job` and `CreateJobRequest`, and add a skills picker to `PostJobModal` (issue #6).
 - [ ] Extend `SeekerResponse` with `educations/certifications/experiences/skills`, then build the profile-editing UI.
 - [ ] Replace `applyForJob` / `saveJob` in-memory state with API calls once the P1 and P2 endpoints ship (issues #9, #10).
@@ -18,6 +22,17 @@ Base URL `http://localhost:9080`. Full route reference: `api-documentation.md`, 
 - [ ] Replace `MOCK_USERS` with `GET /admin/users` (issue #16).
 
 ## Change log (newest first)
+
+### Sprint 2 — job compensation model (#28, #24) — 2026-09-30
+**Breaking for `POST /jobs` callers that still send `hourlyRate` only: they now get 400 `rate is required`.** The new Post-a-Job payload works as is.
+
+- **Request** (`POST /jobs`, `PUT /jobs/{id}`): `rate` (number, greater than 0, max 1,000,000,000) and `rateType` (`HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`) are **required**. Messages: `rate must be greater than 0`, `rate is required`, `rateType is required`. An unknown `rateType` is 400.
+- **`jobRating` is gone** from requests and responses (Product Owner decision, #24). If an old client still sends `jobRating` or `hourlyRate`, it is ignored, not rejected.
+- **Response** (`JobPostResponse`): new `rate` and `rateType`. `hourlyRate` is still returned but **deprecated**: it is `rate` converted to hourly (monthly / 173.33, yearly / 2080, rounded to cents; `0` for `CONTRACT_TOTAL`, which is not comparable). This is the same conversion your front end uses, so you can drop your own copy later.
+- `employmentType` gains **`B2B`**.
+- **Existing jobs** were migrated: `rate = old hourlyRate`, `rateType = HOURLY`. Seed data now uses the new model.
+- Database note for local dev: the app patches old dev databases at startup (converts enum columns to plain text, backfills the rate). No action needed, and `data/` is never deleted.
+- Future search (`minRate` / `maxRate`, issue #13) will compare on the hourly equivalent and exclude `CONTRACT_TOTAL`.
 
 ### Sprint 1 — 2026-09-30 (branch `claude/keen-bell-ep73oh`)
 Breaking for the front end: none. The 7 fields `PostJobModal` sends still work.

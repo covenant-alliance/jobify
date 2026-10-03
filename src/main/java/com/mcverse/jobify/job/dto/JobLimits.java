@@ -6,6 +6,8 @@ public final class JobLimits {
     /** Applies to the submitted HTML, before sanitizing. */
     public static final int DESCRIPTION_MAX = 20_000;
     public static final int LOCATION_MAX = 255;
+    /** Upper sanity bound for a rate, as a string because annotations need constants. */
+    public static final String RATE_MAX = "1000000000";
     public static final int SKILLS_MAX = 30;
     public static final int SKILL_NAME_MAX = 100;
 

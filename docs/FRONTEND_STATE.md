@@ -22,7 +22,7 @@ Base URL is hardcoded to `http://localhost:9080` in `app/lib/api.ts`. Token, use
 | `GET /content` | `ContentContext`, `app/lib/seo.ts` | Public. Returns a flat `{key: value}` map. |
 | `GET/PUT /admin/content` | `useAdminContent` | GET returns `ContentEntry[]`. PUT takes `{values: {key: value}}` and returns `ContentEntry[]`. |
 
-`POST /jobs` payload today: `{jobTitle, jobDescription (sanitized HTML from a TipTap editor), jobRating, hourlyRate, location, workMode, employmentType}`. It does **not** send `requiredSkills`.
+`POST /jobs` payload today: `{jobTitle, jobDescription (sanitized HTML from a TipTap editor), rate, rateType, location, workMode, employmentType}`. `rateType` is one of `HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`; `employmentType` gains `B2B`. **`jobRating` and `hourlyRate` are no longer sent** (see the request below). It does **not** send `requiredSkills`.
 The front end's `Job` type (`app/types/job.ts`) has no `requiredSkills` field, although the API returns one. `SeekerResponse` in the front end types only `id/username/name/lastName/creationDate/isIndependent/cv`. The educations, certifications, experiences and skills lists the API now embeds are ignored.
 
 ## 2. Built on the back end but not used by the front end yet
@@ -74,6 +74,7 @@ The two sessions do not share memory, so they talk through two files in `docs/`.
 Format: `- [ ] <what you need> — route, request/response shape, errors — screen waiting on it`
 The back-end session turns each open request into a GitHub issue (or links an existing one) and answers in `docs/BACKEND_STATE.md`.
 
+- [ ] **Job compensation model (BLOCKING: `POST /jobs` fails validation until this ships).** The Post-a-Job form no longer sends `jobRating` (removed, meaningless) or `hourlyRate`. Please: (1) drop `jobRating` from `CreateJobRequest`, the entity and responses (or make it optional/ignored); (2) add `rate` (decimal, > 0, required) and `rateType` (enum `HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`, required) to `CreateJobRequest`, `PUT /jobs/{id}` and the job response; (3) migrate existing rows: `rate = hourlyRate`, `rateType = HOURLY`; keep returning `hourlyRate` for a while (front end falls back to it when `rate` is absent); (4) add `B2B` to the `employmentType` enum; (5) validation message for a bad rate, e.g. `rate must be greater than 0`. Later, server-side search `minRate` should compare on an hourly equivalent (front end uses monthly/173.33 and yearly/2080; `CONTRACT_TOTAL` is not comparable). Screen waiting: Post a Job modal.
 - [ ] Applications: apply, list my applications, withdraw, employer review pipeline (backlog P1, issue #9)
 - [ ] Saved jobs (P2, issue #10)
 - [ ] Real match score and recommended jobs (P3, issue #12)
