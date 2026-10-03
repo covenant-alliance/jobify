@@ -252,6 +252,55 @@ The browser preflight for `PATCH` is allowed (CORS methods: GET, POST, PUT, PATC
 
 ---
 
+## Applications endpoints
+
+> All require `Authorization: Bearer <token>`. Seeker-only: a non-seeker gets `403`. Employer-side endpoints (list applicants, change status) and withdrawing are coming in the next stories (#31 to #33).
+
+### `POST /jobs/{id}/apply`
+
+A seeker applies to an open job. The application starts as `APPLIED`.
+
+**Request body** (optional): `{ "coverNote": "..." }` - max 2,000 characters; a blank note is stored as none.
+
+**Response `201 Created`** - `ApplicationResponse` (see below).
+
+| Status | When |
+|---|---|
+| `400` | Cover note longer than 2,000 characters: `coverNote must be at most 2000 characters` |
+| `401` | Missing or invalid JWT token |
+| `403` | Caller is not a seeker: `Only job seekers can apply for jobs.` |
+| `404` | No job with that id |
+| `422` | `This job is no longer accepting applications.` or `You have already applied to this job.` |
+
+Applying again to a job whose application was `WITHDRAWN` re-opens that same application as `APPLIED`.
+
+### `GET /applications/me`
+
+The caller's applications, newest first, including withdrawn ones and ones for jobs that have since closed (`job.available = false`). Response `200`: `ApplicationResponse[]`. Errors: `401`, `403` (not a seeker).
+
+### `ApplicationResponse`
+
+```ts
+interface ApplicationResponse {
+  id: string;                     // UUID
+  status: "APPLIED" | "IN_REVIEW" | "INTERVIEW" | "OFFER" | "REJECTED" | "WITHDRAWN";
+  coverNote: string | null;
+  createdAt: string;              // ISO-8601, no zone
+  updatedAt: string;              // changes whenever the status changes
+  job: {
+    postId: number;
+    jobTitle: string;
+    employerUsername: string | null;
+    companyName: string | null;   // the employer's company, if they have one
+    available: boolean;           // false once the employer closed the position
+  };
+}
+```
+
+Deleting an account (admin-approved) also deletes that account's applications: a seeker's own, or all applications to an employer's jobs.
+
+---
+
 ## Users endpoints `/users/**`
 
 > **All endpoints require** `Authorization: Bearer <token>`.  

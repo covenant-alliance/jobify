@@ -14,7 +14,7 @@ Base URL `http://localhost:9080`. Full route reference: `api-documentation.md`, 
 - Applications, saved jobs, match score, admin users/stats, notifications, search → tracked as #9, #10, #12, #16, #14, #13.
 
 ## Open requests for the front end
-- [ ] Show `rate` with `rateType` on job cards, details and the JSON-LD (per-hour, per-month, per-year or fixed total), and stop reading `hourlyRate`. Remove any `jobRating` usage (issue #28).- [ ] Switch `useEmployerJobs` to `GET /jobs/mine`, and handle 403 on job writes (issue #3, #4).
+- [ ] Replace the in-memory `applyForJob` with `POST /jobs/{id}/apply`, and load `GET /applications/me` for the seeker dashboard (issue #30; available once the `feature-applications` branch is merged). Show a readable message from the 422/403 responses.- [ ] Show `rate` with `rateType` on job cards, details and the JSON-LD (per-hour, per-month, per-year or fixed total), and stop reading `hourlyRate`. Remove any `jobRating` usage (issue #28).- [ ] Switch `useEmployerJobs` to `GET /jobs/mine`, and handle 403 on job writes (issue #3, #4).
 - [ ] Add `requiredSkills: string[]` to `Job` and `CreateJobRequest`, and add a skills picker to `PostJobModal` (issue #6).
 - [ ] Extend `SeekerResponse` with `educations/certifications/experiences/skills`, then build the profile-editing UI.
 - [ ] Replace `applyForJob` / `saveJob` in-memory state with API calls once the P1 and P2 endpoints ship (issues #9, #10).
@@ -22,6 +22,17 @@ Base URL `http://localhost:9080`. Full route reference: `api-documentation.md`, 
 - [ ] Replace `MOCK_USERS` with `GET /admin/users` (issue #16).
 
 ## Change log (newest first)
+
+### Sprint 2 — applications, story P1.1: apply and list mine (#30, epic #9) — 2026-10-03
+Additive only; nothing existing changes. **Not merged yet** (branch `feature-applications`, ships after PR #29).
+
+- **`POST /jobs/{id}/apply`** (SEEKER). Optional body `{ "coverNote": "..." }`, max 2,000 characters. `201` with an `ApplicationResponse`. Starts as `APPLIED`.
+  - `422` `This job is no longer accepting applications.` (closed job), `422` `You have already applied to this job.`, `403` `Only job seekers can apply for jobs.` (employers), `404` unknown job, `400` `coverNote must be at most 2000 characters`.
+  - Applying again after a withdrawal re-opens the same application as `APPLIED`.
+- **`GET /applications/me`** (SEEKER). Newest first, including `WITHDRAWN` and applications to jobs that have since closed (`job.available: false`). Each item has a job summary (`postId`, `jobTitle`, `employerUsername`, `companyName`, `available`), so the dashboard needs no second call.
+- Enum `ApplicationStatus`: `APPLIED | IN_REVIEW | INTERVIEW | OFFER | REJECTED | WITHDRAWN`. Please mirror it exactly in your TypeScript union.
+- Behaviour to know: when an admin approves an account deletion, that account's applications are deleted too (a seeker's own, or everything applied to an employer's jobs).
+- Still to come in this epic: withdraw (#31), employer applicants list (#32), employer stage changes (#33). Until #33 ships, every application stays `APPLIED`, so keep your fake `applicationStage.ts` for the employer-driven stages.
 
 ### Sprint 2 — job compensation model (#28, #24) — 2026-09-30
 **Breaking for `POST /jobs` callers that still send `hourlyRate` only: they now get 400 `rate is required`.** The new Post-a-Job payload works as is.
