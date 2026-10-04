@@ -26,7 +26,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P2. Saved jobs.** `PUT /jobs/{id}/save`, `DELETE /jobs/{id}/save`, `GET /jobs/saved` (SEEKER). Small, and independent of P1.
 
-**P3. Matching engine.** Design in `../job-matching-engine.md`. The data model is ready (`SeekerSkill`, `JobPost.requiredSkills`, location, workMode, employmentType, rate). Nothing is computed. Suggest a `MatchingService` with a pure scoring function, unit-tested heavily, and weights in config. Then `GET /jobs/recommended` and `GET /jobs/{id}/match` (a 0–100 score plus `matchedSkills[]` and `missingSkills[]`), and later `GET /jobs/{id}/candidates`. The front end has a slot on every job card. **Open decision:** how to use `JobPreferences`, which is currently unreachable. Expose `GET/PUT /users/seekers/me/preferences` (salary range, title, location, employment type) so the score has input beyond skills.
+**P3. Matching engine.** *(PARKED 2026-10-04: the front end is deliberately not touching it; moved to the icebox, issue #12.)* Design in `../job-matching-engine.md`. The data model is ready (`SeekerSkill`, `JobPost.requiredSkills`, location, workMode, employmentType, rate). Nothing is computed. Suggest a `MatchingService` with a pure scoring function, unit-tested heavily, and weights in config. Then `GET /jobs/recommended` and `GET /jobs/{id}/match` (a 0–100 score plus `matchedSkills[]` and `missingSkills[]`), and later `GET /jobs/{id}/candidates`. The front end has a slot on every job card. **Open decision:** how to use `JobPreferences`, which is currently unreachable. Expose `GET/PUT /users/seekers/me/preferences` (salary range, title, location, employment type) so the score has input beyond skills.
 
 **P4. Server-side search and paging.** `GET /jobs?q=&location=&workMode=&employmentType=&minRate=&maxRate=&skills=&available=&page=&size=&sort=`. Today the front end downloads everything and filters in the browser. To avoid breaking callers (`useJobs`, `sitemap.ts`, the employer panel), add paging only when `page` is supplied, or add a new route `/jobs/search`. Coordinate the response envelope.
 
@@ -36,9 +36,21 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P7. Admin stats and user management.** `GET /admin/users` exists and is unpaged. Add paging and search, plus `GET /admin/stats` (users by role, open jobs, applications). Optional: disable or delete user, and job moderation.
 
-**P8. Employer stats.** Per-job application counts, funnel counts by status, and applications over time (`GET /employers/me/stats`) for the company dashboard.
+**P8. Employer stats.** *(Open question for the Product Owner on job "views", see #17.)* Per-job application counts, funnel counts by status, and applications over time (`GET /employers/me/stats`) for the company dashboard.
 
 **P9. User preferences.** Optional `GET/PUT /users/me/preferences` (notification toggles) to replace the front end's `localStorage` copy. Low priority.
+
+**P12. Company logo (#34, icebox).** Upload plus `logoUrl` on jobs and companies. The front end derives initials and a colour until it exists.
+
+**P13. Benefits and gallery on jobs (#35, icebox, optional).** `benefits[]` and `images[]`; the front end keeps hardcoded pools meanwhile.
+
+**P14. Responsibilities and requirements (#36, decision).** Keep the front end's sentence-splitting heuristic, or add structured fields.
+
+**P15. Location normalization (#37, icebox).** Clean facet values and `GET /jobs/locations`.
+
+**P16. Seeker application statistics (#38, sprint 4).** `GET /applications/me/stats` for the dashboard charts. Depends on P1.
+
+**P17. Require location, workMode, employmentType on new jobs? (#39, decision).** Lets the front end drop its invented fallback values.
 
 **P10. EMPLOYEE role.** The front end has an "Employee Preview" dashboard, all mock. There is no such role in the API. **Needs a product decision** (drop it, or define it) before any work. Don't build it speculatively.
 
