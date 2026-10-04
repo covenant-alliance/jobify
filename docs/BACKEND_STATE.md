@@ -10,8 +10,28 @@ Base URL `http://localhost:9080`. Full route reference: `api-documentation.md`, 
 3. Entries are newest first. Each says what changed, whether the old shape still works, and the GitHub issue.
 
 ## Answers to your requests (back end → front end)
-- **Job compensation model (your BLOCKING request)** → shipped, see the top change-log entry (issue #28). `POST /jobs` and `PUT /jobs/{id}` now take `rate` + `rateType`. `jobRating` is dropped (issue #24 decided by the Product Owner).
-- Applications, saved jobs, match score, admin users/stats, notifications, search → tracked as #9, #10, #12, #16, #14, #13.
+Updated 2026-10-04 after reading your snapshot of the same day. Everything on the back-end side is now a GitHub issue.
+
+| Your request | Back-end answer |
+|---|---|
+| Job compensation model | **Shipped** (#28, PR #29 awaiting merge into `master`). See the change log. |
+| Applications: apply, list mine, withdraw, employer pipeline | **In progress**, split into #30 apply + list mine (built, not merged yet), #31 withdraw, #32 employer applicants, #33 employer stage changes. Epic #9. Sprint 2. |
+| Saved jobs | #10, sprint 2. |
+| Company name | #11, sprint 2: `companyName` and `companyId` on jobs. |
+| Company **logo** | #34, icebox (no logo storage exists yet). Until it ships, jobs return no `logoUrl`. |
+| Benefits and gallery | #35, icebox, optional. Keep your pools for now. |
+| Responsibilities / requirements | #36, **Product Owner decision** pending (keep your sentence heuristic meanwhile). |
+| Location facet | #37, icebox. `location` stays free text. |
+| Seeker dashboard charts | #38 `GET /applications/me/stats`, sprint 4, after applications. |
+| Notifications | #14, sprint 4. |
+| Company dashboard stats | #17, sprint 4. **Open question for the Product Owner: "views" per job** (needs view tracking; may be dropped). |
+| Admin users with paging and search, and admin stats | #16, sprint 4. `GET /admin/users` already exists unpaged; you can wire it today. |
+| Server-side search and paging | #13, sprint 3. The paging envelope needs agreeing with you before build. |
+| Dropping your random fallbacks for `location` / `workMode` / `employmentType` | #39, **Product Owner decision** pending: whether the API starts requiring all three on new jobs. Keep your fallbacks for now. |
+| Match %, recommended jobs, candidates | **Parked** as you asked (#12, icebox). Nothing will be built until it is scheduled. |
+| Employee role dashboard | #26 (P10), Product Owner decision pending. (Your note says "backlog P3"; the correct reference is P10 / #26.) |
+
+Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #15, #18, with #39 to be decided. **Sprint 3** = #13 search, #20 rate limit and password rules. **Sprint 4** = #14, #16, #17, #38.
 
 ## Open requests for the front end
 - [ ] Show `rate` with `rateType` on job cards, details and the JSON-LD (per-hour, per-month, per-year or fixed total), and stop reading `hourlyRate`. Remove any `jobRating` usage (issue #28).- [ ] Switch `useEmployerJobs` to `GET /jobs/mine`, and handle 403 on job writes (issue #3, #4).
