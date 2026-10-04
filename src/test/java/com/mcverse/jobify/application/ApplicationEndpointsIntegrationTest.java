@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -151,7 +152,7 @@ class ApplicationEndpointsIntegrationTest {
         String first = mvc.perform(post("/jobs/" + jobId + "/apply").header(AUTHORIZATION, seeker))
                 .andReturn().getResponse().getContentAsString();
         String id = JsonPath.read(first, "$.id");
-        jdbc.update("update applications set status = 'WITHDRAWN' where id = ?", id); // withdraw arrives with P1.2
+        mvc.perform(delete("/applications/" + id).header(AUTHORIZATION, seeker)).andExpect(status().isNoContent());
 
         mvc.perform(post("/jobs/" + jobId + "/apply").header(AUTHORIZATION, seeker)
                         .contentType(APPLICATION_JSON).content("{\"coverNote\":\"Second try\"}"))

@@ -18,12 +18,18 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class ApplicationService {
 
     private static final Logger log = LoggerFactory.getLogger(ApplicationService.class);
+
+    /** Stages from which a seeker may still withdraw; REJECTED and WITHDRAWN are final. */
+    private static final Set<ApplicationStatus> WITHDRAWABLE = EnumSet.of(ApplicationStatus.APPLIED,
+            ApplicationStatus.IN_REVIEW, ApplicationStatus.INTERVIEW, ApplicationStatus.OFFER);
 
     private final ApplicationRepository applicationRepo;
     private final JobRepo jobRepo;
@@ -66,6 +72,23 @@ public class ApplicationService {
         }
         return applicationRepo.findAllBySeekerUsernameOrderByCreatedAtDesc(username).stream()
                 .map(this::toResponse).toList();
+    }
+
+    /** Seeker withdraws their own application. The row is kept with status WITHDRAWN so history is not lost. */
+    @Transactional
+    public void withdraw(String applicationId, String username) {
+        Application application = applicationRepo.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Application", applicationId));
+        if (!application.getSeeker().getUsername().equals(username)) {
+            log.warn("Denied: user '{}' tried to withdraw application {} owned by '{}'", username, applicationId,
+                    application.getSeeker().getUsername());
+            throw new LicenseValidationException("You can only withdraw your own applications.");
+        }
+        if (!WITHDRAWABLE.contains(application.getStatus())) {
+            throw new BusinessRuleException("This application can no longer be withdrawn.");
+        }
+        application.changeStatus(ApplicationStatus.WITHDRAWN);
+        applicationRepo.save(application);
     }
 
     private static String cleanNote(ApplyRequest request) {

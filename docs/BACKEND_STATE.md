@@ -34,7 +34,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #15, #18, with #39 to be decided. **Sprint 3** = #13 search, #20 rate limit and password rules. **Sprint 4** = #14, #16, #17, #38.
 
 ## Open requests for the front end
-- [ ] Replace the in-memory `applyForJob` with `POST /jobs/{id}/apply`, and load `GET /applications/me` for the seeker dashboard (issue #30; available once the `feature-applications` branch is merged). Show a readable message from the 422/403 responses.- [ ] Show `rate` with `rateType` on job cards, details and the JSON-LD (per-hour, per-month, per-year or fixed total), and stop reading `hourlyRate`. Remove any `jobRating` usage (issue #28).- [ ] Switch `useEmployerJobs` to `GET /jobs/mine`, and handle 403 on job writes (issue #3, #4).
+- [ ] Replace the in-memory `applyForJob` with `POST /jobs/{id}/apply`, load `GET /applications/me` for the seeker dashboard, and add a withdraw action using `DELETE /applications/{id}` (show it for every status except `REJECTED` and `WITHDRAWN`; issues #30, #31; available once the `feature-applications` branch is merged). Show a readable message from the 422/403 responses.- [ ] Show `rate` with `rateType` on job cards, details and the JSON-LD (per-hour, per-month, per-year or fixed total), and stop reading `hourlyRate`. Remove any `jobRating` usage (issue #28).- [ ] Switch `useEmployerJobs` to `GET /jobs/mine`, and handle 403 on job writes (issue #3, #4).
 - [ ] Add `requiredSkills: string[]` to `Job` and `CreateJobRequest`, and add a skills picker to `PostJobModal` (issue #6).
 - [ ] Extend `SeekerResponse` with `educations/certifications/experiences/skills`, then build the profile-editing UI.
 - [ ] Replace `applyForJob` / `saveJob` in-memory state with API calls once the P1 and P2 endpoints ship (issues #9, #10).
@@ -42,6 +42,14 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 - [ ] Replace `MOCK_USERS` with `GET /admin/users` (issue #16).
 
 ## Change log (newest first)
+
+### Sprint 2 — applications, story P1.2: withdraw (#31, epic #9) — 2026-10-04
+Additive. **Not merged yet** (branch `feature-applications`, same as P1.1 below).
+
+- **`DELETE /applications/{id}`** (the applicant only). Returns **`204`**. It does **not** delete the record: the status becomes `WITHDRAWN` and `updatedAt` changes, so `GET /applications/me` still lists it, flagged `WITHDRAWN`.
+- Allowed from `APPLIED`, `IN_REVIEW`, `INTERVIEW`, `OFFER`. From `REJECTED` or `WITHDRAWN` it is `422` `This application can no longer be withdrawn.`
+- `403` `You can only withdraw your own applications.` (another seeker, or an employer); `404` unknown id.
+- After withdrawing, the seeker can apply to the job again (`POST /jobs/{id}/apply` re-opens the same application as `APPLIED`).
 
 ### Sprint 2 — applications, story P1.1: apply and list mine (#30, epic #9) — 2026-10-03
 Additive only; nothing existing changes. **Not merged yet** (branch `feature-applications`, ships after PR #29).

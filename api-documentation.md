@@ -254,7 +254,7 @@ The browser preflight for `PATCH` is allowed (CORS methods: GET, POST, PUT, PATC
 
 ## Applications endpoints
 
-> All require `Authorization: Bearer <token>`. Seeker-only: a non-seeker gets `403`. Employer-side endpoints (list applicants, change status) and withdrawing are coming in the next stories (#31 to #33).
+> All require `Authorization: Bearer <token>`. Seeker-only: a non-seeker gets `403`. Employer-side endpoints (list applicants, change status) are coming in the next stories (#32, #33).
 
 ### `POST /jobs/{id}/apply`
 
@@ -277,6 +277,21 @@ Applying again to a job whose application was `WITHDRAWN` re-opens that same app
 ### `GET /applications/me`
 
 The caller's applications, newest first, including withdrawn ones and ones for jobs that have since closed (`job.available = false`). Response `200`: `ApplicationResponse[]`. Errors: `401`, `403` (not a seeker).
+
+### `DELETE /applications/{id}`
+
+The applicant withdraws their application. The row is **kept** with status `WITHDRAWN` (history is not lost) and `updatedAt` changes. Response `204 No Content`.
+
+Possible from `APPLIED`, `IN_REVIEW`, `INTERVIEW` and `OFFER`.
+
+| Status | When |
+|---|---|
+| `401` | Missing or invalid JWT token |
+| `403` | Caller is not the applicant: `You can only withdraw your own applications.` (employers included) |
+| `404` | No application with that id |
+| `422` | Already `REJECTED` or `WITHDRAWN`: `This application can no longer be withdrawn.` |
+
+The seeker can apply to the same job again afterwards (see `POST /jobs/{id}/apply`).
 
 ### `ApplicationResponse`
 

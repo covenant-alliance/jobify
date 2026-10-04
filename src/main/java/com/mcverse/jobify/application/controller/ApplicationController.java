@@ -63,4 +63,22 @@ public class ApplicationController {
     public List<ApplicationResponse> myApplications(@AuthenticationPrincipal UserDetails principal) {
         return applicationService.listMine(principal.getUsername());
     }
+
+    @Operation(summary = "Withdraw an application",
+            description = "SEEKER, and only the applicant. The application is kept with status WITHDRAWN. " +
+                    "Possible from APPLIED, IN_REVIEW, INTERVIEW and OFFER; not from REJECTED or WITHDRAWN.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Application withdrawn"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Not the applicant"),
+            @ApiResponse(responseCode = "404", description = "Application not found"),
+            @ApiResponse(responseCode = "422", description = "Already rejected or withdrawn"),
+    })
+    @DeleteMapping("/applications/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void withdraw(
+            @AuthenticationPrincipal UserDetails principal,
+            @Parameter(description = "Application id (UUID)") @PathVariable String id) {
+        applicationService.withdraw(id, principal.getUsername());
+    }
 }
