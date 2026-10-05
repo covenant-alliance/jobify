@@ -146,13 +146,14 @@ Returns job postings. By default returns **all** posts regardless of status, fro
 | `postId` | integer | Auto-generated primary key |
 | `jobTitle` | string | Up to 150 characters |
 | `jobDescription` | string | Sanitized rich-text HTML, see *Description sanitizing* below |
-| `jobRating` | double | 0.0–5.0 (meaning under review, backlog B6) |
-| `hourlyRate` | double | USD per hour |
+| `rate` | double | Pay amount, in the unit given by `rateType` |
+| `rateType` | string | `HOURLY`, `MONTHLY`, `YEARLY` or `CONTRACT_TOTAL` (a fixed total for the engagement) |
+| `hourlyRate` | double | **Deprecated.** `rate` as an hourly amount (monthly / 173.33, yearly / 2080, rounded to cents); `0` for `CONTRACT_TOTAL`. Use `rate` and `rateType`. |
 | `employerUsername` | string \| null | Username of the posting employer; `null` if unassigned |
 | `available` | boolean | `true` = position open; `false` = closed / position filled |
 | `location` | string \| null | Free text |
 | `workMode` | string \| null | `ONSITE`, `REMOTE`, `HYBRID` |
-| `employmentType` | string \| null | e.g. `FULL_TIME` |
+| `employmentType` | string \| null | `FULL_TIME`, `PART_TIME`, `CONTRACT`, `TEMPORARY`, `INTERNSHIP`, `FREELANCE`, `B2B` |
 | `createdAt` | ISO-8601 datetime \| null | No zone |
 | `requiredSkills` | string[] | Skill names |
 
@@ -185,8 +186,8 @@ Public. Response `200`: one `JobPostResponse`. `404` if it does not exist.
 {
   "jobTitle": "Full-Stack Engineer",
   "jobDescription": "<p>Looking for a full-stack engineer with React and Spring Boot experience...</p>",
-  "jobRating": 4.5,
-  "hourlyRate": 65.00,
+  "rate": 65.00,
+  "rateType": "HOURLY",
   "location": "Berlin, DE",
   "workMode": "HYBRID",
   "employmentType": "FULL_TIME",
@@ -198,17 +199,18 @@ Public. Response `200`: one `JobPostResponse`. `404` if it does not exist.
 |---|---|
 | `jobTitle` | required, not blank, max 150 characters |
 | `jobDescription` | required, not blank, max 20,000 characters of submitted HTML (before sanitizing) |
-| `jobRating` | optional, 0–5, defaults to 0 |
-| `hourlyRate` | optional, not negative, defaults to 0 |
+| `rate` | required, greater than 0 (`rate must be greater than 0`), max 1,000,000,000 |
+| `rateType` | required: `HOURLY`, `MONTHLY`, `YEARLY` or `CONTRACT_TOTAL` |
 | `location` | optional, max 255 characters |
-| `workMode`, `employmentType` | optional enum strings |
+| `workMode`, `employmentType` | optional enum strings (`employmentType` includes `B2B`) |
+| `jobRating`, `hourlyRate` | **removed from the request.** Old clients that still send them are not rejected; the values are ignored. |
 | `requiredSkills` | optional array of skill **names** (max 30, each not blank, max 100). Unknown names are added to the shared skill catalog. This replaces the old array-of-objects form. |
 
 **Response `201 Created`** — the saved `JobPostResponse`.
 
 | Status | When |
 |---|---|
-| `400` | Validation failed. `message` lists the problems, for example `jobTitle is required; jobRating must be between 0 and 5` |
+| `400` | Validation failed. `message` lists the problems, for example `jobTitle is required; rate must be greater than 0` |
 | `401` | Missing or invalid JWT token |
 | `403` | Caller is not an employer: `Only employers can post jobs.` |
 
@@ -457,8 +459,9 @@ interface JobPostResponse {
   postId: number;
   jobTitle: string;
   jobDescription: string;
-  jobRating: number;              // 0.0–5.0
-  hourlyRate: number;             // USD per hour
+  rate: number;                   // amount, in the unit of rateType
+  rateType: "HOURLY" | "MONTHLY" | "YEARLY" | "CONTRACT_TOTAL";
+  hourlyRate: number;             // deprecated: hourly equivalent of rate, 0 for CONTRACT_TOTAL
   employerUsername: string | null;
   available: boolean;             // true = open; false = closed/filled
   location: string | null;
@@ -475,8 +478,8 @@ interface JobPostResponse {
 interface CreateJobRequest {
   jobTitle: string;               // required, max 150
   jobDescription: string;         // required, HTML, max 20,000 (sanitized server-side)
-  jobRating?: number;             // 0–5, default 0
-  hourlyRate?: number;            // >= 0, default 0
+  rate: number;                   // > 0
+  rateType: "HOURLY" | "MONTHLY" | "YEARLY" | "CONTRACT_TOTAL";
   location?: string;              // max 255
   workMode?: "ONSITE" | "REMOTE" | "HYBRID";
   employmentType?: string;
@@ -557,7 +560,7 @@ POST /users/companies Authorization: Bearer <token>
   → 201 { id, name }
 
 POST /jobs            Authorization: Bearer <token>
-  { jobTitle, jobDescription, jobRating, hourlyRate }
+  { jobTitle, jobDescription, rate, rateType }
   → 201 { postId, jobTitle, ..., available: true }     // new posts are open by default
 
 // Close the position once it's filled:

@@ -201,7 +201,7 @@ class AccountEndpointsIntegrationTest {
     void approvingAnEmployerWhoOwnsJobsAlsoRemovesTheirJobs() throws Exception {
         String token = registerUser("del_employer_jobs", "EMPLOYER");
         String created = mvc.perform(post("/jobs").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
-                        .content("{\"jobTitle\":\"Temp role\",\"jobDescription\":\"<p>x</p>\"}"))
+                        .content("{\"jobTitle\":\"Temp role\",\"jobDescription\":\"<p>x</p>\",\"rate\":20,\"rateType\":\"HOURLY\"}"))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         int jobId = JsonPath.read(created, "$.postId");

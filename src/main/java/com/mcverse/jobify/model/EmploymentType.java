@@ -6,7 +6,8 @@ public enum EmploymentType {
     CONTRACT("Contract"),
     TEMPORARY("Temporary"),
     INTERNSHIP("Internship"),
-    FREELANCE("Freelance");
+    FREELANCE("Freelance"),
+    B2B("B2B");
 
     private final String displayName;
 

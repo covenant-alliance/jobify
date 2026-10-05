@@ -4,6 +4,7 @@ import com.mcverse.jobify.common.exception.LicenseValidationException;
 import com.mcverse.jobify.common.exception.ResourceNotFoundException;
 import com.mcverse.jobify.job.dto.CreateJobRequest;
 import com.mcverse.jobify.job.dto.JobPostResponse;
+import com.mcverse.jobify.job.model.RateType;
 import com.mcverse.jobify.model.JobPost;
 import com.mcverse.jobify.model.Skill;
 import com.mcverse.jobify.job.repository.JobRepo;
@@ -61,7 +62,7 @@ public class JobService {
     public JobPostResponse addJob(CreateJobRequest request, String employerUsername) {
         Employer employer = requireEmployer(employerUsername, "post jobs");
         JobPost job = new JobPost(request.jobTitle().trim(), htmlSanitizer.sanitize(request.jobDescription()),
-                valueOrZero(request.jobRating()), valueOrZero(request.hourlyRate()));
+                request.rate(), request.rateType());
         job.setEmployer(employer);
         applyEditableFields(job, request);
         return toResponse(repo.save(job));
@@ -72,8 +73,7 @@ public class JobService {
         JobPost job = findOwnedJob(id, username);
         job.setJobTitle(request.jobTitle().trim());
         job.setJobDescription(htmlSanitizer.sanitize(request.jobDescription()));
-        job.setJobRating(valueOrZero(request.jobRating()));
-        job.setHourlyRate(valueOrZero(request.hourlyRate()));
+        job.setCompensation(request.rate(), request.rateType());
         applyEditableFields(job, request);
         return toResponse(repo.save(job));
     }
@@ -124,15 +124,17 @@ public class JobService {
                 .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 
-    private static double valueOrZero(Double value) {
-        return value == null ? 0.0 : value;
+    /** Rows not yet backfilled fall back to their old hourly rate, so responses are never empty. */
+    private static double rateOrHourly(JobPost job) {
+        return job.getRate() != null ? job.getRate() : job.getHourlyRate();
     }
 
     private JobPostResponse toResponse(JobPost job) {
         String employerUsername = job.getEmployer() != null ? job.getEmployer().getUsername() : null;
         List<String> requiredSkills = job.getRequiredSkills().stream().map(Skill::getName).toList();
         return new JobPostResponse(job.getPostId(), job.getJobTitle(), job.getJobDescription(),
-                job.getJobRating(), job.getHourlyRate(), employerUsername, job.isAvailable(),
+                rateOrHourly(job), job.getRateType() != null ? job.getRateType() : RateType.HOURLY,
+                job.getHourlyRate(), employerUsername, job.isAvailable(),
                 job.getLocation(), job.getWorkMode(), job.getEmploymentType(), job.getCreatedAt(),
                 requiredSkills);
     }

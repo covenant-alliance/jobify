@@ -1,5 +1,6 @@
 package com.mcverse.jobify.job.dto;
 
+import com.mcverse.jobify.job.model.RateType;
 import com.mcverse.jobify.model.EmploymentType;
 import com.mcverse.jobify.model.WorkMode;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -20,10 +21,15 @@ public record JobPostResponse(
                 example = "<p>We are looking for a <strong>Senior Java Developer</strong>...</p>")
         String jobDescription,
 
-        @Schema(description = "Employer rating on a 0.0–5.0 scale", example = "4.2")
-        double jobRating,
+        @Schema(description = "Pay amount, in the unit given by rateType", example = "75.00")
+        double rate,
 
-        @Schema(description = "Hourly pay rate in USD", example = "75.00")
+        @Schema(description = "How rate is expressed: HOURLY, MONTHLY, YEARLY or CONTRACT_TOTAL (a fixed total)",
+                example = "HOURLY")
+        RateType rateType,
+
+        @Schema(description = "Deprecated: rate converted to an hourly amount (monthly / 173.33, yearly / 2080); " +
+                "0 for CONTRACT_TOTAL. Use rate and rateType.", example = "75.00")
         double hourlyRate,
 
         @Schema(description = "Username of the employer who created this post; null if unassigned",

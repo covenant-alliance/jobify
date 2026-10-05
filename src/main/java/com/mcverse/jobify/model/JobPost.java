@@ -1,7 +1,10 @@
 package com.mcverse.jobify.model;
 
+import com.mcverse.jobify.job.model.RateType;
 import com.mcverse.jobify.user.model.Employer;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -27,15 +30,33 @@ public class JobPost {
     @Lob
     private String jobDescription;
 
+    /**
+     * Deprecated and no longer exposed by the API. The column stays because it is NOT NULL in databases
+     * created before the compensation model; it is always written as 0 and can be dropped with a migration tool.
+     */
+    @Deprecated
     private double jobRating;
+
+    /** Hourly equivalent of {@link #rate}; kept for clients that still read {@code hourlyRate}. */
     private double hourlyRate;
+
+    /** Pay amount, in the unit given by {@link #rateType}. Nullable only for rows awaiting the backfill. */
+    private Double rate;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    private RateType rateType;
 
     private String location;
 
+    // VARCHAR, not a database enum type: with ddl-auto=update a database enum's value list is never widened,
+    // so adding an enum constant would break every existing database.
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     private WorkMode workMode;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     private EmploymentType employmentType;
 
     @Column(nullable = false)
@@ -51,11 +72,10 @@ public class JobPost {
 
     protected JobPost() {}
 
-    public JobPost(String jobTitle, String jobDescription, double jobRating, double hourlyRate) {
+    public JobPost(String jobTitle, String jobDescription, double rate, RateType rateType) {
         this.jobTitle = jobTitle;
         this.jobDescription = jobDescription;
-        this.jobRating = jobRating;
-        this.hourlyRate = hourlyRate;
+        setCompensation(rate, rateType);
         this.available = true;
         this.createdAt = LocalDateTime.now();
     }
@@ -64,15 +84,21 @@ public class JobPost {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public String getJobTitle()        { return jobTitle; }
     public String getJobDescription()  { return jobDescription; }
-    public double getJobRating()       { return jobRating; }
     public double getHourlyRate()      { return hourlyRate; }
     public boolean isAvailable()       { return available; }
 
     public void setPostId(Integer postId)                { this.postId = postId; }
     public void setJobTitle(String jobTitle)             { this.jobTitle = jobTitle; }
     public void setJobDescription(String jobDescription) { this.jobDescription = jobDescription; }
-    public void setJobRating(double jobRating)           { this.jobRating = jobRating; }
-    public void setHourlyRate(double hourlyRate)         { this.hourlyRate = hourlyRate; }
+    public Double getRate()                              { return rate; }
+    public RateType getRateType()                        { return rateType; }
+
+    /** Sets the pay and keeps the derived hourly equivalent in step. */
+    public void setCompensation(double rate, RateType rateType) {
+        this.rate = rate;
+        this.rateType = rateType;
+        this.hourlyRate = rateType.toHourly(rate);
+    }
     public void setAvailable(boolean available)          { this.available = available; }
     public Employer getEmployer()                        { return employer; }
     public void setEmployer(Employer employer)           { this.employer = employer; }

@@ -1,6 +1,6 @@
 # Front-end state, as seen by the back end
 
-**Snapshot:** 2026-09-30. Front end: `../frontjobfy/` (Next.js 15, React 19, TypeScript, Tailwind 4, axios). Much of it is **uncommitted** in that repo (about 26 modified and 20 new files), so treat the working tree as the source of truth, not git history.
+**Snapshot:** 2026-10-04. Front end: `../frontjobfy/` (Next.js 15, React 19, TypeScript, Tailwind 4, axios). Much of it is **uncommitted** in that repo (about 26 modified and 20 new files), so treat the working tree as the source of truth, not git history.
 Base URL is hardcoded to `http://localhost:9080` in `app/lib/api.ts`. Token, username, role and expiry are kept in `localStorage`, and a 401 clears them and logs the user out.
 
 ## 1. Endpoints the front end really calls (keep these stable)
@@ -9,7 +9,7 @@ Base URL is hardcoded to `http://localhost:9080` in `app/lib/api.ts`. Token, use
 |---|---|---|
 | `POST /auth/login`, `POST /auth/register` | `AuthContext` | Register sends `role` SEEKER or EMPLOYER plus first and last name. |
 | `GET /jobs?available=true` | `useJobs`, `app/sitemap.ts` | Public. The whole list is loaded, and **search and filters run client-side**. |
-| `GET /jobs` (no filter) | `useEmployerJobs` | Employer panel. Returns every employer's jobs. **Switch to `GET /jobs/mine`** (B2, done on the back end). |
+| `GET /jobs` (no filter) | `useEmployerJobs` | Employer panel. Returns every employer's jobs. **Still not switched to `GET /jobs/mine`** (B2 is done on the back end). Front-end TODO. |
 | `GET /jobs/{id}` | `app/jobs/[id]/page.tsx` (SSR, SEO) | Public. Also feeds the JobPosting JSON-LD. |
 | `POST /jobs` | `PostJobModal` | Sends the 7 fields listed below. |
 | `PATCH /jobs/{id}/available` | `useEmployerJobs` | Fixed in sprint 1 (CORS now allows PATCH). Owner only. |
@@ -22,7 +22,7 @@ Base URL is hardcoded to `http://localhost:9080` in `app/lib/api.ts`. Token, use
 | `GET /content` | `ContentContext`, `app/lib/seo.ts` | Public. Returns a flat `{key: value}` map. |
 | `GET/PUT /admin/content` | `useAdminContent` | GET returns `ContentEntry[]`. PUT takes `{values: {key: value}}` and returns `ContentEntry[]`. |
 
-`POST /jobs` payload today: `{jobTitle, jobDescription (sanitized HTML from a TipTap editor), jobRating, hourlyRate, location, workMode, employmentType}`. It does **not** send `requiredSkills`.
+`POST /jobs` payload today: `{jobTitle, jobDescription (sanitized HTML from a TipTap editor), rate, rateType, location, workMode, employmentType}`. `rateType` is one of `HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`; `employmentType` includes `B2B`. `jobRating` and `hourlyRate` are no longer sent or read for display (`app/lib/rate.ts` reads `rate`/`rateType`, falling back to `hourlyRate` only if `rate` is absent). It does **not** send `requiredSkills`. The front end does not handle the new 403 on job writes yet.
 The front end's `Job` type (`app/types/job.ts`) has no `requiredSkills` field, although the API returns one. `SeekerResponse` in the front end types only `id/username/name/lastName/creationDate/isIndependent/cv`. The educations, certifications, experiences and skills lists the API now embeds are ignored.
 
 ## 2. Built on the back end but not used by the front end yet
@@ -31,14 +31,20 @@ The front end's `Job` type (`app/types/job.ts`) has no `requiredSkills` field, a
 - `GET /admin/users` (`AdminUserController`). The admin dashboard shows `MOCK_USERS`.
 - `JobPreferences` entity. It is not reachable from any endpoint.
 
-## 3. Faked on the front end because the API has nothing (the real gaps)
+## 3. Faked or hardcoded on the front end (the real gaps)
+
+**Scope note:** the job-matching engine (match %, recommended jobs, candidates) is deliberately **not being touched yet**. Those rows stay as they are and are parked.
+
+### 3a. Waiting on the back end (needs new endpoints)
 | Feature | Front-end reality today | Back end needs |
 |---|---|---|
 | **Applications** | `applyForJob` only appends to in-memory React state. It is lost on refresh and the employer never sees it. | `Application` entity plus `POST /jobs/{id}/apply`, `GET /applications/me`, `GET /jobs/{id}/applications` (employer), a withdraw call, and a status pipeline. |
 | **Application stage** (Recruiter Review / Interview / Offer / Rejected) | `app/lib/applicationStage.ts` derives a fake stage from `postId`. | A real stage field and an employer-side transition endpoint. |
 | **Saved jobs** | In-memory React state. | `PUT/DELETE /jobs/{id}/save` plus `GET /jobs/saved`. |
-| **Match %** | `jobEnrichment.ts` computes a fake 70–99 number from `postId` and `jobRating`. Shown on cards, details, hero, carousel and both dashboards. | The matching engine (see `../job-matching-engine.md`): `GET /jobs/recommended`, a per-job score with a breakdown (matched and missing skills), and employer-side `GET /jobs/{id}/candidates`. |
-| **Job skills, benefits, gallery, salary band, posted-ago, company name and logo** | Seeded from `postId`. Skills come from a hardcoded pool. | Real `requiredSkills` on the client type (front-end work), `createdAt` (already returned), and a company name in the job response (today only `employerUsername`, which the UI capitalizes). Benefits and gallery are optional. |
+| **Match %** (PARKED: do not touch until the matching engine is scheduled) | `jobEnrichment.ts` computes a fake 70–99 number from `postId` and `jobRating`. Shown on cards, details, hero, carousel and both dashboards. | The matching engine (see `../job-matching-engine.md`): `GET /jobs/recommended`, a per-job score with a breakdown (matched and missing skills), and employer-side `GET /jobs/{id}/candidates`. |
+| **Company name and logo** | `companyName` is `employerUsername` capitalized (fallback "Jobify Partner"); initials and gradient are derived from it. Logo does not exist. | Company name (and logo URL) in the job response. Today only `employerUsername`. |
+| **Benefits and gallery** | Picked from hardcoded pools (`BENEFIT_POOL`, `GALLERY_POOL`), seeded by `postId`. | Optional: `benefits[]` and `images[]` on the job. Low priority. |
+| **Responsibilities / requirements** | Split from the description's sentences (first 5 / next 4). Heuristic, not data. | Optional structured fields, or accept the heuristic. |
 | **Notifications** | `MOCK_NOTIFICATIONS`. The bell badge and the panel are fake. | A `Notification` entity, `GET /notifications`, mark-read, and events on application status change and new match. |
 | **Notification preferences and accent colour** | `localStorage` only. | Optional `GET/PUT /users/me/preferences`. Low priority. |
 | **Company dashboard** | `MOCK_PIPELINE_CANDIDATES`, `HIRING_CHART_DATA` and activity are fake. The job list and counts are real. | The applications and pipeline endpoints above, plus employer stats (views, applications per job, funnel counts). |
@@ -47,6 +53,19 @@ The front end's `Job` type (`app/types/job.ts`) has no `requiredSkills` field, a
 | **Seeker dashboard charts and tips** | Static (`EMPLOYEE_CHART_DATA`, interview tips). | Application-activity time series once applications exist. |
 | **Job search** | Client-side over the full list. | Server-side `GET /jobs` with `q`, `location`, `workMode`, `employmentType`, `minRate`, `skills`, `page`, `size`, `sort`. The response shape must change for paging, so **coordinate** (see below). |
 | **Location facet** | Filter over the free-text `location` string. | Optional normalization. |
+
+### 3b. Front-end work only (the API already provides it)
+| Item | Reality today | To do |
+|---|---|---|
+| **Job skills** | `enrichJob` picks 3 to 4 from a hardcoded `SKILL_POOL`. `Job` has no `requiredSkills`. | Add `requiredSkills: string[]` to `Job` and `CreateJobRequest`, a skills picker in `PostJobModal`, and show the real list (issue #6). |
+| **Posted-ago** | Random pick from `POSTED_BUCKETS`, although `createdAt` is returned. | Compute from `createdAt`. |
+| **Employer panel list** | Uses `GET /jobs`, so it may show other employers' jobs. | Switch `useEmployerJobs` to `GET /jobs/mine` and handle 403 (issues #3, #4). |
+| **Fallbacks for missing fields** | `location`, `workMode` and `employmentType` fall back to random or default values when null (`FALLBACK_LOCATIONS`, random remote status, "Full-time"). | Drop the fakes once all jobs have real values. |
+| **Seeker profile editing** | `SeekerResponse` ignores educations, certifications, experiences, skills. Completeness widgets are cosmetic. | Extend the type and build the CRUD UI against `/users/seekers/me/*`. |
+| **Admin user table** | `MOCK_USERS`. | Wire to `GET /admin/users` (it exists). Paging and search still need the back end. |
+
+### 3c. Hardcoded UI data (all in `app/lib/mockDashboardData.ts`)
+`MOCK_NOTIFICATIONS`, `MOCK_PIPELINE_CANDIDATES`, `COMPANY_ACTIVITY`, `HIRING_CHART_DATA`, `ADMIN_METRICS`, `ADMIN_ACTIVITY`, `ADMIN_CHART_DATA`, `MOCK_USERS`, `EMPLOYEE_CHART_DATA`, `EMPLOYEE_ACTIVITY`, plus the trend badges (`trend={12}` etc.) on the metric cards and the interview tips. Also `applicationStage.ts` (fake stage from `postId`) and the in-memory `JobContext` (`saveJob`, `unsaveJob`, `applyForJob`).
 
 ## 4. Back-end behaviours the front end assumes
 - `available=true` filters server-side. Newly created jobs are `available=true`.
@@ -74,9 +93,10 @@ The two sessions do not share memory, so they talk through two files in `docs/`.
 Format: `- [ ] <what you need> — route, request/response shape, errors — screen waiting on it`
 The back-end session turns each open request into a GitHub issue (or links an existing one) and answers in `docs/BACKEND_STATE.md`.
 
+- [x] **DONE (shipped by back end 2026-09-30, consumed by the front end): Job compensation model.** Original request: The Post-a-Job form no longer sends `jobRating` (removed, meaningless) or `hourlyRate`. Please: (1) drop `jobRating` from `CreateJobRequest`, the entity and responses (or make it optional/ignored); (2) add `rate` (decimal, > 0, required) and `rateType` (enum `HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`, required) to `CreateJobRequest`, `PUT /jobs/{id}` and the job response; (3) migrate existing rows: `rate = hourlyRate`, `rateType = HOURLY`; keep returning `hourlyRate` for a while (front end falls back to it when `rate` is absent); (4) add `B2B` to the `employmentType` enum; (5) validation message for a bad rate, e.g. `rate must be greater than 0`. Later, server-side search `minRate` should compare on an hourly equivalent (front end uses monthly/173.33 and yearly/2080; `CONTRACT_TOTAL` is not comparable). Screen waiting: Post a Job modal.
 - [ ] Applications: apply, list my applications, withdraw, employer review pipeline (backlog P1, issue #9)
 - [ ] Saved jobs (P2, issue #10)
-- [ ] Real match score and recommended jobs (P3, issue #12)
+- [ ] (PARKED, matching engine not started on purpose) Real match score and recommended jobs (P3, issue #12)
 - [ ] `GET /admin/users` with paging and search, plus `GET /admin/stats` (P7, issue #16)
 - [ ] Notifications (P6, issue #14)
 - [ ] Server-side job search and paging (P4, issue #13)
