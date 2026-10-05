@@ -4,6 +4,14 @@
 **Swagger UI:** `http://localhost:9080/swagger-ui/index.html`  
 **OpenAPI spec (JSON):** `http://localhost:9080/v3/api-docs`
 
+**Conventions used everywhere**
+
+- Success responses are the bare object or array, not wrapped. Errors use the envelope below.
+- Enums are uppercase strings. Timestamps are ISO-8601 `LocalDateTime` **without** a zone (e.g. `2026-10-05T14:30:00`). Dates are `yyyy-MM-dd`.
+- Profile, company, application and education/skill ids are UUID strings; a job's `postId` is an integer. `/me` routes read the username from the JWT.
+- Every request body is validated. Failures are `400` and the `message` lists each problem as `field problem`, for example `jobTitle is required; rate must be greater than 0`.
+- Text limits (characters): names 100, username 50, password 72, job title 150, most other profile text 255, experience description 5,000, job description 20,000 (HTML), cover note 2,000, deletion reason and note 255, CMS value 4,000.
+
 ---
 
 ## Authentication
@@ -40,9 +48,14 @@ All error responses share the same envelope:
 | `400` | Validation failure, malformed JSON body or illegal argument |
 | `401` | Missing / expired / invalid JWT |
 | `403` | Forbidden: wrong role or not the owner of the resource |
-| `404` | Resource not found |
-| `422` | Business rule violation (e.g. duplicate company) |
+| `404` | Resource not found, or no such route |
+| `405` | The route exists but not for that HTTP method |
+| `409` | The change conflicts with existing data (rare: a concurrent duplicate) |
+| `415` | Wrong content type (send `application/json`) |
+| `422` | Business rule violation (e.g. duplicate company, closed job, disallowed status move) |
 | `500` | Unexpected server error |
+
+`401` makes the front end log the user out, so it is only used for a missing, expired or invalid token and for wrong login credentials.
 
 ---
 
@@ -420,7 +433,12 @@ Returns the seeker profile of the authenticated user.
   "name": "Jane",
   "lastName": "Doe",
   "creationDate": "2024-01-15T10:30:00",
-  "isIndependent": false
+  "isIndependent": false,
+  "cv": null,
+  "educations": [],
+  "certifications": [],
+  "experiences": [],
+  "skills": []
 }
 ```
 
@@ -432,6 +450,8 @@ Returns the seeker profile of the authenticated user.
 | `lastName` | string | Last name |
 | `creationDate` | ISO-8601 datetime | When the profile was created |
 | `isIndependent` | boolean | Whether the seeker is an independent contractor |
+| `cv` | object \| null | `{ originalFileName, fileType, uploadedAt }` of the uploaded resume, or `null` |
+| `educations`, `certifications`, `experiences`, `skills` | arrays | The profile lists, see the CRUD sections below. Always present, possibly empty |
 
 **Error responses**
 
@@ -584,6 +604,130 @@ Updates the name of the company identified by `{id}`. The caller must own the co
 
 ---
 
+### Resume (seeker)
+
+All three need a token. A `404` carries the standard wording `<Thing> not found with id: <value>` (for example `Resume not found with id: alice_s`); the seeker routes return it too when the token belongs to an employer.
+
+| Route | What it does |
+|---|---|
+| `POST /users/seekers/me/resume` | `multipart/form-data` with one part named **`file`**. PDF, DOC or DOCX, max 5 MB; a new upload replaces the old one. Returns the updated `SeekerResponse` (`200`). Errors: `422` `Please choose a file to upload.`, `Resume must be 5MB or smaller.`, `Only PDF, DOC, and DOCX resumes are supported.`; `400` `The file part 'file' is required.` |
+| `GET /users/seekers/me/resume` | Downloads the file (binary, with the original file name). `404` if none. |
+| `DELETE /users/seekers/me/resume` | Removes it. `204`. `404` if none. |
+
+### Seeker profile lists: education, certifications, experiences, skills
+
+Four identical-shaped sets of routes under `/users/seekers/me/`, for the authenticated seeker only. `GET` returns the list (`200`), `POST` creates (`201`, returns the new item), `PUT /{id}` replaces (`200`), `DELETE /{id}` removes (`204`). An id that is not the caller's is `404`.
+
+| Path | Request body fields (`*` required) | Response item fields |
+|---|---|---|
+| `/educations` | `institution*`, `degree*`, `fieldOfStudy*` (max 255 each), `startDate*`, `endDate`, `grade` (max 255) | `id`, the same fields |
+| `/certifications` | `name*`, `issuingOrganization*` (max 255), `issueDate*`, `expirationDate`, `credentialId` (max 255), `credentialUrl` (max 255, must start with `http://` or `https://`) | `id`, the same fields |
+| `/experiences` | `jobTitle*`, `companyName*` (max 255), `location` (max 255), `employmentType` (see enums), `startDate*`, `endDate`, `description` (max 5,000) | `id`, the same fields |
+| `/skills` | `skillName*` (max 100; created in the shared catalog if new), `category` (max 100), `proficiencyLevel*` (`BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `EXPERT`), `yearsOfExperience` (0 to 80) | `id`, `skillName`, `category`, `proficiencyLevel`, `yearsOfExperience` |
+
+Rules: an `endDate`/`expirationDate` earlier than the start is `422` `End date cannot be before start date.`; adding a skill the seeker already has is `422` `You already have this skill on your profile. Update it instead.`
+
+---
+
+## Account endpoints `/account/**`
+
+> All require a token and act on the authenticated account.
+
+### `PUT /account/password`
+
+Body `{ "currentPassword": "...", "newPassword": "..." }` (new password 8 to 72 characters). `200` with an empty body.
+Errors: `400` validation (`newPassword must be 8 to 72 characters`), `422` `Current password is incorrect.`
+
+### Deletion requests
+
+A user asks an admin to delete the account; nothing is deleted until an admin approves.
+
+| Route | What it does |
+|---|---|
+| `POST /account/deletion-request` | Body optional: `{ "reason": "..." }` (max 255). `201` with a `DeletionRequestResponse`. `422` `You already have a pending deletion request.` |
+| `GET /account/deletion-request` | The pending request, or **`200` with an empty body (null)** when there is none. The front end relies on this. |
+| `DELETE /account/deletion-request` | Cancels the pending request. `204`. `404` if none. |
+
+```ts
+interface DeletionRequestResponse {
+  id: string;                     // UUID
+  username: string;
+  requesterRole: "SEEKER" | "EMPLOYER" | "ADMIN";
+  reason: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedAt: string;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
+}
+```
+
+---
+
+## Admin endpoints `/admin/**`
+
+> Require `ROLE_ADMIN`; other users get `403`.
+
+| Route | What it does |
+|---|---|
+| `GET /admin/users` | All accounts as `{ id: number, username, role }[]` (not paged yet; `id` is the numeric account id, not a profile UUID). |
+| `GET /admin/deletion-requests` | Pending deletion requests, oldest first (`DeletionRequestResponse[]`). |
+| `POST /admin/deletion-requests/{id}/approve` | Permanently deletes the requester's account and profile, **including their applications and saved jobs, and for an employer all their job posts**. `200` with the resolved request. `404` unknown id, `422` `This request has already been resolved.` |
+| `POST /admin/deletion-requests/{id}/reject` | Body optional: `{ "note": "..." }` (max 255). `200` with the resolved request (`resolutionNote` set). Same errors. |
+
+---
+
+## Content (CMS) endpoints
+
+Editable site text (SEO titles, landing copy, error messages).
+
+### `GET /content`
+
+**Public.** A flat map `{ "<key>": "<value>" }` of all entries.
+
+### `GET /admin/content` (admin)
+
+`ContentEntryResponse[]`: `{ key, category, value, updatedAt }`, where `category` is `SEO`, `LANDING` or `ERROR_MESSAGE`.
+
+### `PUT /admin/content` (admin)
+
+Body `{ "values": { "<key>": "<new value>" } }` (required; each value max 4,000 characters, at most 500 entries). Unknown keys are ignored. Returns the full `ContentEntryResponse[]`. `400` `values is required`.
+
+---
+
+## Enum reference
+
+| Enum | Values |
+|---|---|
+| `Role` (login, register) | `SEEKER`, `EMPLOYER`, `ADMIN` (admin cannot be self-registered) |
+| `WorkMode` | `REMOTE`, `HYBRID`, `ONSITE` |
+| `EmploymentType` | `FULL_TIME`, `PART_TIME`, `CONTRACT`, `TEMPORARY`, `INTERNSHIP`, `FREELANCE`, `B2B` |
+| `RateType` | `HOURLY`, `MONTHLY`, `YEARLY`, `CONTRACT_TOTAL` |
+| `ApplicationStatus` | `APPLIED`, `IN_REVIEW`, `INTERVIEW`, `OFFER`, `REJECTED`, `WITHDRAWN` |
+| `ProficiencyLevel` | `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `EXPERT` |
+| `DeletionRequestStatus` | `PENDING`, `APPROVED`, `REJECTED` |
+| `ContentCategory` | `SEO`, `LANDING`, `ERROR_MESSAGE` |
+
+Adding a value to any of these is a contract change: tell the front-end session.
+
+---
+
+## Route summary
+
+| Area | Routes | Access |
+|---|---|---|
+| Auth | `POST /auth/register`, `POST /auth/login` | public |
+| Jobs | `GET /jobs`, `GET /jobs/{id}`, `GET /companies/{id}` | public |
+| Jobs | `POST /jobs`, `PUT /jobs/{id}`, `PATCH /jobs/{id}/available`, `GET /jobs/mine` | employer (owner) |
+| Saved jobs | `PUT`/`DELETE /jobs/{id}/save`, `GET /jobs/saved` | seeker |
+| Applications | `POST /jobs/{id}/apply`, `GET /applications/me`, `DELETE /applications/{id}` | seeker |
+| Applications | `GET /jobs/{id}/applications`, `PUT /applications/{id}/status` | employer (owner of the job) |
+| Profiles | `/users/seekers/**`, `/users/employers/**`, `/users/companies/**` | authenticated (`/me` = own) |
+| Account | `/account/**` | authenticated |
+| Admin | `/admin/**` | admin |
+| Content | `GET /content` | public |
+
+---
+
 ## Data models reference
 
 ### `TokenResponse`
@@ -653,6 +797,11 @@ interface SeekerResponse {
   lastName: string;
   creationDate: string;     // ISO-8601
   isIndependent: boolean;
+  cv: { originalFileName: string; fileType: string; uploadedAt: string } | null;
+  educations: EducationResponse[];
+  certifications: CertificationResponse[];
+  experiences: ProfessionalExperienceResponse[];
+  skills: SeekerSkillResponse[];
 }
 ```
 
@@ -735,6 +884,7 @@ POST /auth/login      { username, password }
 - **Role-based rendering:** Use the `role` field from `TokenResponse` to decide which profile endpoint to call (`/seekers/me` vs `/employers/me`) and which UI to display.
 - **`/me` endpoints vs `/{id}` endpoints:** Use `/me` for the authenticated user's own data (token carries the identity). Use `/{id}` to look up other users' public profiles.
 - **Job availability:** Always call `GET /jobs?available=true` in the seeker browse view — this filters out closed/filled positions server-side. The `available` flag is also included in every `JobPostResponse` so you can do client-side checks or render a "Closed" badge when displaying all posts (e.g. in an employer dashboard). To close a position, call `PATCH /jobs/{id}/available` with `{ "available": false }`.
-- **CORS:** The backend allows requests from `http://localhost:3000` by default. Change `cors.allowed-origins` in `application.properties` for other origins.
-- **Timestamps:** All `LocalDateTime` fields are serialized as ISO-8601 strings in UTC (e.g. `"2024-01-15T10:30:00"`).
+- **CORS:** The backend allows requests from `http://localhost:3000` and `http://localhost:3001` by default (methods GET, POST, PUT, PATCH, DELETE, OPTIONS). Change `cors.allowed-origins` in `application.properties` for other origins.
+- **Timestamps:** All `LocalDateTime` fields are serialized as ISO-8601 strings **without a time zone** (e.g. `"2024-01-15T10:30:00"`); treat them as server-local time.
+- **Machine-readable spec:** the OpenAPI JSON at `/v3/api-docs` is generated from the controllers and is always current. Generate typed clients from it, and treat this file as the human guide.
 - **Interactive testing:** Open `http://localhost:9080/swagger-ui/index.html`, click **Authorize**, paste your JWT, and try every endpoint from the browser.

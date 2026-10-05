@@ -93,7 +93,7 @@ class AccountEndpointsIntegrationTest {
         mvc.perform(put("/account/password").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
                         .content("{\"currentPassword\":\"" + PASSWORD + "\",\"newPassword\":\"short\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("at least 8 characters")));
+                .andExpect(jsonPath("$.message", containsString("must be 8 to 72 characters")));
     }
 
     @Test
