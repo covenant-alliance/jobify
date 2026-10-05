@@ -34,6 +34,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #15, #18, with #39 to be decided. **Sprint 3** = #13 search, #20 rate limit and password rules. **Sprint 4** = #14, #16, #17, #38.
 
 ## Open requests for the front end
+- [ ] Company dashboard: replace `MOCK_PIPELINE_CANDIDATES` with `GET /jobs/{id}/applications`, add stage actions with `PUT /applications/{id}/status` (show only the allowed next stages), and delete the fake `applicationStage.ts` (issues #32, #33).
 - [ ] Replace the in-memory `applyForJob` with `POST /jobs/{id}/apply`, load `GET /applications/me` for the seeker dashboard, and add a withdraw action using `DELETE /applications/{id}` (show it for every status except `REJECTED` and `WITHDRAWN`; issues #30, #31; available once the `feature-applications` branch is merged). Show a readable message from the 422/403 responses.- [ ] Show `rate` with `rateType` on job cards, details and the JSON-LD (per-hour, per-month, per-year or fixed total), and stop reading `hourlyRate`. Remove any `jobRating` usage (issue #28).- [ ] Switch `useEmployerJobs` to `GET /jobs/mine`, and handle 403 on job writes (issue #3, #4).
 - [ ] Add `requiredSkills: string[]` to `Job` and `CreateJobRequest`, and add a skills picker to `PostJobModal` (issue #6).
 - [ ] Extend `SeekerResponse` with `educations/certifications/experiences/skills`, then build the profile-editing UI.
@@ -42,6 +43,18 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 - [ ] Replace `MOCK_USERS` with `GET /admin/users` (issue #16).
 
 ## Change log (newest first)
+
+### Sprint 2 — applications, stories P1.3 and P1.4: employer side (#32, #33, epic #9) — 2026-10-05
+Additive. **Branch `feature-applications` is pushed; not merged into `master` yet** (it follows PR #29). With these, the applications epic is complete on the back end.
+
+- **`GET /jobs/{id}/applications`** (the employer who owns the job). Newest first, withdrawn ones included. Optional `?status=`. Each item is a `JobApplicationResponse`: `id`, `status`, `coverNote`, `createdAt`, `updatedAt` and `applicant { seekerId, username, name, lastName, hasCv }`. Counting per stage is up to you for now (group the list); a stats endpoint comes with #17.
+  - `403` `You can only view applications for your own jobs.` (other employers, seekers), `404` unknown job, `400` for an unknown `status` (the message lists the allowed values).
+- **`PUT /applications/{id}/status`** (the job's owner). Body `{ "status": "IN_REVIEW" }`, response `200` with the updated `JobApplicationResponse`.
+  - Allowed: `APPLIED` -> `IN_REVIEW` | `REJECTED`; `IN_REVIEW` -> `INTERVIEW` | `REJECTED`; `INTERVIEW` -> `OFFER` | `REJECTED`; `OFFER` -> `REJECTED`. `REJECTED` and `WITHDRAWN` are final. Employers cannot set `APPLIED` or `WITHDRAWN`.
+  - `422` with a readable message for a disallowed move, e.g. `An application in INTERVIEW cannot move to IN_REVIEW.`; `403` `You can only manage applications for your own jobs.`; `404`; `400` `status is required`.
+  - The seeker sees the new stage in `GET /applications/me` straight away.
+- A query parameter or path value that is not a valid enum constant now returns `400` with the allowed values, instead of a generic 500.
+- **The pipeline is real now**, so `applicationStage.ts` (fake stage from `postId`) can go, and `MOCK_PIPELINE_CANDIDATES` can be replaced by the list endpoint.
 
 ### Sprint 2 — applications, story P1.2: withdraw (#31, epic #9) — 2026-10-04
 Additive. **Not merged yet** (branch `feature-applications`, same as P1.1 below).

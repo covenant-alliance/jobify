@@ -254,7 +254,7 @@ The browser preflight for `PATCH` is allowed (CORS methods: GET, POST, PUT, PATC
 
 ## Applications endpoints
 
-> All require `Authorization: Bearer <token>`. Seeker-only: a non-seeker gets `403`. Employer-side endpoints (list applicants, change status) are coming in the next stories (#32, #33).
+> All require `Authorization: Bearer <token>`. Apply, list-mine and withdraw are for seekers; list-applicants and change-status are for the employer who owns the job. Anyone else gets `403`.
 
 ### `POST /jobs/{id}/apply`
 
@@ -292,6 +292,60 @@ Possible from `APPLIED`, `IN_REVIEW`, `INTERVIEW` and `OFFER`.
 | `422` | Already `REJECTED` or `WITHDRAWN`: `This application can no longer be withdrawn.` |
 
 The seeker can apply to the same job again afterwards (see `POST /jobs/{id}/apply`).
+
+### `GET /jobs/{id}/applications`
+
+**EMPLOYER, owner of the job only.** The applications to that job, newest first, withdrawn ones included (flagged `WITHDRAWN`). Optional query `status=` (one of the `ApplicationStatus` values) narrows the list. Response `200`: `JobApplicationResponse[]`.
+
+| Status | When |
+|---|---|
+| `400` | Unknown `status` value: `status has an invalid value. Allowed values: APPLIED, IN_REVIEW, ...` |
+| `401` | Missing or invalid JWT token |
+| `403` | Not the job's owner (other employers, seekers): `You can only view applications for your own jobs.` |
+| `404` | No job with that id |
+
+### `PUT /applications/{id}/status`
+
+**EMPLOYER, owner of the job only.** Moves an application to another stage. Body: `{ "status": "IN_REVIEW" }`. Response `200`: the updated `JobApplicationResponse`. `updatedAt` changes, and the seeker sees the new status in `GET /applications/me`.
+
+Allowed moves:
+
+| From | To |
+|---|---|
+| `APPLIED` | `IN_REVIEW`, `REJECTED` |
+| `IN_REVIEW` | `INTERVIEW`, `REJECTED` |
+| `INTERVIEW` | `OFFER`, `REJECTED` |
+| `OFFER` | `REJECTED` |
+| `REJECTED`, `WITHDRAWN` | final, no moves |
+
+Employers cannot set `APPLIED` or `WITHDRAWN` (withdrawing is the applicant's action).
+
+| Status | When |
+|---|---|
+| `400` | `status` missing (`status is required`) or not a known value |
+| `401` | Missing or invalid JWT token |
+| `403` | Not the job's owner (the applicant included): `You can only manage applications for your own jobs.` |
+| `404` | No application with that id |
+| `422` | `An application in INTERVIEW cannot move to IN_REVIEW.`, `This application is already REJECTED and can no longer change.`, or `Only the applicant can withdraw an application.` |
+
+### `JobApplicationResponse` (employer view)
+
+```ts
+interface JobApplicationResponse {
+  id: string;                     // UUID
+  status: "APPLIED" | "IN_REVIEW" | "INTERVIEW" | "OFFER" | "REJECTED" | "WITHDRAWN";
+  coverNote: string | null;
+  createdAt: string;              // ISO-8601, no zone
+  updatedAt: string;
+  applicant: {
+    seekerId: string;             // seeker profile id (UUID)
+    username: string;
+    name: string;
+    lastName: string;
+    hasCv: boolean;
+  };
+}
+```
 
 ### `ApplicationResponse`
 

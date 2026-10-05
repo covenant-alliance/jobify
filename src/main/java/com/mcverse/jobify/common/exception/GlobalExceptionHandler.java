@@ -7,11 +7,13 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import java.util.Arrays;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -50,6 +52,18 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining("; "));
         if (message.isBlank()) {
             message = "The request is not valid.";
+        }
+        return ApiResponse.error(message, HttpStatus.BAD_REQUEST.value());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        Class<?> type = ex.getRequiredType();
+        String message = ex.getName() + " has an invalid value";
+        if (type != null && type.isEnum()) {
+            message += ". Allowed values: " + Arrays.stream(type.getEnumConstants())
+                    .map(Object::toString).collect(Collectors.joining(", "));
         }
         return ApiResponse.error(message, HttpStatus.BAD_REQUEST.value());
     }

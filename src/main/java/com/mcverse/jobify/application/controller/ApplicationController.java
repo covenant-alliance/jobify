@@ -2,6 +2,9 @@ package com.mcverse.jobify.application.controller;
 
 import com.mcverse.jobify.application.dto.ApplicationResponse;
 import com.mcverse.jobify.application.dto.ApplyRequest;
+import com.mcverse.jobify.application.dto.ChangeApplicationStatusRequest;
+import com.mcverse.jobify.application.dto.JobApplicationResponse;
+import com.mcverse.jobify.application.model.ApplicationStatus;
 import com.mcverse.jobify.application.service.ApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -80,5 +83,46 @@ public class ApplicationController {
             @AuthenticationPrincipal UserDetails principal,
             @Parameter(description = "Application id (UUID)") @PathVariable String id) {
         applicationService.withdraw(id, principal.getUsername());
+    }
+
+    @Operation(summary = "List the applicants of one of my jobs",
+            description = "EMPLOYER, and only the owner of the job. Newest first; withdrawn applications are listed " +
+                    "with status WITHDRAWN. Optional `status` filter.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Applications for the job (may be empty)",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = JobApplicationResponse.class)))),
+            @ApiResponse(responseCode = "400", description = "Unknown status value"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Not the owner of the job"),
+            @ApiResponse(responseCode = "404", description = "Job not found"),
+    })
+    @GetMapping("/jobs/{id}/applications")
+    public List<JobApplicationResponse> jobApplications(
+            @AuthenticationPrincipal UserDetails principal,
+            @Parameter(description = "Job post ID", example = "3") @PathVariable Integer id,
+            @Parameter(description = "Only applications in this stage") @RequestParam(required = false)
+            ApplicationStatus status) {
+        return applicationService.listForJob(id, status, principal.getUsername());
+    }
+
+    @Operation(summary = "Move an application to another stage",
+            description = "EMPLOYER, and only the owner of the job. Allowed moves: APPLIED to IN_REVIEW or REJECTED; " +
+                    "IN_REVIEW to INTERVIEW or REJECTED; INTERVIEW to OFFER or REJECTED; OFFER to REJECTED. " +
+                    "REJECTED and WITHDRAWN are final. Employers cannot set APPLIED or WITHDRAWN.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The updated application",
+                    content = @Content(schema = @Schema(implementation = JobApplicationResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Missing or unknown status"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Not the owner of the job"),
+            @ApiResponse(responseCode = "404", description = "Application not found"),
+            @ApiResponse(responseCode = "422", description = "That move is not allowed"),
+    })
+    @PutMapping("/applications/{id}/status")
+    public JobApplicationResponse changeStatus(
+            @AuthenticationPrincipal UserDetails principal,
+            @Parameter(description = "Application id (UUID)") @PathVariable String id,
+            @Valid @RequestBody ChangeApplicationStatusRequest request) {
+        return applicationService.changeStatus(id, request.status(), principal.getUsername());
     }
 }

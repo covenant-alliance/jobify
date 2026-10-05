@@ -2,6 +2,7 @@ package com.mcverse.jobify.application.service;
 
 import com.mcverse.jobify.application.dto.ApplicationResponse;
 import com.mcverse.jobify.application.dto.ApplyRequest;
+import com.mcverse.jobify.application.dto.JobApplicationResponse;
 import com.mcverse.jobify.application.model.Application;
 import com.mcverse.jobify.application.model.ApplicationStatus;
 import com.mcverse.jobify.application.repository.ApplicationRepository;
@@ -87,8 +88,60 @@ public class ApplicationService {
         if (!WITHDRAWABLE.contains(application.getStatus())) {
             throw new BusinessRuleException("This application can no longer be withdrawn.");
         }
-        application.changeStatus(ApplicationStatus.WITHDRAWN);
+        updateStatus(application, ApplicationStatus.WITHDRAWN);
+    }
+
+    /** Employer lists the applicants of a job they own, newest first, optionally only one stage. */
+    @Transactional(readOnly = true)
+    public List<JobApplicationResponse> listForJob(Integer jobId, ApplicationStatus status, String username) {
+        JobPost job = jobRepo.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException("JobPost", jobId.toString()));
+        requireJobOwner(job, username, "view applications for", jobId);
+        List<Application> applications = status == null
+                ? applicationRepo.findAllByJobPostIdOrderByCreatedAtDesc(jobId)
+                : applicationRepo.findAllByJobPostIdAndStatusOrderByCreatedAtDesc(jobId, status);
+        return applications.stream().map(this::toJobApplicationResponse).toList();
+    }
+
+    /** Employer moves an application of one of their jobs to another stage. */
+    @Transactional
+    public JobApplicationResponse changeStatus(String applicationId, ApplicationStatus target, String username) {
+        Application application = applicationRepo.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Application", applicationId));
+        requireJobOwner(application.getJob(), username, "manage applications for", application.getJob().getPostId());
+
+        ApplicationStatus current = application.getStatus();
+        if (target == ApplicationStatus.WITHDRAWN) {
+            throw new BusinessRuleException("Only the applicant can withdraw an application.");
+        }
+        if (current.employerTargets().isEmpty()) {
+            throw new BusinessRuleException(
+                    "This application is already " + current + " and can no longer change.");
+        }
+        if (!current.employerTargets().contains(target)) {
+            throw new BusinessRuleException(
+                    "An application in " + current + " cannot move to " + target + ".");
+        }
+        updateStatus(application, target);
+        return toJobApplicationResponse(application);
+    }
+
+    /**
+     * The one place an application's status changes after it was created. Notifications (backlog P6) will hook in
+     * here, so keep every status change going through this method.
+     */
+    private void updateStatus(Application application, ApplicationStatus newStatus) {
+        application.changeStatus(newStatus);
         applicationRepo.save(application);
+    }
+
+    private void requireJobOwner(JobPost job, String username, String action, Integer jobId) {
+        Employer owner = job.getEmployer();
+        if (owner == null || !owner.getUsername().equals(username)) {
+            log.warn("Denied: user '{}' tried to {} job {} owned by '{}'", username, action, jobId,
+                    owner == null ? "nobody" : owner.getUsername());
+            throw new LicenseValidationException("You can only " + action + " your own jobs.");
+        }
     }
 
     private static String cleanNote(ApplyRequest request) {
@@ -96,6 +149,13 @@ public class ApplicationService {
             return null;
         }
         return request.coverNote().trim();
+    }
+
+    private JobApplicationResponse toJobApplicationResponse(Application a) {
+        Seeker seeker = a.getSeeker();
+        return new JobApplicationResponse(a.getId(), a.getStatus(), a.getCoverNote(), a.getCreatedAt(),
+                a.getUpdatedAt(), new JobApplicationResponse.Applicant(seeker.getId(), seeker.getUsername(),
+                        seeker.getName(), seeker.getLastName(), seeker.getCv() != null));
     }
 
     ApplicationResponse toResponse(Application a) {

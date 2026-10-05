@@ -1,6 +1,7 @@
 package com.mcverse.jobify.application.repository;
 
 import com.mcverse.jobify.application.model.Application;
+import com.mcverse.jobify.application.model.ApplicationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +14,10 @@ public interface ApplicationRepository extends JpaRepository<Application, String
     Optional<Application> findBySeekerUsernameAndJobPostId(String seekerUsername, Integer postId);
 
     List<Application> findAllBySeekerUsernameOrderByCreatedAtDesc(String seekerUsername);
+
+    List<Application> findAllByJobPostIdOrderByCreatedAtDesc(Integer postId);
+
+    List<Application> findAllByJobPostIdAndStatusOrderByCreatedAtDesc(Integer postId, ApplicationStatus status);
 
     /** Needed before a seeker account is deleted, otherwise the foreign key blocks it. */
     @Modifying
