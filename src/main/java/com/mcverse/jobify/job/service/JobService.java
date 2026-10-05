@@ -4,7 +4,6 @@ import com.mcverse.jobify.common.exception.LicenseValidationException;
 import com.mcverse.jobify.common.exception.ResourceNotFoundException;
 import com.mcverse.jobify.job.dto.CreateJobRequest;
 import com.mcverse.jobify.job.dto.JobPostResponse;
-import com.mcverse.jobify.job.model.RateType;
 import com.mcverse.jobify.model.JobPost;
 import com.mcverse.jobify.model.Skill;
 import com.mcverse.jobify.job.repository.JobRepo;
@@ -36,25 +35,28 @@ public class JobService {
     @Autowired
     private HtmlSanitizer htmlSanitizer;
 
+    @Autowired
+    private JobResponseMapper mapper;
+
     @Transactional(readOnly = true)
     public List<JobPostResponse> getJobs(Boolean available) {
         List<JobPost> posts = (available != null)
                 ? repo.findAllByAvailable(available)
                 : repo.findAll();
-        return posts.stream().map(this::toResponse).toList();
+        return posts.stream().map(mapper::toResponse).toList();
     }
 
     /** Every job owned by the employer, open and closed. */
     @Transactional(readOnly = true)
     public List<JobPostResponse> getJobsOwnedBy(String employerUsername) {
         requireEmployer(employerUsername, "view your job postings");
-        return repo.findAllByEmployerUsername(employerUsername).stream().map(this::toResponse).toList();
+        return repo.findAllByEmployerUsername(employerUsername).stream().map(mapper::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public JobPostResponse getJobById(Integer id) {
         return repo.findById(id)
-                .map(this::toResponse)
+                .map(mapper::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("JobPost", id.toString()));
     }
 
@@ -65,7 +67,7 @@ public class JobService {
                 request.rate(), request.rateType());
         job.setEmployer(employer);
         applyEditableFields(job, request);
-        return toResponse(repo.save(job));
+        return mapper.toResponse(repo.save(job));
     }
 
     @Transactional
@@ -75,14 +77,14 @@ public class JobService {
         job.setJobDescription(htmlSanitizer.sanitize(request.jobDescription()));
         job.setCompensation(request.rate(), request.rateType());
         applyEditableFields(job, request);
-        return toResponse(repo.save(job));
+        return mapper.toResponse(repo.save(job));
     }
 
     @Transactional
     public JobPostResponse updateAvailability(Integer id, boolean available, String username) {
         JobPost job = findOwnedJob(id, username);
         job.setAvailable(available);
-        return toResponse(repo.save(job));
+        return mapper.toResponse(repo.save(job));
     }
 
     private void applyEditableFields(JobPost job, CreateJobRequest request) {
@@ -122,20 +124,5 @@ public class JobService {
                         .orElseGet(() -> skillRepo.save(new Skill(name, null))))
                 .distinct()
                 .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
-    }
-
-    /** Rows not yet backfilled fall back to their old hourly rate, so responses are never empty. */
-    private static double rateOrHourly(JobPost job) {
-        return job.getRate() != null ? job.getRate() : job.getHourlyRate();
-    }
-
-    private JobPostResponse toResponse(JobPost job) {
-        String employerUsername = job.getEmployer() != null ? job.getEmployer().getUsername() : null;
-        List<String> requiredSkills = job.getRequiredSkills().stream().map(Skill::getName).toList();
-        return new JobPostResponse(job.getPostId(), job.getJobTitle(), job.getJobDescription(),
-                rateOrHourly(job), job.getRateType() != null ? job.getRateType() : RateType.HOURLY,
-                job.getHourlyRate(), employerUsername, job.isAvailable(),
-                job.getLocation(), job.getWorkMode(), job.getEmploymentType(), job.getCreatedAt(),
-                requiredSkills);
     }
 }

@@ -30,7 +30,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P4. Server-side search and paging.** `GET /jobs?q=&location=&workMode=&employmentType=&minRate=&maxRate=&skills=&available=&page=&size=&sort=`. Today the front end downloads everything and filters in the browser. To avoid breaking callers (`useJobs`, `sitemap.ts`, the employer panel), add paging only when `page` is supplied, or add a new route `/jobs/search`. Coordinate the response envelope.
 
-**P5. Company name on job responses.** `JobPostResponse` has `employerUsername` only, and the UI title-cases it as the company. Add `companyName` (nullable) and `companyId`. Additive, so safe. Also consider a public `GET /companies/{id}`.
+**P5. ✅ Company name on job responses (#11, done in sprint 2: `companyName`, `companyId`, public `GET /companies/{id}`).** `JobPostResponse` has `employerUsername` only, and the UI title-cases it as the company. Add `companyName` (nullable) and `companyId`. Additive, so safe. Also consider a public `GET /companies/{id}`.
 
 **P6. Notifications.** `Notification` entity (user, type, title, body, read, createdAt) with `GET /notifications`, `POST /notifications/{id}/read` and `POST /notifications/read-all`. Emit on application status change, new application (employer), and new match (P3). The front-end types are in `app/lib/mockDashboardData.ts` (`type: interview | application | system | hiring | account`).
 

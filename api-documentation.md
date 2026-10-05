@@ -150,6 +150,8 @@ Returns job postings. By default returns **all** posts regardless of status, fro
 | `rateType` | string | `HOURLY`, `MONTHLY`, `YEARLY` or `CONTRACT_TOTAL` (a fixed total for the engagement) |
 | `hourlyRate` | double | **Deprecated.** `rate` as an hourly amount (monthly / 173.33, yearly / 2080, rounded to cents); `0` for `CONTRACT_TOTAL`. Use `rate` and `rateType`. |
 | `employerUsername` | string \| null | Username of the posting employer; `null` if unassigned |
+| `companyName` | string \| null | Name of the employer's company; `null` if the employer has none |
+| `companyId` | string \| null | Company id (UUID), for `GET /companies/{id}` |
 | `available` | boolean | `true` = position open; `false` = closed / position filled |
 | `location` | string \| null | Free text |
 | `workMode` | string \| null | `ONSITE`, `REMOTE`, `HYBRID` |
@@ -173,6 +175,12 @@ Returns job postings. By default returns **all** posts regardless of status, fro
 ### `GET /jobs/{id}`
 
 Public. Response `200`: one `JobPostResponse`. `404` if it does not exist.
+
+---
+
+### `GET /companies/{id}`
+
+Public, no token. Response `200`: `{ "id": "...", "name": "TechCorp Ltd" }`. `404` if the company does not exist.
 
 ---
 
@@ -581,6 +589,8 @@ interface JobPostResponse {
   rateType: "HOURLY" | "MONTHLY" | "YEARLY" | "CONTRACT_TOTAL";
   hourlyRate: number;             // deprecated: hourly equivalent of rate, 0 for CONTRACT_TOTAL
   employerUsername: string | null;
+  companyName: string | null;     // the employer's company, if any
+  companyId: string | null;
   available: boolean;             // true = open; false = closed/filled
   location: string | null;
   workMode: "ONSITE" | "REMOTE" | "HYBRID" | null;

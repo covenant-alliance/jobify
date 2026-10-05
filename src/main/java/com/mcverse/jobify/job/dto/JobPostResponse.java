@@ -36,6 +36,13 @@ public record JobPostResponse(
                 example = "acme_corp", nullable = true)
         String employerUsername,
 
+        @Schema(description = "Name of the employer's company; null if the employer has not created one",
+                example = "TechCorp Ltd", nullable = true)
+        String companyName,
+
+        @Schema(description = "Company id (UUID); use GET /companies/{id}", nullable = true)
+        String companyId,
+
         @Schema(description = "Whether the position is still open and accepting applications. " +
                 "Use this to hide closed/filled positions in the UI.", example = "true")
         boolean available,

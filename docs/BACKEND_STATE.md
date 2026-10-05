@@ -34,7 +34,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #15, #18, with #39 to be decided. **Sprint 3** = #13 search, #20 rate limit and password rules. **Sprint 4** = #14, #16, #17, #38.
 
 ## Open requests for the front end
-- [ ] Company dashboard: replace `MOCK_PIPELINE_CANDIDATES` with `GET /jobs/{id}/applications`, add stage actions with `PUT /applications/{id}/status` (show only the allowed next stages), and delete the fake `applicationStage.ts` (issues #32, #33).
+- [ ] Use `companyName` from the job response instead of the capitalised `employerUsername`; keep the "Jobify Partner" fallback only for `null` (issue #11).- [ ] Company dashboard: replace `MOCK_PIPELINE_CANDIDATES` with `GET /jobs/{id}/applications`, add stage actions with `PUT /applications/{id}/status` (show only the allowed next stages), and delete the fake `applicationStage.ts` (issues #32, #33).
 - [ ] Replace the in-memory `applyForJob` with `POST /jobs/{id}/apply`, load `GET /applications/me` for the seeker dashboard, and add a withdraw action using `DELETE /applications/{id}` (show it for every status except `REJECTED` and `WITHDRAWN`; issues #30, #31; the endpoints are in the applications pull request and reach `master` when it is merged). Show a readable message from the 422/403 responses.- [ ] Show `rate` with `rateType` on job cards, details and the JSON-LD (per-hour, per-month, per-year or fixed total), and stop reading `hourlyRate`. Remove any `jobRating` usage (issue #28).- [ ] Switch `useEmployerJobs` to `GET /jobs/mine`, and handle 403 on job writes (issue #3, #4).
 - [ ] Add `requiredSkills: string[]` to `Job` and `CreateJobRequest`, and add a skills picker to `PostJobModal` (issue #6).
 - [ ] Extend `SeekerResponse` with `educations/certifications/experiences/skills`, then build the profile-editing UI.
@@ -43,6 +43,13 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 - [ ] Replace `MOCK_USERS` with `GET /admin/users` (issue #16).
 
 ## Change log (newest first)
+
+### Sprint 2 — company name on jobs (#11, P5) — 2026-10-05
+Additive. Existing fields and shapes are unchanged.
+
+- Every job response (`GET /jobs`, `GET /jobs/{id}`, `GET /jobs/mine`, create and edit) now includes **`companyName`** and **`companyId`**. Both are `null` for an employer who has not created a company, so keep a fallback for that case.
+- New public **`GET /companies/{id}`** returns `{ id, name }` (`404` if unknown).
+- `logoUrl` is not returned yet: there is no logo storage (issue #34, icebox). Keep deriving initials and colour from the name for now.
 
 ### Sprint 2 — applications, stories P1.3 and P1.4: employer side (#32, #33, epic #9) — 2026-10-05
 Additive. **In review in the applications pull request (branch `feature-applications`); not on `master` until it is merged.** With these, the applications epic is complete on the back end.
