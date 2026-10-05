@@ -252,6 +252,124 @@ The browser preflight for `PATCH` is allowed (CORS methods: GET, POST, PUT, PATC
 
 ---
 
+## Applications endpoints
+
+> All require `Authorization: Bearer <token>`. Apply, list-mine and withdraw are for seekers; list-applicants and change-status are for the employer who owns the job. Anyone else gets `403`.
+
+### `POST /jobs/{id}/apply`
+
+A seeker applies to an open job. The application starts as `APPLIED`.
+
+**Request body** (optional): `{ "coverNote": "..." }` - max 2,000 characters; a blank note is stored as none.
+
+**Response `201 Created`** - `ApplicationResponse` (see below).
+
+| Status | When |
+|---|---|
+| `400` | Cover note longer than 2,000 characters: `coverNote must be at most 2000 characters` |
+| `401` | Missing or invalid JWT token |
+| `403` | Caller is not a seeker: `Only job seekers can apply for jobs.` |
+| `404` | No job with that id |
+| `422` | `This job is no longer accepting applications.` or `You have already applied to this job.` |
+
+Applying again to a job whose application was `WITHDRAWN` re-opens that same application as `APPLIED`.
+
+### `GET /applications/me`
+
+The caller's applications, newest first, including withdrawn ones and ones for jobs that have since closed (`job.available = false`). Response `200`: `ApplicationResponse[]`. Errors: `401`, `403` (not a seeker).
+
+### `DELETE /applications/{id}`
+
+The applicant withdraws their application. The row is **kept** with status `WITHDRAWN` (history is not lost) and `updatedAt` changes. Response `204 No Content`.
+
+Possible from `APPLIED`, `IN_REVIEW`, `INTERVIEW` and `OFFER`.
+
+| Status | When |
+|---|---|
+| `401` | Missing or invalid JWT token |
+| `403` | Caller is not the applicant: `You can only withdraw your own applications.` (employers included) |
+| `404` | No application with that id |
+| `422` | Already `REJECTED` or `WITHDRAWN`: `This application can no longer be withdrawn.` |
+
+The seeker can apply to the same job again afterwards (see `POST /jobs/{id}/apply`).
+
+### `GET /jobs/{id}/applications`
+
+**EMPLOYER, owner of the job only.** The applications to that job, newest first, withdrawn ones included (flagged `WITHDRAWN`). Optional query `status=` (one of the `ApplicationStatus` values) narrows the list. Response `200`: `JobApplicationResponse[]`.
+
+| Status | When |
+|---|---|
+| `400` | Unknown `status` value: `status has an invalid value. Allowed values: APPLIED, IN_REVIEW, ...` |
+| `401` | Missing or invalid JWT token |
+| `403` | Not the job's owner (other employers, seekers): `You can only view applications for your own jobs.` |
+| `404` | No job with that id |
+
+### `PUT /applications/{id}/status`
+
+**EMPLOYER, owner of the job only.** Moves an application to another stage. Body: `{ "status": "IN_REVIEW" }`. Response `200`: the updated `JobApplicationResponse`. `updatedAt` changes, and the seeker sees the new status in `GET /applications/me`.
+
+Allowed moves:
+
+| From | To |
+|---|---|
+| `APPLIED` | `IN_REVIEW`, `REJECTED` |
+| `IN_REVIEW` | `INTERVIEW`, `REJECTED` |
+| `INTERVIEW` | `OFFER`, `REJECTED` |
+| `OFFER` | `REJECTED` |
+| `REJECTED`, `WITHDRAWN` | final, no moves |
+
+Employers cannot set `APPLIED` or `WITHDRAWN` (withdrawing is the applicant's action).
+
+| Status | When |
+|---|---|
+| `400` | `status` missing (`status is required`) or not a known value |
+| `401` | Missing or invalid JWT token |
+| `403` | Not the job's owner (the applicant included): `You can only manage applications for your own jobs.` |
+| `404` | No application with that id |
+| `422` | `An application in INTERVIEW cannot move to IN_REVIEW.`, `This application is already REJECTED and can no longer change.`, or `Only the applicant can withdraw an application.` |
+
+### `JobApplicationResponse` (employer view)
+
+```ts
+interface JobApplicationResponse {
+  id: string;                     // UUID
+  status: "APPLIED" | "IN_REVIEW" | "INTERVIEW" | "OFFER" | "REJECTED" | "WITHDRAWN";
+  coverNote: string | null;
+  createdAt: string;              // ISO-8601, no zone
+  updatedAt: string;
+  applicant: {
+    seekerId: string;             // seeker profile id (UUID)
+    username: string;
+    name: string;
+    lastName: string;
+    hasCv: boolean;
+  };
+}
+```
+
+### `ApplicationResponse`
+
+```ts
+interface ApplicationResponse {
+  id: string;                     // UUID
+  status: "APPLIED" | "IN_REVIEW" | "INTERVIEW" | "OFFER" | "REJECTED" | "WITHDRAWN";
+  coverNote: string | null;
+  createdAt: string;              // ISO-8601, no zone
+  updatedAt: string;              // changes whenever the status changes
+  job: {
+    postId: number;
+    jobTitle: string;
+    employerUsername: string | null;
+    companyName: string | null;   // the employer's company, if they have one
+    available: boolean;           // false once the employer closed the position
+  };
+}
+```
+
+Deleting an account (admin-approved) also deletes that account's applications: a seeker's own, or all applications to an employer's jobs.
+
+---
+
 ## Users endpoints `/users/**`
 
 > **All endpoints require** `Authorization: Bearer <token>`.  
