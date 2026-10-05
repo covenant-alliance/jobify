@@ -150,6 +150,8 @@ Returns job postings. By default returns **all** posts regardless of status, fro
 | `rateType` | string | `HOURLY`, `MONTHLY`, `YEARLY` or `CONTRACT_TOTAL` (a fixed total for the engagement) |
 | `hourlyRate` | double | **Deprecated.** `rate` as an hourly amount (monthly / 173.33, yearly / 2080, rounded to cents); `0` for `CONTRACT_TOTAL`. Use `rate` and `rateType`. |
 | `employerUsername` | string \| null | Username of the posting employer; `null` if unassigned |
+| `companyName` | string \| null | Name of the employer's company; `null` if the employer has none |
+| `companyId` | string \| null | Company id (UUID), for `GET /companies/{id}` |
 | `available` | boolean | `true` = position open; `false` = closed / position filled |
 | `location` | string \| null | Free text |
 | `workMode` | string \| null | `ONSITE`, `REMOTE`, `HYBRID` |
@@ -173,6 +175,12 @@ Returns job postings. By default returns **all** posts regardless of status, fro
 ### `GET /jobs/{id}`
 
 Public. Response `200`: one `JobPostResponse`. `404` if it does not exist.
+
+---
+
+### `GET /companies/{id}`
+
+Public, no token. Response `200`: `{ "id": "...", "name": "TechCorp Ltd" }`. `404` if the company does not exist.
 
 ---
 
@@ -249,6 +257,26 @@ The browser preflight for `PATCH` is allowed (CORS methods: GET, POST, PUT, PATC
 ### Description sanitizing
 
 `jobDescription` is cleaned on every create and edit, so it is safe to render as HTML. Allowed elements: `p, br, ul, ol, li, strong, em, h2, h3, a`. Only `a[href]` keeps an attribute, restricted to `http`, `https` and `mailto` links, and external links get `rel="nofollow"`. Everything else (scripts, styles, iframes, images, event handlers, `javascript:` URLs) is removed. Non-ASCII characters outside the basic plane, such as emoji, come back as numeric entities (`&#x1f680;`), which browsers render normally.
+
+---
+
+## Saved jobs endpoints
+
+> Seekers only; all require `Authorization: Bearer <token>`. Anyone else gets `403` (`Only job seekers can save jobs.`).
+
+### `PUT /jobs/{id}/save`
+
+Bookmarks a job. **Idempotent**: saving a saved job changes nothing. Response `204 No Content`. Closed jobs can be saved. `404` if the job does not exist.
+
+### `DELETE /jobs/{id}/save`
+
+Removes the bookmark. **Idempotent**: a job that is not saved is fine. Response `204`. `404` if the job does not exist.
+
+### `GET /jobs/saved`
+
+The caller's saved jobs, most recently saved first, as `JobPostResponse[]` (the same shape as `GET /jobs`). A job that has since closed stays in the list with `available: false`, so the UI can grey it out. Response `200`, empty array when nothing is saved.
+
+Deleting an account (admin-approved) also deletes its saved jobs, and bookmarks of an employer's jobs.
 
 ---
 
@@ -581,6 +609,8 @@ interface JobPostResponse {
   rateType: "HOURLY" | "MONTHLY" | "YEARLY" | "CONTRACT_TOTAL";
   hourlyRate: number;             // deprecated: hourly equivalent of rate, 0 for CONTRACT_TOTAL
   employerUsername: string | null;
+  companyName: string | null;     // the employer's company, if any
+  companyId: string | null;
   available: boolean;             // true = open; false = closed/filled
   location: string | null;
   workMode: "ONSITE" | "REMOTE" | "HYBRID" | null;

@@ -1,6 +1,7 @@
 package com.mcverse.jobify.account.service;
 
 import com.mcverse.jobify.application.repository.ApplicationRepository;
+import com.mcverse.jobify.job.repository.SavedJobRepository;
 import com.mcverse.jobify.account.dto.DeletionRequestResponse;
 import com.mcverse.jobify.account.dto.ResolveDeletionRequestRequest;
 import com.mcverse.jobify.account.model.DeletionRequest;
@@ -26,6 +27,7 @@ public class AdminAccountService {
     @Autowired private EmployerRepository employerRepo;
     @Autowired private AccountService accountService;
     @Autowired private ApplicationRepository applicationRepo;
+    @Autowired private SavedJobRepository savedJobRepo;
 
     public List<DeletionRequestResponse> listPending() {
         return deletionRequestRepository.findAllByStatusOrderByRequestedAtAsc(DeletionRequestStatus.PENDING)
@@ -36,14 +38,16 @@ public class AdminAccountService {
     public DeletionRequestResponse approve(String requestId) {
         DeletionRequest request = pendingRequest(requestId);
 
-        // Applications reference the seeker and the employer's jobs: remove them first, or the foreign key blocks the delete.
+        // Applications and saved jobs reference the seeker and the employer's jobs: remove them first, or the foreign key blocks the delete.
         switch (request.getRequesterRole()) {
             case SEEKER -> {
                 applicationRepo.deleteBySeekerUsername(request.getUsername());
+                savedJobRepo.deleteBySeekerUsername(request.getUsername());
                 seekerRepo.findByUsername(request.getUsername()).ifPresent(seekerRepo::delete);
             }
             case EMPLOYER -> {
                 applicationRepo.deleteByJobEmployerUsername(request.getUsername());
+                savedJobRepo.deleteByJobEmployerUsername(request.getUsername());
                 employerRepo.findByUsername(request.getUsername()).ifPresent(employerRepo::delete);
             }
             case ADMIN -> { /* no domain profile to remove */ }

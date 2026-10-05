@@ -1,6 +1,7 @@
 package com.mcverse.jobify.job.repository;
 
 import com.mcverse.jobify.model.JobPost;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -8,6 +9,11 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 
 public interface JobRepo extends JpaRepository<JobPost, Integer> {
+    @Override
+    @EntityGraph(attributePaths = {"employer", "employer.company"})
+    List<JobPost> findAll();
+
+    @EntityGraph(attributePaths = {"employer", "employer.company"})
     List<JobPost> findAllByAvailable(boolean available);
 
     List<JobPost> findAllByEmployerUsername(String username);
