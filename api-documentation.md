@@ -260,6 +260,26 @@ The browser preflight for `PATCH` is allowed (CORS methods: GET, POST, PUT, PATC
 
 ---
 
+## Saved jobs endpoints
+
+> Seekers only; all require `Authorization: Bearer <token>`. Anyone else gets `403` (`Only job seekers can save jobs.`).
+
+### `PUT /jobs/{id}/save`
+
+Bookmarks a job. **Idempotent**: saving a saved job changes nothing. Response `204 No Content`. Closed jobs can be saved. `404` if the job does not exist.
+
+### `DELETE /jobs/{id}/save`
+
+Removes the bookmark. **Idempotent**: a job that is not saved is fine. Response `204`. `404` if the job does not exist.
+
+### `GET /jobs/saved`
+
+The caller's saved jobs, most recently saved first, as `JobPostResponse[]` (the same shape as `GET /jobs`). A job that has since closed stays in the list with `available: false`, so the UI can grey it out. Response `200`, empty array when nothing is saved.
+
+Deleting an account (admin-approved) also deletes its saved jobs, and bookmarks of an employer's jobs.
+
+---
+
 ## Applications endpoints
 
 > All require `Authorization: Bearer <token>`. Apply, list-mine and withdraw are for seekers; list-applicants and change-status are for the employer who owns the job. Anyone else gets `403`.
