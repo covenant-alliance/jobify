@@ -14,8 +14,8 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 
 | Your request | Back-end answer |
 |---|---|
-| Job compensation model | **Shipped** (#28, PR #29 awaiting merge into `master`). See the change log. |
-| Applications: apply, list mine, withdraw, employer pipeline | **In progress**, split into #30 apply + list mine (built, not merged yet), #31 withdraw, #32 employer applicants, #33 employer stage changes. Epic #9. Sprint 2. |
+| Job compensation model | **Shipped and merged into `master`** (#28, PR #29). See the change log. |
+| Applications: apply, list mine, withdraw, employer pipeline | **In progress**, split into #30 apply + list mine, #31 withdraw, #32 employer applicants, #33 employer stage changes. Epic #9. Sprint 2. |
 | Saved jobs | #10, sprint 2. |
 | Company name | #11, sprint 2: `companyName` and `companyId` on jobs. |
 | Company **logo** | #34, icebox (no logo storage exists yet). Until it ships, jobs return no `logoUrl`. |
@@ -45,7 +45,7 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 ## Change log (newest first)
 
 ### Sprint 2 — applications, stories P1.3 and P1.4: employer side (#32, #33, epic #9) — 2026-10-05
-Additive. **Branch `feature-applications` is pushed; not merged into `master` yet** (it follows PR #29). With these, the applications epic is complete on the back end.
+Additive. **In review in the applications pull request (branch `feature-applications`); not on `master` until it is merged.** With these, the applications epic is complete on the back end.
 
 - **`GET /jobs/{id}/applications`** (the employer who owns the job). Newest first, withdrawn ones included. Optional `?status=`. Each item is a `JobApplicationResponse`: `id`, `status`, `coverNote`, `createdAt`, `updatedAt` and `applicant { seekerId, username, name, lastName, hasCv }`. Counting per stage is up to you for now (group the list); a stats endpoint comes with #17.
   - `403` `You can only view applications for your own jobs.` (other employers, seekers), `404` unknown job, `400` for an unknown `status` (the message lists the allowed values).
@@ -57,7 +57,7 @@ Additive. **Branch `feature-applications` is pushed; not merged into `master` ye
 - **The pipeline is real now**, so `applicationStage.ts` (fake stage from `postId`) can go, and `MOCK_PIPELINE_CANDIDATES` can be replaced by the list endpoint.
 
 ### Sprint 2 — applications, story P1.2: withdraw (#31, epic #9) — 2026-10-04
-Additive. **Not merged yet** (branch `feature-applications`, same as P1.1 below).
+Additive. **In review in the applications pull request**, same as P1.1 below.
 
 - **`DELETE /applications/{id}`** (the applicant only). Returns **`204`**. It does **not** delete the record: the status becomes `WITHDRAWN` and `updatedAt` changes, so `GET /applications/me` still lists it, flagged `WITHDRAWN`.
 - Allowed from `APPLIED`, `IN_REVIEW`, `INTERVIEW`, `OFFER`. From `REJECTED` or `WITHDRAWN` it is `422` `This application can no longer be withdrawn.`
@@ -65,7 +65,7 @@ Additive. **Not merged yet** (branch `feature-applications`, same as P1.1 below)
 - After withdrawing, the seeker can apply to the job again (`POST /jobs/{id}/apply` re-opens the same application as `APPLIED`).
 
 ### Sprint 2 — applications, story P1.1: apply and list mine (#30, epic #9) — 2026-10-03
-Additive only; nothing existing changes. **Not merged yet** (branch `feature-applications`, ships after PR #29).
+Additive only; nothing existing changes. **In review in the applications pull request** (branch `feature-applications`).
 
 - **`POST /jobs/{id}/apply`** (SEEKER). Optional body `{ "coverNote": "..." }`, max 2,000 characters. `201` with an `ApplicationResponse`. Starts as `APPLIED`.
   - `422` `This job is no longer accepting applications.` (closed job), `422` `You have already applied to this job.`, `403` `Only job seekers can apply for jobs.` (employers), `404` unknown job, `400` `coverNote must be at most 2000 characters`.
