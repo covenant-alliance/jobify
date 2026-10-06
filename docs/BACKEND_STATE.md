@@ -58,6 +58,10 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 
 ## Change log (newest first)
 
+### Sprint 6 — Spring Boot 4.0.8 (GA) and springdoc 3 (#22, T7) — 2026-10-06
+
+No API change: routes, shapes, status codes and error messages are the same, and the whole suite (430 tests) passes unchanged on H2 and on PostgreSQL 18. Also checked by starting the packaged jar: health UP, login, `GET /jobs/search` and Swagger respond. Nothing for the front end to do. Dependabot now opens weekly update PRs. Not done: an OWASP dependency-check job. Issue: #22.
+
 ### Sprint 6 — `location`, `workMode` and `employmentType` are required on jobs (#39, P17) — 2026-10-06
 
 You did not need to answer: the Product Owner decided **yes**.
