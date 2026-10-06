@@ -79,7 +79,10 @@ class AdminUsersIntegrationTest {
     @Test
     void passwordsNeverAppearInTheResponse() throws Exception {
         String body = users("?size=100").andReturn().getResponse().getContentAsString();
-        assertTrue(!body.toLowerCase().contains("password"), "response must not mention passwords");
+        // not the bare word: a test account may legitimately be called "something_password"
+        assertTrue(!body.toLowerCase().contains("\"password\""), "no password field in the response");
+        assertTrue(!body.contains("$2a$") && !body.contains("$2b$") && !body.contains("$2y$"),
+                "no password hash in the response");
     }
 
     // ── search ────────────────────────────────────────────────────────────────
@@ -131,26 +134,47 @@ class AdminUsersIntegrationTest {
 
     // ── paging and sort ───────────────────────────────────────────────────────
 
+    /** The seeded accounts: plain lowercase names that sort the same under every database collation. */
+    private static final List<String> SEEDED = List.of("admin", "alice_s", "bob_s", "carol_s", "financegroup",
+            "startupxyz", "techcorp");
+
+    /**
+     * Usernames are ordered by the database's own collation (PostgreSQL's en_US ignores punctuation such as "_",
+     * H2 and the C locale do not), so tests must not assume Java's String order for names made of arbitrary
+     * characters. Only the relative order of {@link #SEEDED} is the same everywhere.
+     */
+    private static List<String> onlySeeded(List<String> names) {
+        return names.stream().filter(SEEDED::contains).toList();
+    }
+
+    private List<String> walk(int size) throws Exception {
+        java.util.List<String> seen = new java.util.ArrayList<>();
+        int page = 0;
+        boolean last;
+        do {
+            String body = users("?size=" + size + "&page=" + page).andReturn().getResponse().getContentAsString();
+            seen.addAll(JsonPath.<List<String>>read(body, "$.content[*].username"));
+            last = JsonPath.read(body, "$.last");
+            assertEquals(page, (int) JsonPath.read(body, "$.page"));
+            page++;
+        } while (!last);
+        return seen;
+    }
+
     @Test
     void pagingWalksThroughEveryAccountExactlyOnce() throws Exception {
         long total = ((Number) JsonPath.read(users("?size=100").andReturn().getResponse().getContentAsString(),
                 "$.totalElements")).longValue();
         assertTrue(total >= 7, "the seeded accounts should exist");
 
-        java.util.List<String> seen = new java.util.ArrayList<>();
-        int page = 0;
-        boolean last;
-        do {
-            String body = users("?size=3&page=" + page).andReturn().getResponse().getContentAsString();
-            seen.addAll(JsonPath.<List<String>>read(body, "$.content[*].username"));
-            last = JsonPath.read(body, "$.last");
-            assertEquals(page, (int) JsonPath.read(body, "$.page"));
-            page++;
-        } while (!last);
-
-        assertEquals(total, seen.size());
-        assertEquals(total, seen.stream().distinct().count());
-        assertEquals(seen.stream().sorted().toList(), seen); // default order is by username
+        List<String> bySmallPages = walk(3);
+        assertEquals(total, bySmallPages.size());
+        assertEquals(total, bySmallPages.stream().distinct().count());
+        // the order must not depend on how the list is cut into pages
+        assertEquals(bySmallPages, walk(7));
+        assertEquals(bySmallPages, walk(100));
+        // and by default it is by username (checked on the accounts whose order is the same under every collation)
+        assertEquals(SEEDED.stream().sorted().toList(), onlySeeded(bySmallPages));
     }
 
     @Test
@@ -165,7 +189,8 @@ class AdminUsersIntegrationTest {
     void sortOptionsChangeTheOrder() throws Exception {
         String byName = users("?size=100&sort=username").andReturn().getResponse().getContentAsString();
         List<String> names = JsonPath.read(byName, "$.content[*].username");
-        assertEquals(names.stream().sorted().toList(), names);
+        assertEquals(SEEDED.stream().sorted().toList(), onlySeeded(walk(100)), "username order, on the seeded accounts");
+        assertEquals(names, walk(100).subList(0, names.size()), "the first page is the start of the same ordering");
 
         String newest = users("?size=100&sort=newest").andReturn().getResponse().getContentAsString();
         List<Integer> newestIds = JsonPath.read(newest, "$.content[*].id");
