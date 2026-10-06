@@ -82,7 +82,7 @@ class AdminStatsIntegrationTest {
         // a job, an application to it, then a stage change and a deletion request
         String job = mvc.perform(post("/jobs").header(AUTHORIZATION, employer).contentType(APPLICATION_JSON)
                         .content("{\"jobTitle\":\"Stats job\",\"jobDescription\":\"<p>x</p>\",\"rate\":50,"
-                                + "\"rateType\":\"HOURLY\"}"))
+                                + "\"rateType\":\"HOURLY\",\"location\":\"Berlin\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         int jobId = JsonPath.read(job, "$.postId");
         String application = mvc.perform(post("/jobs/" + jobId + "/apply").header(AUTHORIZATION, bearer(mvc, "bob_s")))

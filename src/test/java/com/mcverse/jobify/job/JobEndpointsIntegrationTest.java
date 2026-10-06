@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -30,6 +31,9 @@ class JobEndpointsIntegrationTest {
     private static final String VALID_JOB = """
             {"jobTitle":"Platform Engineer","jobDescription":"<p>Build things</p>","rate":60,"rateType":"HOURLY","location":"Remote","workMode":"REMOTE","employmentType":"FULL_TIME",
              "requiredSkills":["Java","Spring Boot"]}""";
+
+    @Autowired
+    private JdbcTemplate jdbc;
 
     @Autowired
     private WebApplicationContext context;
@@ -116,7 +120,7 @@ class JobEndpointsIntegrationTest {
     @Test
     void clientCannotForceOwnershipOrAvailabilityOnCreate() throws Exception {
         String body = """
-                {"jobTitle":"T","jobDescription":"<p>d</p>","rate":10,"rateType":"HOURLY","available":false,"postId":9999,
+                {"jobTitle":"T","jobDescription":"<p>d</p>","rate":10,"rateType":"HOURLY","location":"X","workMode":"REMOTE","employmentType":"FULL_TIME","available":false,"postId":9999,
                  "employer":{"username":"startupxyz"}}""";
         mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(body))
@@ -150,7 +154,7 @@ class JobEndpointsIntegrationTest {
     @Test
     void oversizedDescriptionIsRejected() throws Exception {
         String big = "a".repeat(20_001);
-        String body = "{\"jobTitle\":\"T\",\"jobDescription\":\"" + big + "\",\"rate\":1,\"rateType\":\"HOURLY\"}";
+        String body = "{\"jobTitle\":\"T\",\"jobDescription\":\"" + big + "\",\"rate\":1,\"rateType\":\"HOURLY\",\"location\":\"Berlin\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\"}";
         mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
@@ -162,7 +166,7 @@ class JobEndpointsIntegrationTest {
     @Test
     void scriptsAndEventHandlersAreStrippedOnCreate() throws Exception {
         String body = "{\"jobTitle\":\"T\",\"jobDescription\":\"<p onclick=\\\"x()\\\">Hi</p>"
-                + "<script>alert(1)</script><a href=\\\"javascript:alert(1)\\\">bad</a><strong>ok</strong>\",\"rate\":1,\"rateType\":\"HOURLY\"}";
+                + "<script>alert(1)</script><a href=\\\"javascript:alert(1)\\\">bad</a><strong>ok</strong>\",\"rate\":1,\"rateType\":\"HOURLY\",\"location\":\"Berlin\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\"}";
         mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
@@ -220,11 +224,13 @@ class JobEndpointsIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    private static final String WHERE = "\"location\":\"Berlin\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\"";
+
     // ── P11: compensation model ───────────────────────────────────────────────
 
     private String createJobJson(String rate, String rateType) {
         return "{\"jobTitle\":\"Pay test\",\"jobDescription\":\"<p>x</p>\",\"rate\":" + rate
-                + (rateType == null ? "" : ",\"rateType\":\"" + rateType + "\"") + "}";
+                + (rateType == null ? "" : ",\"rateType\":\"" + rateType + "\"") + ',' + WHERE + "}";
     }
 
     @Test
@@ -286,7 +292,7 @@ class JobEndpointsIntegrationTest {
     @Test
     void legacyFieldsFromOldClientsAreIgnoredNotRejected() throws Exception {
         String body = "{\"jobTitle\":\"Old client\",\"jobDescription\":\"<p>x</p>\",\"rate\":40,"
-                + "\"rateType\":\"HOURLY\",\"jobRating\":4.5,\"hourlyRate\":999}";
+                + "\"rateType\":\"HOURLY\",\"location\":\"X\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\",\"jobRating\":4.5,\"hourlyRate\":999}";
         mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
@@ -298,7 +304,7 @@ class JobEndpointsIntegrationTest {
     @Test
     void b2bIsAValidEmploymentType() throws Exception {
         String body = "{\"jobTitle\":\"Contractor\",\"jobDescription\":\"<p>x</p>\",\"rate\":80,"
-                + "\"rateType\":\"HOURLY\",\"employmentType\":\"B2B\"}";
+                + "\"rateType\":\"HOURLY\",\"location\":\"X\",\"workMode\":\"REMOTE\",\"employmentType\":\"B2B\"}";
         mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
@@ -326,5 +332,74 @@ class JobEndpointsIntegrationTest {
                 .andExpect(jsonPath("$[0].rate").isNumber())
                 .andExpect(jsonPath("$[0].rateType").value("HOURLY"))
                 .andExpect(jsonPath("$[0].jobRating").doesNotExist());
+    }
+
+    // ── #39: location, workMode and employmentType are required ───────────────
+
+    private String jobWithout(String... omitted) {
+        String json = "{\"jobTitle\":\"Req test\",\"jobDescription\":\"<p>x</p>\",\"rate\":50,\"rateType\":\"HOURLY\"";
+        java.util.Map<String, String> fields = new java.util.LinkedHashMap<>();
+        fields.put("location", "\"Berlin\"");
+        fields.put("workMode", "\"REMOTE\"");
+        fields.put("employmentType", "\"FULL_TIME\"");
+        for (String o : omitted) fields.remove(o);
+        for (var e : fields.entrySet()) json += ",\"" + e.getKey() + "\":" + e.getValue();
+        return json + "}";
+    }
+
+    @Test
+    void eachOfTheThreeIsRequiredOnCreateAndOnEdit() throws Exception {
+        String owner = bearer(mvc, "techcorp");
+        for (String field : new String[] {"location", "workMode", "employmentType"}) {
+            mvc.perform(post("/jobs").header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                            .content(jobWithout(field)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value(field + " is required"));
+        }
+        String created = mvc.perform(post("/jobs").header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWithout())).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        int id = JsonPath.read(created, "$.postId");
+        mvc.perform(put("/jobs/" + id).header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWithout("location", "workMode", "employmentType")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("location is required")))
+                .andExpect(jsonPath("$.message", containsString("workMode is required")))
+                .andExpect(jsonPath("$.message", containsString("employmentType is required")));
+    }
+
+    @Test
+    void aBlankLocationIsRefusedAndAnUnknownEnumValueIs400() throws Exception {
+        String owner = bearer(mvc, "techcorp");
+        mvc.perform(post("/jobs").header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWithout("location").replace("}", ",\"location\":\"   \"}")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("location is required"));
+        mvc.perform(post("/jobs").header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWithout("workMode").replace("}", ",\"workMode\":\"UNDERWATER\"}")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void aJobThatPredatesTheRuleStillWorksUntilItsOwnerEditsIt() throws Exception {
+        String owner = bearer(mvc, "techcorp");
+        String created = mvc.perform(post("/jobs").header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWithout())).andReturn().getResponse().getContentAsString();
+        int id = JsonPath.read(created, "$.postId");
+        jdbc.update("update job_posts set location = null, work_mode = null, employment_type = null where post_id = ?", id);
+
+        mvc.perform(get("/jobs/" + id)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.location").doesNotExist())
+                .andExpect(jsonPath("$.workMode").doesNotExist());
+        mvc.perform(patch("/jobs/" + id + "/available").header(AUTHORIZATION, owner)
+                        .contentType(APPLICATION_JSON).content("{\"available\":false}"))
+                .andExpect(status().isOk());
+        mvc.perform(put("/jobs/" + id).header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWithout("location")))
+                .andExpect(status().isBadRequest());
+        mvc.perform(put("/jobs/" + id).header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWithout()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.location").value("Berlin"));
     }
 }

@@ -45,7 +45,7 @@ class SavedJobsIntegrationTest {
         String body = mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, employerUsername))
                         .contentType(APPLICATION_JSON)
                         .content("{\"jobTitle\":\"" + title + "\",\"jobDescription\":\"<p>x</p>\",\"rate\":50,"
-                                + "\"rateType\":\"HOURLY\"}"))
+                                + "\"rateType\":\"HOURLY\",\"location\":\"Berlin\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return JsonPath.read(body, "$.postId");
     }
@@ -198,7 +198,7 @@ class SavedJobsIntegrationTest {
         String employer = "Bearer " + JsonPath.read(body, "$.token");
         String created = mvc.perform(post("/jobs").header(AUTHORIZATION, employer).contentType(APPLICATION_JSON)
                         .content("{\"jobTitle\":\"Will vanish\",\"jobDescription\":\"<p>x</p>\",\"rate\":20,"
-                                + "\"rateType\":\"HOURLY\"}"))
+                                + "\"rateType\":\"HOURLY\",\"location\":\"Berlin\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\"}"))
                 .andReturn().getResponse().getContentAsString();
         int jobId = JsonPath.read(created, "$.postId");
         String alice = bearer(mvc, "alice_s");

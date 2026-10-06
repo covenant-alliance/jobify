@@ -37,13 +37,19 @@ public record CreateJobRequest(
         @NotNull(message = "is required")
         RateType rateType,
 
-        @Schema(description = "Free-text work location", example = "Berlin, DE", nullable = true)
+        @Schema(description = "Free-text work location", example = "Berlin, DE")
+        @NotBlank(message = "is required")
         @Size(max = JobLimits.LOCATION_MAX, message = "must be at most " + JobLimits.LOCATION_MAX + " characters")
         String location,
 
-        @Schema(nullable = true) WorkMode workMode,
+        @Schema(description = "ONSITE, REMOTE or HYBRID", example = "REMOTE")
+        @NotNull(message = "is required")
+        WorkMode workMode,
 
-        @Schema(nullable = true) EmploymentType employmentType,
+        @Schema(description = "FULL_TIME, PART_TIME, CONTRACT, TEMPORARY, INTERNSHIP, FREELANCE or B2B",
+                example = "FULL_TIME")
+        @NotNull(message = "is required")
+        EmploymentType employmentType,
 
         @Schema(description = "Names of required skills. Unknown names are added to the shared catalog.",
                 example = "[\"Java\", \"Spring Boot\"]", nullable = true)

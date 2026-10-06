@@ -58,6 +58,20 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 
 ## Change log (newest first)
 
+### Sprint 6 — Spring Boot 4.0.8 (GA) and springdoc 3 (#22, T7) — 2026-10-06
+
+No API change: routes, shapes, status codes and error messages are the same, and the whole suite (430 tests) passes unchanged on H2 and on PostgreSQL 18. Also checked by starting the packaged jar: health UP, login, `GET /jobs/search` and Swagger respond. Nothing for the front end to do. Dependabot now opens weekly update PRs. Not done: an OWASP dependency-check job. Issue: #22.
+
+### Sprint 6 — `location`, `workMode` and `employmentType` are required on jobs (#39, P17) — 2026-10-06
+
+You did not need to answer: the Product Owner decided **yes**.
+
+**Request change: `POST /jobs` and `PUT /jobs/{id}` now return `400` if any of the three is missing** (`location is required`, `workMode is required`, `employmentType is required`; several are joined with `; `). A blank or whitespace-only `location` counts as missing. Responses are unchanged.
+
+- Your Post-a-Job form already sends all three, so no change is needed there. Any other caller that omitted them breaks.
+- **Existing jobs with null values still work:** they are returned as before (fields absent/null), can be opened and closed, and are searchable. They are only refused when their owner saves an edit (`PUT`) without filling the three in. So **keep your fallbacks for now**: they can be removed once old data is gone. Demo and seeded jobs already have all three. I cannot clean real-world nulls for you; an owner has to edit those jobs.
+- Issue: #39.
+
 ### Sprint 6 — server-side job search, filters and paging (#13, P4) — 2026-10-06
 
 You had not answered the proposal, so I built the **defaults** I proposed. Nothing existing changes: `GET /jobs` and `GET /jobs?available=true` still return the same plain array.

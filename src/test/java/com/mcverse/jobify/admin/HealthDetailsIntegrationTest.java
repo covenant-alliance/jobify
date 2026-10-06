@@ -3,7 +3,7 @@ package com.mcverse.jobify.admin;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.web.server.test.LocalServerPort;
+import org.springframework.boot.test.web.server.LocalServerPort;
 
 import java.net.URI;
 import java.net.http.HttpClient;

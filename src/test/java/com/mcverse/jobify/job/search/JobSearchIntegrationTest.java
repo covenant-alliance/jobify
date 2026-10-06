@@ -72,9 +72,10 @@ class JobSearchIntegrationTest {
         StringBuilder json = new StringBuilder("{\"jobTitle\":\"" + tag + " " + titleSuffix + "\",\"jobDescription\":\""
                 + description.replace("\"", "\\\"") + "\",\"rate\":" + (rate == null ? 50 : rate)
                 + ",\"rateType\":\"" + (rateType == null ? "HOURLY" : rateType) + "\"");
-        if (location != null) json.append(",\"location\":\"").append(location).append("\"");
-        if (workMode != null) json.append(",\"workMode\":\"").append(workMode).append("\"");
-        if (employmentType != null) json.append(",\"employmentType\":\"").append(employmentType).append("\"");
+        // the three are required on a job; tests that do not care get these values
+        json.append(",\"location\":\"").append(location == null ? "Nowhere" : location).append("\"");
+        json.append(",\"workMode\":\"").append(workMode == null ? "ONSITE" : workMode).append("\"");
+        json.append(",\"employmentType\":\"").append(employmentType == null ? "INTERNSHIP" : employmentType).append("\"");
         if (skills.length > 0) {
             json.append(",\"requiredSkills\":[");
             for (int i = 0; i < skills.length; i++) json.append(i > 0 ? "," : "").append("\"").append(skills[i]).append("\"");
@@ -241,8 +242,8 @@ class JobSearchIntegrationTest {
         search("workMode=REMOTE&workMode=ONSITE&employmentType=FULL_TIME")
                 .andExpect(jsonPath("$.content[*].postId", containsInAnyOrder(remote, onsite)));
         search("workMode=REMOTE&employmentType=B2B").andExpect(jsonPath("$.content", empty()));
-        // a job without the field is never matched by a filter on it
-        assertFalse(ids("workMode=REMOTE&workMode=HYBRID&workMode=ONSITE").contains(unset));
+        // a job in another mode (the default ONSITE here) is not matched by a filter that leaves it out
+        assertFalse(ids("workMode=REMOTE&workMode=HYBRID").contains(unset));
     }
 
     // -------------------------------------------------------------------------------------------------- rate
@@ -425,7 +426,7 @@ class JobSearchIntegrationTest {
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/jobs/" + id)
                         .header(AUTHORIZATION, employer).contentType(APPLICATION_JSON)
                         .content("{\"jobTitle\":\"" + tag + " edit\",\"jobDescription\":\"<p>after" + tag
-                                + "</p>\",\"rate\":50,\"rateType\":\"HOURLY\"}"))
+                                + "</p>\",\"rate\":50,\"rateType\":\"HOURLY\",\"location\":\"Berlin\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\"}"))
                 .andExpect(status().isOk());
         mvc.perform(get("/jobs/search?q=after" + tag)).andExpect(jsonPath("$.content[*].postId", contains(id)));
         mvc.perform(get("/jobs/search?q=before" + tag)).andExpect(jsonPath("$.content", empty()));
