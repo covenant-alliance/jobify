@@ -33,6 +33,8 @@ public class AdminAccountService {
     @Autowired private SavedJobRepository savedJobRepo;
     @Autowired private NotificationService notifications;
     @Autowired private AuditLog auditLog;
+    @Autowired private com.mcverse.jobify.job.service.JobImageService jobImages;
+    @Autowired private com.mcverse.jobify.user.service.CompanyLogoService companyLogos;
 
     public List<DeletionRequestResponse> listPending() {
         return deletionRequestRepository.findAllByStatusOrderByRequestedAtAsc(DeletionRequestStatus.PENDING)
@@ -53,6 +55,8 @@ public class AdminAccountService {
             case EMPLOYER -> {
                 applicationRepo.deleteByJobEmployerUsername(request.getUsername());
                 savedJobRepo.deleteByJobEmployerUsername(request.getUsername());
+                jobImages.deleteFilesOfEmployer(request.getUsername());
+                companyLogos.dropLogoOfEmployer(request.getUsername());
                 employerRepo.findByUsername(request.getUsername()).ifPresent(employerRepo::delete);
             }
             case ADMIN -> { /* no domain profile to remove */ }

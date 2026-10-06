@@ -51,6 +51,8 @@ class RouteSecurityMatrixTest {
             "GET /jobs/search",
             "GET /content",
             "GET /companies/{id}",
+            "GET /companies/{id}/logo",
+            "GET /jobs/{jobId}/images/{imageId}",
             "POST /auth/login",
             "POST /auth/register");
 

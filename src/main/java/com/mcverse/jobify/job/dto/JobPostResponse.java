@@ -56,5 +56,16 @@ public record JobPostResponse(
         LocalDateTime createdAt,
 
         @Schema(description = "Names of skills required for this position, drawn from the shared skill catalog")
-        List<String> requiredSkills
+        List<String> requiredSkills,
+
+        @Schema(description = "What the employer offers, in display order; empty when none were given")
+        List<String> benefits,
+
+        @Schema(description = "Picture URLs (at most 6), oldest first, relative to the API address. Public; empty "
+                + "when none", example = "[\"/jobs/7/images/3f2a...\"]")
+        List<String> images,
+
+        @Schema(description = "The company's logo URL, relative to the API address; null when it has none",
+                example = "/companies/7f3b.../logo?v=1760000000000", nullable = true)
+        String logoUrl
 ) {}

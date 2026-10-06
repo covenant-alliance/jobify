@@ -360,7 +360,7 @@ public class UserService {
     }
 
     private CompanyResponse toCompanyResponse(Company c) {
-        return new CompanyResponse(c.getId(), c.getName());
+        return new CompanyResponse(c.getId(), c.getName(), CompanyLogos.urlOf(c));
     }
 
     private EducationResponse toEducationResponse(Education e) {

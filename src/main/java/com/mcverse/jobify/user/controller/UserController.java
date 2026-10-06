@@ -2,6 +2,7 @@ package com.mcverse.jobify.user.controller;
 
 import com.mcverse.jobify.common.exception.ResourceNotFoundException;
 import com.mcverse.jobify.user.dto.*;
+import com.mcverse.jobify.user.service.CompanyLogoService;
 import com.mcverse.jobify.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,6 +34,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private CompanyLogoService companyLogoService;
 
     // ── Seeker endpoints ──────────────────────────────────────────────────────
 
@@ -218,6 +222,40 @@ public class UserController {
             @PathVariable String id,
             @Valid @RequestBody CompanyRequest request) {
         return userService.updateCompany(principal.getUsername(), id, request);
+    }
+
+    @Operation(summary = "Upload or replace the company logo",
+            description = "Only the employer who owns the company. Multipart field `file`: PNG, JPEG or WebP, at most "
+                    + "1 MB (the type is read from the file itself). The response carries the new `logoUrl`.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logo stored",
+                    content = @Content(schema = @Schema(implementation = CompanyResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Not the owner of this company"),
+            @ApiResponse(responseCode = "404", description = "Company not found"),
+            @ApiResponse(responseCode = "422", description = "Not a PNG, JPEG or WebP image, or larger than 1 MB"),
+    })
+    @PostMapping(value = "/companies/{id}/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CompanyResponse uploadLogo(
+            @AuthenticationPrincipal UserDetails principal,
+            @Parameter(description = "Company UUID") @PathVariable String id,
+            @RequestParam("file") MultipartFile file) {
+        return companyLogoService.upload(principal.getUsername(), id, file);
+    }
+
+    @Operation(summary = "Remove the company logo", description = "Only the employer who owns the company.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Logo removed"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Not the owner of this company"),
+            @ApiResponse(responseCode = "404", description = "Company not found, or it has no logo"),
+    })
+    @DeleteMapping("/companies/{id}/logo")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteLogo(
+            @AuthenticationPrincipal UserDetails principal,
+            @Parameter(description = "Company UUID") @PathVariable String id) {
+        companyLogoService.remove(principal.getUsername(), id);
     }
 
     // ── Seeker education endpoints ──────────────────────────────────────────────

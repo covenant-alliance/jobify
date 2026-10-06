@@ -208,6 +208,9 @@ Returns job postings. By default returns **all** posts regardless of status, fro
 | `employmentType` | string \| null | `FULL_TIME`, `PART_TIME`, `CONTRACT`, `TEMPORARY`, `INTERNSHIP`, `FREELANCE`, `B2B` |
 | `createdAt` | ISO-8601 datetime \| null | No zone |
 | `requiredSkills` | string[] | Skill names |
+| `benefits` | string[] | What the employer offers, in display order; `[]` when none (since #35) |
+| `images` | string[] | Picture URLs, oldest first, at most 6, relative to the API address (e.g. `/jobs/7/images/<id>`); `[]` when none (since #35) |
+| `logoUrl` | string \| null | The company's logo URL, relative to the API address (e.g. `/companies/<id>/logo?v=1760000000000`); `null` when none (since #34) |
 
 ---
 
@@ -250,7 +253,19 @@ Public. Response `200`: one `JobPostResponse`. `404` if it does not exist.
 
 ### `GET /companies/{id}`
 
-Public, no token. Response `200`: `{ "id": "...", "name": "TechCorp Ltd" }`. `404` if the company does not exist.
+Public, no token. Response `200`: `{ "id": "...", "name": "TechCorp Ltd", "logoUrl": "/companies/.../logo?v=..." | null }`. `404` if the company does not exist.
+
+### `GET /companies/{id}/logo`
+
+Public, no token. The logo image itself (`image/png`, `image/jpeg` or `image/webp`), `Cache-Control: public, max-age=86400`. `404` if the company does not exist or has no logo. Use `logoUrl` as given (it carries a version that changes with each upload) and put the API base address in front of it.
+
+### `POST /users/companies/{id}/logo` and `DELETE /users/companies/{id}/logo`
+
+**EMPLOYER who owns the company.** `POST` is `multipart/form-data` with the field `file`: PNG, JPEG or WebP, at most **1 MB**; the type is read from the file's bytes, so the name and the browser's content type do not matter (SVG is refused). Replaces any earlier logo. Response `200`: the `CompanyResponse` with the new `logoUrl`. `DELETE` answers `204`. Errors: `401`, `403` (`You can only change the logo of your own company.`), `404` (no such company; on `DELETE` also "no logo yet"), `422` (`Only PNG, JPEG and WebP images are supported.`, `Logo must be 1 MB or smaller.`, `Please choose an image to upload.`).
+
+### `POST /jobs/{id}/images`, `DELETE /jobs/{id}/images/{imageId}`, `GET /jobs/{id}/images/{imageId}`
+
+Pictures on a job, at most **6**, each at most **2 MB**, PNG/JPEG/WebP (read from the bytes). `POST` is `multipart/form-data` with the field `file`, **owner only**, answers `201` with the updated `JobPostResponse` (see `images`). `DELETE` is owner only and answers `200` with the updated job. `GET` is **public**, returns the image with `Cache-Control: public, max-age=31536000` (an image never changes; it can only be removed). Errors: `401`, `403` (not your job), `404` (job or image), `422` (`Only PNG, JPEG and WebP images are supported.`, `Image must be 2 MB or smaller.`, `A job can have at most 6 images. Remove one first.`). Removing the employer's account removes their files.
 
 ---
 
@@ -913,7 +928,7 @@ Adding a value to any of these is a contract change: tell the front-end session.
 | Area | Routes | Access |
 |---|---|---|
 | Auth | `POST /auth/register`, `POST /auth/login` | public |
-| Jobs | `GET /jobs`, `GET /jobs/search`, `GET /jobs/{id}`, `GET /companies/{id}` | public |
+| Jobs | `GET /jobs`, `GET /jobs/search`, `GET /jobs/{id}`, `GET /jobs/{id}/images/{imageId}`, `GET /companies/{id}`, `GET /companies/{id}/logo` | public |
 | Jobs | `POST /jobs`, `PUT /jobs/{id}`, `PATCH /jobs/{id}/available`, `GET /jobs/mine` | employer (owner) |
 | Saved jobs | `PUT`/`DELETE /jobs/{id}/save`, `GET /jobs/saved` | seeker |
 | Applications | `POST /jobs/{id}/apply`, `GET /applications/me`, `GET /applications/me/stats`, `DELETE /applications/{id}` | seeker |
@@ -959,6 +974,9 @@ interface JobPostResponse {
   employmentType: string | null;
   createdAt: string | null;       // ISO-8601, no zone
   requiredSkills: string[];
+  benefits: string[];             // display order; [] when none
+  images: string[];               // relative URLs, oldest first, max 6
+  logoUrl: string | null;         // relative URL of the company logo
 }
 ```
 
@@ -974,6 +992,7 @@ interface CreateJobRequest {
   workMode: "ONSITE" | "REMOTE" | "HYBRID";   // required
   employmentType: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "TEMPORARY" | "INTERNSHIP" | "FREELANCE" | "B2B";   // required
   requiredSkills?: string[];      // skill names
+  benefits?: string[];            // max 15, each non-blank and at most 80 chars; omit on edit = unchanged, [] = clear
 }
 ```
 

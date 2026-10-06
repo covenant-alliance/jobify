@@ -42,9 +42,9 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P9. User preferences.** Optional `GET/PUT /users/me/preferences` (notification toggles) to replace the front end's `localStorage` copy. Low priority.
 
-**P12. Company logo (#34, icebox).** Upload plus `logoUrl` on jobs and companies. The front end derives initials and a colour until it exists.
+**P12. Company logo (#34).** *(DONE 2026-10-06, see `docs/BACKEND_STATE.md`.)* Upload plus `logoUrl` on jobs and companies. The front end derives initials and a colour until it exists.
 
-**P13. Benefits and gallery on jobs (#35, icebox, optional).** `benefits[]` and `images[]`; the front end keeps hardcoded pools meanwhile.
+**P13. Benefits and gallery on jobs (#35).** *(DONE 2026-10-06, see `docs/BACKEND_STATE.md`.)* `benefits[]` and `images[]`; the front end keeps hardcoded pools meanwhile.
 
 **P14. Responsibilities and requirements (#36, decision).** Keep the front end's sentence-splitting heuristic, or add structured fields.
 

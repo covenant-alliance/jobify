@@ -71,6 +71,17 @@ public class JobPost {
     )
     private List<Skill> requiredSkills = new ArrayList<>();
 
+    /** What the employer offers (short phrases), in display order. */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "job_benefits", joinColumns = @JoinColumn(name = "job_post_id"))
+    @OrderColumn(name = "position")
+    @Column(name = "benefit", nullable = false, length = 80)
+    private List<String> benefits = new ArrayList<>();
+
+    @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("position")
+    private List<JobImage> images = new ArrayList<>();
+
     protected JobPost() {}
 
     public JobPost(String jobTitle, String jobDescription, double rate, RateType rateType) {
@@ -93,6 +104,14 @@ public class JobPost {
         this.jobDescription = jobDescription;
         this.descriptionText = PlainText.fromHtml(jobDescription);
     }
+    public List<String> getBenefits()                    { return benefits; }
+    public List<JobImage> getImages()                    { return images; }
+
+    public void setBenefits(List<String> benefits) {
+        this.benefits.clear();
+        this.benefits.addAll(benefits);
+    }
+
     public String getDescriptionText()                   { return descriptionText; }
     /** Used only by the backfill for jobs saved before the plain-text column existed. */
     public void refreshDescriptionText()                 { this.descriptionText = PlainText.fromHtml(jobDescription); }
