@@ -763,10 +763,44 @@ interface DeletionRequestResponse {
 
 | Route | What it does |
 |---|---|
-| `GET /admin/users` | All accounts as `{ id: number, username, role }[]` (not paged yet; `id` is the numeric account id, not a profile UUID). |
+| `GET /admin/users` | Accounts, **always paged** (see below). |
+| `GET /admin/stats` | Headline numbers (see below). |
 | `GET /admin/deletion-requests` | Pending deletion requests, oldest first (`DeletionRequestResponse[]`). |
 | `POST /admin/deletion-requests/{id}/approve` | Permanently deletes the requester's account and profile, **including their applications and saved jobs, and for an employer all their job posts**. `200` with the resolved request. `404` unknown id, `422` `This request has already been resolved.` |
 | `POST /admin/deletion-requests/{id}/reject` | Body optional: `{ "note": "..." }` (max 255). `200` with the resolved request (`resolutionNote` set). Same errors. |
+
+### `GET /admin/users`
+
+Query: `q` (text to find in the username or the profile's first or last name, contains, any case; at most 100 characters; `%` and `_` are literal), `role` (`SEEKER`, `EMPLOYER` or `ADMIN`), `sort` (`username` default, `role`, `newest`, `oldest`), `page` (from 0), `size` (1 to 100, default 20). Response `200` is the same paged envelope the search proposal uses:
+
+```json
+{
+  "content": [ { "id": 2, "username": "alice_s", "role": "SEEKER", "name": "Alice", "lastName": "Johnson",
+                 "profileId": "550e8400-...", "creationDate": "2026-09-30T08:12:00" } ],
+  "page": 0, "size": 20, "totalElements": 7, "totalPages": 1, "last": true
+}
+```
+
+`id` is the numeric account id; `profileId` is the profile UUID (for `GET /users/seekers/{id}` or `/users/employers/{id}`). `name`, `lastName`, `profileId` and `creationDate` are `null` for accounts without a profile (admins). Passwords are never returned. No match is `200` with an empty `content`. Errors: `400` (`size must be between 1 and 100.`, `page must be 0 or more.`, `sort must be one of: username, role, newest, oldest.`, `q must be at most 100 characters.`, unknown `role`), `401`, `403`.
+
+**Changed in sprint 4:** this route used to return a plain array of `{ id, username, role }`. Nothing was calling it, so it was changed rather than kept alongside a second shape. The three old fields are still there.
+
+### `GET /admin/stats`
+
+```json
+{
+  "users":        { "total": 7, "byRole": { "SEEKER": 3, "EMPLOYER": 3, "ADMIN": 1 }, "newLast7Days": 6, "newLast30Days": 6 },
+  "jobs":         { "total": 9, "open": 7, "closed": 2, "postedLast7Days": 9 },
+  "applications": { "total": 4, "byStatus": { "APPLIED": 1, "IN_REVIEW": 1, "INTERVIEW": 0, "OFFER": 0, "REJECTED": 1, "WITHDRAWN": 1 }, "submittedLast7Days": 4 },
+  "pendingDeletionRequests": 2
+}
+```
+
+`byRole` and `byStatus` always contain every key (zero-filled). "Last 7 / 30 days" counts profiles created, jobs posted and applications submitted in that window. Errors: `401`, `403`.
+
+### Audit log
+
+Admin actions are written to a separate `AUDIT` logger, one line each: who, what, and the details. Covered: listing users (with the search used), viewing the stats, approving or rejecting a deletion request, and editing site content. Text from requests is flattened to one line so it cannot forge an entry. Route the `AUDIT` logger to its own file or system in production.
 
 ---
 
@@ -818,7 +852,7 @@ Adding a value to any of these is a contract change: tell the front-end session.
 | Profiles | `/users/seekers/**`, `/users/employers/**`, `/users/companies/**` | authenticated (`/me` = own) |
 | Notifications | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/{id}/read`, `POST /notifications/read-all` | authenticated (own only) |
 | Account | `/account/**` | authenticated |
-| Admin | `/admin/**` | admin |
+| Admin | `/admin/users`, `/admin/stats`, `/admin/deletion-requests/**`, `/admin/content` | admin |
 | Content | `GET /content` | public |
 
 ---

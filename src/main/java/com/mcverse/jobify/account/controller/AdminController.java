@@ -1,6 +1,8 @@
 package com.mcverse.jobify.account.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import com.mcverse.jobify.account.dto.DeletionRequestResponse;
 import com.mcverse.jobify.account.dto.ResolveDeletionRequestRequest;
 import com.mcverse.jobify.account.service.AdminAccountService;
@@ -48,8 +50,9 @@ public class AdminController {
     })
     @PostMapping("/deletion-requests/{id}/approve")
     public DeletionRequestResponse approve(
+            @AuthenticationPrincipal UserDetails principal,
             @Parameter(description = "Deletion request ID") @PathVariable String id) {
-        return adminAccountService.approve(id);
+        return adminAccountService.approve(id, principal.getUsername());
     }
 
     @Operation(summary = "Reject a deletion request")
@@ -60,8 +63,10 @@ public class AdminController {
     })
     @PostMapping("/deletion-requests/{id}/reject")
     public DeletionRequestResponse reject(
+            @AuthenticationPrincipal UserDetails principal,
             @Parameter(description = "Deletion request ID") @PathVariable String id,
             @Valid @RequestBody(required = false) ResolveDeletionRequestRequest body) {
-        return adminAccountService.reject(id, body != null ? body : new ResolveDeletionRequestRequest(null));
+        return adminAccountService.reject(id, body != null ? body : new ResolveDeletionRequestRequest(null),
+                principal.getUsername());
     }
 }

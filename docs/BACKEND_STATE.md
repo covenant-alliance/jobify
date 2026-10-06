@@ -25,7 +25,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 | Seeker dashboard charts | #38 `GET /applications/me/stats`, sprint 4, after applications. |
 | Notifications | **Built** (#14): see the change log. The bell can be wired now. |
 | Company dashboard stats | #16, sprint 4. **Open question for the Product Owner: "views" per job** (needs view tracking; may be dropped). |
-| Admin users with paging and search, and admin stats | #15, sprint 4. `GET /admin/users` already exists unpaged; you can wire it today. |
+| Admin users with paging and search, and admin stats | **Built** (#15): see the change log. `GET /admin/users` is now paged (an unused route, so this is a deliberate change). |
 | Server-side search and paging | #13, sprint 3. **Proposal written, waiting for your answers** (section below). |
 | Dropping your random fallbacks for `location` / `workMode` / `employmentType` | #39, **Product Owner decision** pending: whether the API starts requiring all three on new jobs. Keep your fallbacks for now. |
 | Match %, recommended jobs, candidates | **Parked** as you asked (#12, icebox). Nothing will be built until it is scheduled. |
@@ -92,7 +92,7 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 8 points: query builder with every filter and sort, input validation, tests for each filter and combination (including the rate rules and the empty and invalid cases), documentation, and a check of query cost on a few thousand generated jobs.
 
 ## Open requests for the front end
-- [ ] **Notifications:** replace `MOCK_NOTIFICATIONS` with `GET /notifications`, drive the bell badge from `GET /notifications/unread-count` (poll every 30 to 60 s), call `POST /notifications/{id}/read` when one is opened and `POST /notifications/read-all` for "mark all as read". Use `jobId` / `applicationId` for links. Map `type` (uppercase) to your existing icons (issue #14).- [ ] **Seeker dashboard charts:** replace the static `EMPLOYEE_CHART_DATA` with `GET /applications/me/stats` (a weekly bar or line from `weekly`, and a status breakdown from `byStatus`; `active` for the headline number) (issue #38).- [ ] **Answer the search proposal** (section "Proposal awaiting your answer", issue #13): reply under "Requests to the back end" in your file. "Accept the defaults" is enough. I will not start until you do.
+- [ ] **Admin dashboard:** replace `MOCK_USERS` with `GET /admin/users` (use `content`, `totalPages` and `last` for paging; send `q` for the search box and `role` for a role filter, debounced) and replace the mock metric cards in `ADMIN_METRICS` with `GET /admin/stats`. The pending deletion requests number is in the stats too (issue #15).- [ ] **Notifications:** replace `MOCK_NOTIFICATIONS` with `GET /notifications`, drive the bell badge from `GET /notifications/unread-count` (poll every 30 to 60 s), call `POST /notifications/{id}/read` when one is opened and `POST /notifications/read-all` for "mark all as read". Use `jobId` / `applicationId` for links. Map `type` (uppercase) to your existing icons (issue #14).- [ ] **Seeker dashboard charts:** replace the static `EMPLOYEE_CHART_DATA` with `GET /applications/me/stats` (a weekly bar or line from `weekly`, and a status breakdown from `byStatus`; `active` for the headline number) (issue #38).- [ ] **Answer the search proposal** (section "Proposal awaiting your answer", issue #13): reply under "Requests to the back end" in your file. "Accept the defaults" is enough. I will not start until you do.
 - [ ] **Login and register forms:** show the `message` of a `429` as it is (it already says how long to wait), and keep the form usable afterwards. A `429` is not an auth failure, so it must **not** log the user out or clear the token (only `401` does that).
 - [ ] **Register and change-password forms:** show the password rules up front (8 to 72 characters, not your username, not a common password) so the user does not hit the `400` first (issue #23).Updated 2026-10-06 after reading your snapshot of the same day. Everything below is merged on `master` and ready to use.
 
@@ -108,6 +108,15 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 4 — admin users with paging and search, and admin stats (#15, P7) — 2026-10-06
+**Contract change on `GET /admin/users`:** it now returns a **paged envelope** instead of a plain array. Nothing you call used it (the admin table still shows `MOCK_USERS`), so I changed it rather than keep two shapes. If you had started wiring it as an array, switch to `content`.
+
+- **`GET /admin/users`** (admin): `?q=` (username, first name or last name, contains, any case), `?role=SEEKER|EMPLOYER|ADMIN`, `?sort=username|role|newest|oldest`, `?page=` (from 0), `?size=` (1 to 100, default 20). Response: `{ content, page, size, totalElements, totalPages, last }`, the same envelope proposed for job search. Each item: `id` (numeric account id), `username`, `role`, and now also `name`, `lastName`, `profileId` and `creationDate` (all `null` for admins, who have no profile). Passwords are never returned.
+- **`GET /admin/stats`** (admin): `users` (`total`, `byRole`, `newLast7Days`, `newLast30Days`), `jobs` (`total`, `open`, `closed`, `postedLast7Days`), `applications` (`total`, `byStatus` with all six statuses, `submittedLast7Days`) and `pendingDeletionRequests`. All keys are always present.
+- Bad paging or sort is a readable `400`; non-admins get `403`.
+- **Audit log:** admin actions (listing users, viewing stats, approving or rejecting a deletion, editing content) are now written to a dedicated `AUDIT` log. No effect on the API.
+- **Not built (the optional stretch in the issue):** disabling or deleting a user directly, and job moderation. Account deletion still goes through the user's own request and an admin's approval. Say so if you need either and I will size them.
 
 ### Sprint 4 — in-app notifications (#14, P6) — 2026-10-06
 Additive. New table `notifications`, created in place. Nothing existing changes.

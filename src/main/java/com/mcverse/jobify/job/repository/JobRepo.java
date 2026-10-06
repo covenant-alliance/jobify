@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface JobRepo extends JpaRepository<JobPost, Integer> {
@@ -17,6 +18,10 @@ public interface JobRepo extends JpaRepository<JobPost, Integer> {
     List<JobPost> findAllByAvailable(boolean available);
 
     List<JobPost> findAllByEmployerUsername(String username);
+
+    long countByAvailable(boolean available);
+
+    long countByCreatedAtGreaterThanEqual(LocalDateTime since);
 
     /** Gives rows created before the compensation model a rate: the old hourly rate, as HOURLY. */
     @Modifying

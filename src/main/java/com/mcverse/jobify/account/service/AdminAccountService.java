@@ -1,5 +1,6 @@
 package com.mcverse.jobify.account.service;
 
+import com.mcverse.jobify.admin.AuditLog;
 import com.mcverse.jobify.application.repository.ApplicationRepository;
 import com.mcverse.jobify.job.repository.SavedJobRepository;
 import com.mcverse.jobify.notification.model.NotificationType;
@@ -31,6 +32,7 @@ public class AdminAccountService {
     @Autowired private ApplicationRepository applicationRepo;
     @Autowired private SavedJobRepository savedJobRepo;
     @Autowired private NotificationService notifications;
+    @Autowired private AuditLog auditLog;
 
     public List<DeletionRequestResponse> listPending() {
         return deletionRequestRepository.findAllByStatusOrderByRequestedAtAsc(DeletionRequestStatus.PENDING)
@@ -38,7 +40,7 @@ public class AdminAccountService {
     }
 
     @Transactional
-    public DeletionRequestResponse approve(String requestId) {
+    public DeletionRequestResponse approve(String requestId, String adminUsername) {
         DeletionRequest request = pendingRequest(requestId);
 
         // Applications and saved jobs reference the seeker and the employer's jobs: remove them first, or the foreign key blocks the delete.
@@ -59,14 +61,17 @@ public class AdminAccountService {
         authUserRepository.findByUsername(request.getUsername()).ifPresent(authUserRepository::delete);
 
         request.resolve(DeletionRequestStatus.APPROVED, null);
+        auditLog.record(adminUsername, "APPROVE_DELETION", "request=" + requestId + " account=" + request.getUsername()
+                + " role=" + request.getRequesterRole());
         return accountService.toResponse(deletionRequestRepository.save(request));
     }
 
     @Transactional
-    public DeletionRequestResponse reject(String requestId, ResolveDeletionRequestRequest body) {
+    public DeletionRequestResponse reject(String requestId, ResolveDeletionRequestRequest body, String adminUsername) {
         DeletionRequest request = pendingRequest(requestId);
         request.resolve(DeletionRequestStatus.REJECTED, body.note());
         DeletionRequest saved = deletionRequestRepository.save(request);
+        auditLog.record(adminUsername, "REJECT_DELETION", "request=" + requestId + " account=" + request.getUsername());
         String reason = body.note() == null || body.note().isBlank() ? "" : " Note from the admin: " + body.note();
         notifications.notify(request.getUsername(), NotificationType.ACCOUNT, "Account deletion request declined",
                 "Your request to delete your account was declined, so your account stays active." + reason,

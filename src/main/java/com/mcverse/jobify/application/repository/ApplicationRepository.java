@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,6 +19,11 @@ public interface ApplicationRepository extends JpaRepository<Application, String
     List<Application> findAllByJobPostIdOrderByCreatedAtDesc(Integer postId);
 
     List<Application> findAllByJobPostIdAndStatusOrderByCreatedAtDesc(Integer postId, ApplicationStatus status);
+
+    @Query("select a.status, count(a) from Application a group by a.status")
+    List<Object[]> countGroupedByStatus();
+
+    long countByCreatedAtGreaterThanEqual(LocalDateTime since);
 
     /** Needed before a seeker account is deleted, otherwise the foreign key blocks it. */
     @Modifying
