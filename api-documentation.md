@@ -324,6 +324,47 @@ Deleting an account (admin-approved) also deletes its saved jobs, and bookmarks 
 
 ---
 
+## Notifications endpoints `/notifications/**`
+
+> Any signed-in user; each user only ever sees their own. All require `Authorization: Bearer <token>`. There is no push channel yet, so poll `GET /notifications/unread-count` (every 30 to 60 seconds is plenty) for the bell badge.
+
+```ts
+interface NotificationResponse {
+  id: string;                     // UUID
+  type: "INTERVIEW" | "APPLICATION" | "SYSTEM" | "HIRING" | "ACCOUNT";
+  title: string;                  // plain text
+  body: string;                   // plain text, show it as text, never as HTML
+  read: boolean;
+  createdAt: string;              // ISO-8601, no zone
+  jobId: number | null;           // the job it is about, for a link
+  applicationId: string | null;   // the application it is about, for a link
+}
+```
+
+| Route | What it does |
+|---|---|
+| `GET /notifications` | Newest first. Query: `unreadOnly` (default `false`), `limit` 1 to 100 (default 50, otherwise `400` `limit must be between 1 and 100.`). Read ones are kept. |
+| `GET /notifications/unread-count` | `{ "count": 3 }` |
+| `POST /notifications/{id}/read` | Marks one as read. Idempotent. Returns the notification. `404` if it does not exist **or is not yours** (so ids cannot be probed). |
+| `POST /notifications/read-all` | Marks all as read. Returns `{ "updated": 3 }`, the number that were unread. |
+
+**When they are created**
+
+| Event | Recipient | `type` | Title |
+|---|---|---|---|
+| A seeker applies (or applies again after withdrawing) | the employer who owns the job | `APPLICATION` | `New application` |
+| A seeker withdraws | the employer | `APPLICATION` | `Application withdrawn` |
+| Employer moves an application to `IN_REVIEW` | the seeker | `APPLICATION` | `Your application is being reviewed` |
+| ... to `INTERVIEW` | the seeker | `INTERVIEW` | `You have reached the interview stage` |
+| ... to `OFFER` | the seeker | `HIRING` | `You have an offer` |
+| ... to `REJECTED` | the seeker | `APPLICATION` | `Application update` |
+| The user changes their password | that user | `ACCOUNT` | `Your password was changed` |
+| An admin declines their deletion request | that user | `ACCOUNT` | `Account deletion request declined` (the admin's note is included) |
+
+A refused change (for example a disallowed stage move) creates nothing. `SYSTEM` is reserved for announcements and is not sent yet. "New match" notifications arrive with the matching engine, which is parked. Deleting an account deletes its notifications.
+
+---
+
 ## Applications endpoints
 
 > All require `Authorization: Bearer <token>`. Apply, list-mine and withdraw are for seekers; list-applicants and change-status are for the employer who owns the job. Anyone else gets `403`.
@@ -349,6 +390,28 @@ Applying again to a job whose application was `WITHDRAWN` re-opens that same app
 ### `GET /applications/me`
 
 The caller's applications, newest first, including withdrawn ones and ones for jobs that have since closed (`job.available = false`). Response `200`: `ApplicationResponse[]`. Errors: `401`, `403` (not a seeker).
+
+### `GET /applications/me/stats`
+
+Seeker only. Numbers for the dashboard charts, computed from the caller's own applications.
+
+```json
+{
+  "total": 7,
+  "active": 4,
+  "byStatus": { "APPLIED": 1, "IN_REVIEW": 1, "INTERVIEW": 1, "OFFER": 1, "REJECTED": 1, "WITHDRAWN": 2 },
+  "weekly": [ { "weekStart": "2026-07-20", "count": 0 }, "... 12 entries ...", { "weekStart": "2026-10-05", "count": 3 } ]
+}
+```
+
+| Field | Notes |
+|---|---|
+| `total` | Every application ever made, including rejected and withdrawn |
+| `active` | `APPLIED` + `IN_REVIEW` + `INTERVIEW` + `OFFER`. `REJECTED` and `WITHDRAWN` are not active |
+| `byStatus` | All six statuses are always present, zero-filled |
+| `weekly` | Applications **submitted** in each of the last 12 weeks, oldest first, zero-filled; the last entry is the current week. A week runs Monday to Sunday and `weekStart` is its Monday. Older applications count in the totals but not here |
+
+Errors: `401`, `403` `Only job seekers have applications.`
 
 ### `DELETE /applications/{id}`
 
@@ -750,9 +813,10 @@ Adding a value to any of these is a contract change: tell the front-end session.
 | Jobs | `GET /jobs`, `GET /jobs/{id}`, `GET /companies/{id}` | public |
 | Jobs | `POST /jobs`, `PUT /jobs/{id}`, `PATCH /jobs/{id}/available`, `GET /jobs/mine` | employer (owner) |
 | Saved jobs | `PUT`/`DELETE /jobs/{id}/save`, `GET /jobs/saved` | seeker |
-| Applications | `POST /jobs/{id}/apply`, `GET /applications/me`, `DELETE /applications/{id}` | seeker |
+| Applications | `POST /jobs/{id}/apply`, `GET /applications/me`, `GET /applications/me/stats`, `DELETE /applications/{id}` | seeker |
 | Applications | `GET /jobs/{id}/applications`, `PUT /applications/{id}/status` | employer (owner of the job) |
 | Profiles | `/users/seekers/**`, `/users/employers/**`, `/users/companies/**` | authenticated (`/me` = own) |
+| Notifications | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/{id}/read`, `POST /notifications/read-all` | authenticated (own only) |
 | Account | `/account/**` | authenticated |
 | Admin | `/admin/**` | admin |
 | Content | `GET /content` | public |

@@ -12,6 +12,8 @@ import com.mcverse.jobify.auth.repository.AuthUserRepository;
 import com.mcverse.jobify.common.exception.BusinessRuleException;
 import com.mcverse.jobify.common.exception.ResourceNotFoundException;
 import com.mcverse.jobify.auth.security.PasswordPolicy;
+import com.mcverse.jobify.notification.model.NotificationType;
+import com.mcverse.jobify.notification.service.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +31,7 @@ public class AccountService {
     @Autowired private DeletionRequestRepository deletionRequestRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private PasswordPolicy passwordPolicy;
+    @Autowired private NotificationService notifications;
 
     @Transactional
     public void changePassword(String username, ChangePasswordRequest request) {
@@ -42,6 +45,9 @@ public class AccountService {
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         authUserRepository.save(user);
         log.info("Password changed for '{}'", username);
+        notifications.notify(username, NotificationType.ACCOUNT, "Your password was changed",
+                "The password for your account was just changed. If this was not you, contact support.",
+                null, null);
     }
 
     @Transactional

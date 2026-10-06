@@ -1,6 +1,7 @@
 package com.mcverse.jobify.application.service;
 
 import com.mcverse.jobify.application.dto.ApplicationResponse;
+import com.mcverse.jobify.application.dto.ApplicationStatsResponse;
 import com.mcverse.jobify.application.dto.ApplyRequest;
 import com.mcverse.jobify.application.dto.JobApplicationResponse;
 import com.mcverse.jobify.application.model.Application;
@@ -19,6 +20,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -35,11 +39,16 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepo;
     private final JobRepo jobRepo;
     private final SeekerRepository seekerRepo;
+    private final Clock clock;
+    private final ApplicationNotifier notifier;
 
-    public ApplicationService(ApplicationRepository applicationRepo, JobRepo jobRepo, SeekerRepository seekerRepo) {
+    public ApplicationService(ApplicationRepository applicationRepo, JobRepo jobRepo, SeekerRepository seekerRepo,
+                              Clock clock, ApplicationNotifier notifier) {
         this.applicationRepo = applicationRepo;
         this.jobRepo = jobRepo;
         this.seekerRepo = seekerRepo;
+        this.clock = clock;
+        this.notifier = notifier;
     }
 
     @Transactional
@@ -57,13 +66,17 @@ public class ApplicationService {
 
         Application existing = applicationRepo.findBySeekerUsernameAndJobPostId(username, jobId).orElse(null);
         if (existing == null) {
-            return toResponse(applicationRepo.save(new Application(seeker, job, note)));
+            Application created = applicationRepo.save(new Application(seeker, job, note));
+            notifier.applicationSubmitted(created);
+            return toResponse(created);
         }
         if (existing.getStatus() != ApplicationStatus.WITHDRAWN) {
             throw new BusinessRuleException("You have already applied to this job.");
         }
         existing.reapply(note);
-        return toResponse(applicationRepo.save(existing));
+        Application reopened = applicationRepo.save(existing);
+        notifier.applicationSubmitted(reopened);
+        return toResponse(reopened);
     }
 
     @Transactional(readOnly = true)
@@ -133,6 +146,7 @@ public class ApplicationService {
     private void updateStatus(Application application, ApplicationStatus newStatus) {
         application.changeStatus(newStatus);
         applicationRepo.save(application);
+        notifier.statusChanged(application, newStatus);
     }
 
     private void requireJobOwner(JobPost job, String username, String action, Integer jobId) {
@@ -142,6 +156,20 @@ public class ApplicationService {
                     owner == null ? "nobody" : owner.getUsername());
             throw new LicenseValidationException("You can only " + action + " your own jobs.");
         }
+    }
+
+    /** Counts and a 12-week time series of the seeker's own applications, for the dashboard charts. */
+    @Transactional(readOnly = true)
+    public ApplicationStatsResponse statsForSeeker(String username) {
+        if (seekerRepo.findByUsername(username).isEmpty()) {
+            throw new LicenseValidationException("Only job seekers have applications.");
+        }
+        List<ApplicationStatsCalculator.Entry> entries = applicationRepo
+                .findAllBySeekerUsernameOrderByCreatedAtDesc(username).stream()
+                .map(a -> new ApplicationStatsCalculator.Entry(a.getStatus(), a.getCreatedAt()))
+                .toList();
+        // Timestamps are stored in the server's local zone, so "today" must be read in the same zone.
+        return ApplicationStatsCalculator.calculate(entries, LocalDate.now(clock.withZone(ZoneId.systemDefault())));
     }
 
     private static String cleanNote(ApplyRequest request) {

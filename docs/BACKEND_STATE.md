@@ -23,10 +23,10 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 | Responsibilities / requirements | #36, **Product Owner decision** pending (keep your sentence heuristic meanwhile). |
 | Location facet | #37, icebox. `location` stays free text. |
 | Seeker dashboard charts | #38 `GET /applications/me/stats`, sprint 4, after applications. |
-| Notifications | #14, sprint 4. |
+| Notifications | **Built** (#14): see the change log. The bell can be wired now. |
 | Company dashboard stats | #16, sprint 4. **Open question for the Product Owner: "views" per job** (needs view tracking; may be dropped). |
 | Admin users with paging and search, and admin stats | #15, sprint 4. `GET /admin/users` already exists unpaged; you can wire it today. |
-| Server-side search and paging | #13, sprint 3. The paging envelope needs agreeing with you before build. |
+| Server-side search and paging | #13, sprint 3. **Proposal written, waiting for your answers** (section below). |
 | Dropping your random fallbacks for `location` / `workMode` / `employmentType` | #39, **Product Owner decision** pending: whether the API starts requiring all three on new jobs. Keep your fallbacks for now. |
 | Match %, recommended jobs, candidates | **Parked** as you asked (#12, icebox). Nothing will be built until it is scheduled. |
 | Employee role dashboard | #26 (P10), Product Owner decision pending. (Your note says "backlog P3"; the correct reference is P10 / #26.) |
@@ -35,7 +35,64 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
+## Proposal awaiting your answer: server-side job search (#13)
+**Status:** not built. I will not start until you answer (reply under "Requests to the back end" in `docs/FRONTEND_STATE.md`; "accept the defaults" is a valid answer). Drafted 2026-10-06.
+
+**Why:** `useJobs` downloads every open job and filters in the browser. That is fine for 9 jobs and breaks at a few thousand.
+
+**Nothing you use today changes.** `GET /jobs` and `GET /jobs?available=true` stay exactly as they are (same plain array, so `sitemap.ts`, the employer panel and any old client keep working). Search is a **new, public route**, `GET /jobs/search`, which you adopt when ready.
+
+### The request
+`GET /jobs/search?q=&location=&workMode=&employmentType=&minRate=&maxRate=&skills=&skillsMatch=&available=&sort=&page=&size=`
+
+| Param | Meaning | My default |
+|---|---|---|
+| `q` | Case-insensitive "contains" over job title, company name, location, description text and required-skill names | none |
+| `location` | Case-insensitive "contains" on the free-text location (a clean facet is #37, later) | none |
+| `workMode` | `REMOTE`, `HYBRID`, `ONSITE`; repeat it to allow several: `workMode=REMOTE&workMode=HYBRID` | any |
+| `employmentType` | Same, repeatable (`FULL_TIME`, ..., `B2B`) | any |
+| `minRate`, `maxRate` | Compared on the **hourly equivalent** (`hourlyRate` in the response: monthly / 173.33, yearly / 2080). `CONTRACT_TOTAL` jobs cannot be compared, so they are **left out whenever a rate filter is set** | none |
+| `skills` | Required-skill names, repeatable, case-insensitive exact match | none |
+| `skillsMatch` | `ANY` (job needs at least one of them) or `ALL` | `ANY` |
+| `available` | `true`, `false`, or `all` | `true` |
+| `sort` | `newest`, `oldest`, `rateDesc`, `rateAsc`, `title` (a fixed list; anything else is `400`) | `newest` |
+| `page`, `size` | Page number and page size | `page=0`, `size=20`, max `50` |
+
+### The response (reuses the `PagedResponse` shape that already exists in the code)
+```json
+{
+  "content": [ /* JobPostResponse, exactly the same shape as GET /jobs items */ ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 134,
+  "totalPages": 7,
+  "last": false
+}
+```
+No match is `200` with an empty `content`, never `404`. Bad input is `400` in the usual envelope with a readable message, for example `sort must be one of: newest, oldest, rateDesc, rateAsc, title`, `size must be between 1 and 50`, `minRate must not be greater than maxRate`.
+
+### Questions (my recommended answer in bold)
+1. **Envelope:** use the shape above? **Yes.** (Alternative: a `items/total` shape of your choice.)
+2. **Page numbering:** 0-based like the code, or 1-based? **0-based.**
+3. **Over-large `size`:** reject with `400`, or silently cap at 50? **Reject**, so a bug is visible.
+4. **Items:** keep the full `JobPostResponse` (full HTML description in every card), or do the cards only need a short plain-text excerpt? **Full shape for now** (no type changes on your side). If cards only show a snippet I can add an optional `summary` (about 200 characters) and drop the long description from search results; tell me.
+5. **Rate filter UI:** label it "per hour" and accept that monthly and yearly jobs are converted? **Yes.**
+6. **`q` also matching required-skill names and company name:** wanted? **Yes.**
+7. **Sitemap:** keep calling `GET /jobs?available=true` (works today), or move to paged search? **Keep as it is.** Later, if the list grows, I would add a lighter ids-only route for the sitemap.
+8. **Facet counts** (how many jobs per work mode / type / location, for the sidebar): needed now? **Not in this story.** Say so if the UI cannot work without them and I will size it separately (location facets are #37).
+
+### What changes for you
+Replace the client-side filtering in `useJobs` with a debounced request (about 300 ms after typing stops) to `/jobs/search`, keep the filters in the URL, and add paging or "load more". Existing `Job` types are unchanged.
+
+### Honest limits
+- Text search is a database "contains" match. It is correct and fine for thousands of jobs, but it cannot use an index, and it is not relevance-ranked. A proper full-text search comes with the PostgreSQL move (#18).
+- Matching is on the stored description HTML, so a search for `strong` could match a tag. I will search the text with tags stripped.
+
+### Plan once you answer
+8 points: query builder with every filter and sort, input validation, tests for each filter and combination (including the rate rules and the empty and invalid cases), documentation, and a check of query cost on a few thousand generated jobs.
+
 ## Open requests for the front end
+- [ ] **Notifications:** replace `MOCK_NOTIFICATIONS` with `GET /notifications`, drive the bell badge from `GET /notifications/unread-count` (poll every 30 to 60 s), call `POST /notifications/{id}/read` when one is opened and `POST /notifications/read-all` for "mark all as read". Use `jobId` / `applicationId` for links. Map `type` (uppercase) to your existing icons (issue #14).- [ ] **Seeker dashboard charts:** replace the static `EMPLOYEE_CHART_DATA` with `GET /applications/me/stats` (a weekly bar or line from `weekly`, and a status breakdown from `byStatus`; `active` for the headline number) (issue #38).- [ ] **Answer the search proposal** (section "Proposal awaiting your answer", issue #13): reply under "Requests to the back end" in your file. "Accept the defaults" is enough. I will not start until you do.
 - [ ] **Login and register forms:** show the `message` of a `429` as it is (it already says how long to wait), and keep the form usable afterwards. A `429` is not an auth failure, so it must **not** log the user out or clear the token (only `401` does that).
 - [ ] **Register and change-password forms:** show the password rules up front (8 to 72 characters, not your username, not a common password) so the user does not hit the `400` first (issue #23).Updated 2026-10-06 after reading your snapshot of the same day. Everything below is merged on `master` and ready to use.
 
@@ -51,6 +108,28 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 4 — in-app notifications (#14, P6) — 2026-10-06
+Additive. New table `notifications`, created in place. Nothing existing changes.
+
+- **`GET /notifications`** (any signed-in user, own only): newest first, `?unreadOnly=true`, `?limit=` 1 to 100 (default 50). Each item: `id`, `type`, `title`, `body`, `read`, `createdAt`, `jobId`, `applicationId` (the last two nullable, for deep links).
+- **`GET /notifications/unread-count`** returns `{ "count": n }` for the bell badge. **There is no push yet: poll it** (30 to 60 s).
+- **`POST /notifications/{id}/read`** (idempotent, returns the notification; `404` if not yours) and **`POST /notifications/read-all`** (returns `{ "updated": n }`).
+- **`type`** is `INTERVIEW | APPLICATION | SYSTEM | HIRING | ACCOUNT`, the same five values as your `MOCK_NOTIFICATIONS` union, in uppercase. Please mirror it exactly.
+- **What triggers them:** a seeker applying or withdrawing (the employer is told); the employer moving an application to `IN_REVIEW` (`APPLICATION`), `INTERVIEW` (`INTERVIEW`), `OFFER` (`HIRING`) or `REJECTED` (`APPLICATION`) (the seeker is told); a password change and a declined deletion request (`ACCOUNT`). The full table is in `api-documentation.md`.
+- **`title` and `body` are plain text** (they can contain names and job titles typed by users): render them as text, never as HTML.
+- **Not sent yet:** "new match" (the matching engine is parked) and `SYSTEM` announcements.
+- Read notifications are kept; there is no cleanup of old ones yet. Deleting an account deletes its notifications.
+
+### Sprint 4 — seeker application statistics (#38, P16) — 2026-10-06
+Additive. No existing route or shape changes.
+
+- **`GET /applications/me/stats`** (seeker): `{ total, active, byStatus, weekly }`.
+  - `byStatus` always has all six statuses (`APPLIED`, `IN_REVIEW`, `INTERVIEW`, `OFFER`, `REJECTED`, `WITHDRAWN`), zero-filled.
+  - `active` counts `APPLIED`, `IN_REVIEW`, `INTERVIEW` and `OFFER`; withdrawn and rejected applications are not active.
+  - `weekly` is 12 entries `{ weekStart, count }`, oldest first, zero-filled, the last one being the current week. Weeks start on Monday and `weekStart` is that Monday (`yyyy-MM-dd`). It counts when an application was **submitted**; re-applying after a withdrawal counts as a new submission.
+  - Non-seekers get `403` `Only job seekers have applications.`
+- This replaces your static `EMPLOYEE_CHART_DATA` for the seeker dashboard charts. The interview tips are still static (no endpoint for them).
 
 ### Sprint 3 — brute-force protection and password rules (#23, T8) — 2026-10-06
 **Contract change:** `POST /auth/register` now rejects weak passwords, and login can answer a new status, `429`.
