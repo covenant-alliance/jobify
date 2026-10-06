@@ -324,6 +324,39 @@ Deleting an account (admin-approved) also deletes its saved jobs, and bookmarks 
 
 ---
 
+## Employer statistics
+
+### `GET /employers/me/stats`
+
+Employer only, own jobs only (a seeker or admin gets `403` `Only employers have job statistics.`). For the company dashboard.
+
+```json
+{
+  "jobs": { "total": 3, "open": 2, "closed": 1 },
+  "applications": {
+    "total": 4, "active": 2,
+    "byStatus": { "APPLIED": 1, "IN_REVIEW": 0, "INTERVIEW": 1, "OFFER": 0, "REJECTED": 1, "WITHDRAWN": 1 },
+    "weekly": [ { "weekStart": "2026-07-20", "count": 0 }, "... 12 entries ...", { "weekStart": "2026-10-05", "count": 4 } ]
+  },
+  "perJob": [
+    { "postId": 12, "jobTitle": "Backend Engineer", "available": true, "createdAt": "2026-10-01T09:00:00",
+      "total": 3, "active": 2, "byStatus": { "APPLIED": 1, "...": 0 } }
+  ]
+}
+```
+
+| Field | Notes |
+|---|---|
+| `jobs` | Every job the employer posted: total, open (`available`) and closed |
+| `applications.byStatus` | Where applications are **now**, all six statuses, zero-filled. It is a snapshot, not a history: an application that reached `INTERVIEW` and was then `REJECTED` counts only as `REJECTED`. A true "reached this stage" funnel would need a status history, which is not stored yet |
+| `applications.active` | `APPLIED` + `IN_REVIEW` + `INTERVIEW` + `OFFER`. Rejected and withdrawn are not active |
+| `applications.weekly` | Applications **received** in each of the last 12 weeks, oldest first, zero-filled, the last entry being the current week. Weeks start on Monday |
+| `perJob` | One entry per job, **including jobs with no applicants**, newest job first (highest `postId`), with that job's `total`, `active` and `byStatus` |
+
+Job **views** are not tracked, so they are not included (open question in issue #16).
+
+---
+
 ## Notifications endpoints `/notifications/**`
 
 > Any signed-in user; each user only ever sees their own. All require `Authorization: Bearer <token>`. There is no push channel yet, so poll `GET /notifications/unread-count` (every 30 to 60 seconds is plenty) for the bell badge.
@@ -849,6 +882,7 @@ Adding a value to any of these is a contract change: tell the front-end session.
 | Saved jobs | `PUT`/`DELETE /jobs/{id}/save`, `GET /jobs/saved` | seeker |
 | Applications | `POST /jobs/{id}/apply`, `GET /applications/me`, `GET /applications/me/stats`, `DELETE /applications/{id}` | seeker |
 | Applications | `GET /jobs/{id}/applications`, `PUT /applications/{id}/status` | employer (owner of the job) |
+| Employer stats | `GET /employers/me/stats` | employer |
 | Profiles | `/users/seekers/**`, `/users/employers/**`, `/users/companies/**` | authenticated (`/me` = own) |
 | Notifications | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/{id}/read`, `POST /notifications/read-all` | authenticated (own only) |
 | Account | `/account/**` | authenticated |

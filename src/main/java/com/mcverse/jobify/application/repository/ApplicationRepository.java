@@ -2,6 +2,7 @@ package com.mcverse.jobify.application.repository;
 
 import com.mcverse.jobify.application.model.Application;
 import com.mcverse.jobify.application.model.ApplicationStatus;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,6 +18,10 @@ public interface ApplicationRepository extends JpaRepository<Application, String
     List<Application> findAllBySeekerUsernameOrderByCreatedAtDesc(String seekerUsername);
 
     List<Application> findAllByJobPostIdOrderByCreatedAtDesc(Integer postId);
+
+    /** Every application to any job of one employer, for their statistics. */
+    @EntityGraph(attributePaths = "job")
+    List<Application> findAllByJobEmployerUsername(String employerUsername);
 
     List<Application> findAllByJobPostIdAndStatusOrderByCreatedAtDesc(Integer postId, ApplicationStatus status);
 
