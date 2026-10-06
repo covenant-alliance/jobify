@@ -1,5 +1,6 @@
 package com.mcverse.jobify.auth.service;
 
+import com.mcverse.jobify.admin.AuditLog;
 import com.mcverse.jobify.auth.dto.LoginRequest;
 import com.mcverse.jobify.auth.dto.RegisterRequest;
 import com.mcverse.jobify.auth.dto.TokenResponse;
@@ -8,6 +9,7 @@ import com.mcverse.jobify.auth.model.Role;
 import com.mcverse.jobify.auth.repository.AuthUserRepository;
 import com.mcverse.jobify.auth.security.JwtService;
 import com.mcverse.jobify.auth.security.UserDetailsServiceImpl;
+import com.mcverse.jobify.common.exception.TooManyRequestsException;
 import com.mcverse.jobify.config.JwtConfig;
 import com.mcverse.jobify.user.service.UserService;
 import com.mcverse.jobify.auth.security.LoginAttemptTracker;
@@ -38,6 +40,7 @@ public class AuthService {
     @Autowired private JwtConfig jwtConfig;
     @Autowired private LoginAttemptTracker loginAttempts;
     @Autowired private PasswordPolicy passwordPolicy;
+    @Autowired private AuditLog auditLog;
 
     @Transactional
     public TokenResponse register(RegisterRequest request) {
@@ -47,6 +50,7 @@ public class AuthService {
         passwordPolicy.validate(request.username(), request.password());
         userDetailsService.save(request.username(), passwordEncoder.encode(request.password()), request.role());
         log.info("Registered new {} account '{}'", request.role(), request.username());
+        auditLog.event(request.username(), "REGISTER", "role=" + request.role());
         userService.createProfile(request.username(), request.firstName(), request.lastName(), request.role());
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.username());
         return new TokenResponse(jwtService.generateToken(userDetails), jwtConfig.getExpiration(),
@@ -54,17 +58,24 @@ public class AuthService {
     }
 
     public TokenResponse login(LoginRequest request) {
-        loginAttempts.assertNotLocked(request.username());
+        try {
+            loginAttempts.assertNotLocked(request.username());
+        } catch (TooManyRequestsException e) {
+            auditLog.event(request.username(), "LOGIN_BLOCKED", "locked, retryAfter=" + e.getRetryAfterSeconds() + "s");
+            throw e;
+        }
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password())
             );
         } catch (BadCredentialsException e) {
-            loginAttempts.recordFailure(request.username());
+            boolean nowLocked = loginAttempts.recordFailure(request.username());
+            auditLog.event(request.username(), nowLocked ? "LOGIN_FAILURE_LOCKED" : "LOGIN_FAILURE", "bad credentials");
             throw e;
         }
         loginAttempts.recordSuccess(request.username());
         log.info("Login succeeded for '{}'", request.username());
+        auditLog.event(request.username(), "LOGIN_SUCCESS", "");
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.username());
         AppUser appUser = authUserRepository.findByUsername(request.username()).orElseThrow();
         return new TokenResponse(jwtService.generateToken(userDetails), jwtConfig.getExpiration(),

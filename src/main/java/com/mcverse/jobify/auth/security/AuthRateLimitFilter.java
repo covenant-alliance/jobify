@@ -1,5 +1,7 @@
 package com.mcverse.jobify.auth.security;
 
+import com.mcverse.jobify.admin.AuditLog;
+import com.mcverse.jobify.common.logging.ClientAddress;
 import com.mcverse.jobify.config.SecurityProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -25,8 +27,10 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     private final SlidingWindowCounter requests;
     private final int maxRequests;
     private final boolean trustForwardedFor;
+    private final AuditLog auditLog;
 
-    public AuthRateLimitFilter(Clock clock, SecurityProperties properties) {
+    public AuthRateLimitFilter(Clock clock, SecurityProperties properties, AuditLog auditLog) {
+        this.auditLog = auditLog;
         SecurityProperties.AuthRateLimit limit = properties.getAuthRateLimit();
         this.maxRequests = limit.getMaxRequests();
         this.requests = new SlidingWindowCounter(clock, Duration.ofSeconds(limit.getWindowSeconds()));
@@ -47,6 +51,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         if (requests.count(key) >= maxRequests) {
             long retryAfter = requests.secondsUntilOldestExpires(key);
             log.warn("Rate limit exceeded: {} sent more than {} requests; retry in {}s", key, maxRequests, retryAfter);
+            auditLog.event("anonymous", "RATE_LIMITED", "path=" + request.getRequestURI() + " retryAfter=" + retryAfter + "s");
             reject(response, retryAfter);
             return;
         }
@@ -55,13 +60,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     }
 
     private String clientAddress(HttpServletRequest request) {
-        if (trustForwardedFor) {
-            String forwarded = request.getHeader("X-Forwarded-For");
-            if (forwarded != null && !forwarded.isBlank()) {
-                return forwarded.split(",")[0].trim();
-            }
-        }
-        return request.getRemoteAddr();
+        return ClientAddress.of(request, trustForwardedFor);
     }
 
     private static void reject(HttpServletResponse response, long retryAfterSeconds) throws IOException {

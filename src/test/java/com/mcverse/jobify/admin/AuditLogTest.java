@@ -34,17 +34,31 @@ class AuditLogTest {
         audit.record("admin", "APPROVE_DELETION", "account=bob");
         assertEquals(1, appender.list.size());
         String line = appender.list.get(0).getFormattedMessage();
-        assertTrue(line.contains("admin='admin'"));
+        assertTrue(line.contains("actor='admin'"));
         assertTrue(line.contains("action=APPROVE_DELETION"));
         assertTrue(line.contains("account=bob"));
     }
 
     @Test
     void flattensLineBreaksSoInputCannotForgeAnEntry() {
-        audit.record("admin", "LIST_USERS", "q='x'\nadmin='root' action=APPROVE_DELETION\r\n");
+        audit.record("admin", "LIST_USERS", "q='x'\nactor='root' action=APPROVE_DELETION\r\n");
         String line = appender.list.get(0).getFormattedMessage();
         assertFalse(line.contains("\n"));
         assertFalse(line.contains("\r"));
         assertEquals(1, appender.list.size());
+    }
+
+    @Test
+    void securityEventsUseTheSameLineFormat() {
+        audit.event("mallory", "LOGIN_FAILURE", "bad credentials");
+        String line = appender.list.get(0).getFormattedMessage();
+        assertEquals("actor='mallory' action=LOGIN_FAILURE bad credentials", line);
+    }
+
+    @Test
+    void aUsernameWithLineBreaksCannotForgeAnEntry() {
+        audit.event("evil\nactor='admin' action=APPROVE_DELETION", "LOGIN_FAILURE", "");
+        assertEquals(1, appender.list.size());
+        assertFalse(appender.list.get(0).getFormattedMessage().contains("\n"));
     }
 }

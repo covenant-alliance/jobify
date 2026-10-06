@@ -64,7 +64,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **T4. Dead code.** `job/model/Job.java` and the top-level `model/Region.java` appear unused. Confirm with a grep, then remove. Move `model/JobPost`, `Skill` and the enums into their feature slices.
 
-**T5. Observability.** JSON structured logging, a correlation-ID filter, and health details. Audit-log security events (login failure, admin actions, deletion approvals).
+**T5. ✅ Observability and audit logging (#20, done in sprint 5).** Correlation id on every request (`X-Request-Id` in and out, with `requestId`, `clientIp`, `user` on every log line), JSON logs on the `postgres` profile (`LOG_FORMAT`), health details for admins only, and one `AUDIT` format for login success/failure/lockout, rate limiting, registration, password changes, deletion requests and approvals, admin actions and access denials. Not done: shipping logs, metrics/tracing (Micrometer/OpenTelemetry), a database-backed audit table, alert rules.
 
 **T6. ✅ API docs (#21, done in sprint 2: all routes documented; OpenAPI JSON checked by a test).** Bring `api-documentation.md` up to date (account, CMS, seeker profile, job fields, admin) or generate it from `/v3/api-docs`. Point the front-end session at the OpenAPI JSON.
 

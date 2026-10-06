@@ -92,6 +92,7 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 8 points: query builder with every filter and sort, input validation, tests for each filter and combination (including the rate rules and the empty and invalid cases), documentation, and a check of query cost on a few thousand generated jobs.
 
 ## Open requests for the front end
+- [ ] **Optional, error screens:** show the `X-Request-Id` response header in error toasts or a "report a problem" view (axios: `error.response?.headers['x-request-id']`), so support can find the request in the logs (issue #20).
 - [ ] **Company dashboard:** replace `HIRING_CHART_DATA` and the counts around it with `GET /employers/me/stats` (`applications.weekly` for the chart over time, `applications.byStatus` for the stage breakdown, `perJob` for the per-job table, `jobs` for open and closed counts). Use `GET /jobs/{id}/applications` for the candidate list. Remove "views" or mark it as unavailable (issue #16).- [ ] **Admin dashboard:** replace `MOCK_USERS` with `GET /admin/users` (use `content`, `totalPages` and `last` for paging; send `q` for the search box and `role` for a role filter, debounced) and replace the mock metric cards in `ADMIN_METRICS` with `GET /admin/stats`. The pending deletion requests number is in the stats too (issue #15).- [ ] **Notifications:** replace `MOCK_NOTIFICATIONS` with `GET /notifications`, drive the bell badge from `GET /notifications/unread-count` (poll every 30 to 60 s), call `POST /notifications/{id}/read` when one is opened and `POST /notifications/read-all` for "mark all as read". Use `jobId` / `applicationId` for links. Map `type` (uppercase) to your existing icons (issue #14).- [ ] **Seeker dashboard charts:** replace the static `EMPLOYEE_CHART_DATA` with `GET /applications/me/stats` (a weekly bar or line from `weekly`, and a status breakdown from `byStatus`; `active` for the headline number) (issue #38).- [ ] **Answer the search proposal** (section "Proposal awaiting your answer", issue #13): reply under "Requests to the back end" in your file. "Accept the defaults" is enough. I will not start until you do.
 - [ ] **Login and register forms:** show the `message` of a `429` as it is (it already says how long to wait), and keep the form usable afterwards. A `429` is not an auth failure, so it must **not** log the user out or clear the token (only `401` does that).
 - [ ] **Register and change-password forms:** show the password rules up front (8 to 72 characters, not your username, not a common password) so the user does not hit the `400` first (issue #23).Updated 2026-10-06 after reading your snapshot of the same day. Everything below is merged on `master` and ready to use.
@@ -108,6 +109,18 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 5 — observability and security audit logging (#20, T5) — 2026-10-06
+
+**No request, response body, status code or enum changed.** Everything old works as before. Additions you can use:
+
+- **`X-Request-Id`**: every response now has this header, and CORS exposes it, so `error.response.headers['x-request-id']` works in axios. You may also *send* your own `X-Request-Id` (up to 64 characters of letters, digits, `.`, `-`, `_`; anything else is replaced by a random id). **Suggestion:** show it in the error toast or "report a problem" screen, so a support person can find the exact request in the logs.
+- **`Retry-After`** on `429` responses is now exposed to browser scripts too (it was sent before, but scripts could not read it). You can show "try again in N seconds" from it. The message text already says the time in minutes.
+- **`GET /actuator/health`**: still public and still `{"status":"UP"}` for you; only an ADMIN token additionally sees components. Nothing for you to change.
+- **Audit trail** (back-end only): login success/failure/lockout, rate limiting, registration, password changes, deletion requests, and every `403` ownership or role refusal are now written to the `AUDIT` log. Users are not told anything new; the same messages are returned.
+- Behaviour worth knowing: repeated wrong passwords are now visible to operators as `LOGIN_FAILURE` and the locking one as `LOGIN_FAILURE_LOCKED`, per client address.
+- Docs: `docs/DEPLOYMENT.md` (section "Logs, correlation ids and the audit trail", "Health"), `api-documentation.md` (conventions).
+- Issue: #20. Verified by automated tests (255 earlier plus the new ones), a live run with the `postgres` profile on PostgreSQL 18 (JSON lines, request id, audit lines) and a live run of the `dev` profile. Not done: log shipping, metrics and tracing, an audit table.
 
 ### Sprint 5 — PostgreSQL 18, Flyway, Docker, and how to move databases (#18, T3) — 2026-10-06
 

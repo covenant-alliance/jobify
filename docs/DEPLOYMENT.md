@@ -57,6 +57,7 @@ logger (`action=BOOTSTRAP_ADMIN_CREATED`). Change the password from the app afte
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | comma-separated front-end origins |
 | `TRUST_FORWARDED_FOR` | `false` | `true` only behind a proxy you control that overwrites `X-Forwarded-For` |
 | `APP_DOCS_ENABLED` | `false` | `true` makes Swagger UI and `/v3/api-docs` public |
+| `LOG_FORMAT` | `logstash` | JSON log format on stdout: `logstash`, `ecs` or `gelf` (profile `postgres` only; `dev` logs plain text) |
 | `BOOTSTRAP_ADMIN_USERNAME` / `_PASSWORD` | empty | first admin, see above |
 
 Compose-only: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `APP_PORT`.
@@ -135,11 +136,58 @@ Terminate TLS at the proxy (nginx, Caddy, a cloud load balancer) and forward to 
 address to dodge the rate limit); leave it `false` if the app is reachable directly. Set `CORS_ALLOWED_ORIGINS`
 to the real front-end origin(s), with `https://`.
 
-### Logs and audit trail
+### Logs, correlation ids and the audit trail
 
-Plain logs to stdout (`docker compose logs app`). What administrators do (user searches, stats views, deletion
-requests they resolve, and the first-admin creation) is on the dedicated `AUDIT` logger, so it can be routed or kept
-separately; ship it somewhere durable if you need history. Nothing is kept in the database.
+**Format.** With the `postgres` profile every log line on stdout is one JSON object (`LOG_FORMAT`, default
+`logstash`), ready for Loki, ELK, CloudWatch and similar. In `dev` the lines are plain text with the request id in
+brackets. (The JVM may print one non-JSON `Picked up JAVA_TOOL_OPTIONS` line at start if that variable is set.)
+
+**Correlation.** Every request gets an id. A caller can send its own `X-Request-Id` (up to 64 characters of letters,
+digits, `.`, `-`, `_`; anything else is replaced by a random id), and the response always carries `X-Request-Id`,
+also readable by browser scripts (exposed in CORS). The id, the client address and, once signed in, the user are
+log fields on every line of that request: `requestId`, `clientIp`, `user`. To follow one request:
+
+```bash
+docker compose logs app | jq -c 'select(.requestId == "demo-trace-42")'
+```
+
+When a user reports a problem, ask for the `X-Request-Id` of the failing response (browser dev tools, Network tab).
+Behind a proxy, set `TRUST_FORWARDED_FOR=true` (see above) so `clientIp` is the real client and not the proxy.
+
+**Audit trail.** Security-relevant events go to the dedicated `AUDIT` logger (JSON field `logger_name` = `AUDIT`), so
+they can be routed or kept separately. One line per event, `actor='name' action=NAME details`, with the same
+`requestId`, `clientIp` and `user` fields. Line breaks in names are flattened so an attacker cannot forge a second
+entry, and passwords, tokens and request bodies are never written.
+
+| Action | When |
+|---|---|
+| `LOGIN_SUCCESS` | a login succeeded |
+| `LOGIN_FAILURE` | wrong password, or unknown username (the name that was tried is the actor) |
+| `LOGIN_FAILURE_LOCKED` | the failure that locked the account (default: 5 failures in 10 minutes) |
+| `LOGIN_BLOCKED` | a login attempt on a locked account (even with the right password) |
+| `RATE_LIMITED` | login or register throttled for one address (actor `anonymous`) |
+| `REGISTER` | a new account was created (with its role) |
+| `PASSWORD_CHANGED` / `PASSWORD_CHANGE_REFUSED` | password change done / current password wrong |
+| `DELETION_REQUESTED` / `DELETION_CANCELLED` | the user asked to delete their account / withdrew the request |
+| `APPROVE_DELETION` / `REJECT_DELETION` | an admin resolved a deletion request |
+| `LIST_USERS`, `VIEW_STATS`, `UPDATE_CONTENT` | admin reads and edits |
+| `BOOTSTRAP_ADMIN_CREATED` | the first admin was created from the environment (actor `system`) |
+| `ACCESS_DENIED` | a signed-in user tried something they do not own or are not allowed to do (job, application, role) |
+
+Examples worth alerting on: many `LOGIN_FAILURE` from one `clientIp`, any `LOGIN_FAILURE_LOCKED`, `RATE_LIMITED`
+bursts, any `ACCESS_DENIED` for the same user repeatedly. Nothing is kept in the database: retention is whatever
+your log platform keeps, so set it to match your policy.
+
+### Health
+
+`GET /actuator/health` is public (load balancers and the Docker health check use it) and returns only
+`{"status":"UP"}` plus the probe group names. An **administrator's** token additionally shows the components:
+database, disk space (with the path and sizes), ping, SSL. Ordinary users and anonymous callers never see them. No
+other actuator endpoint (env, beans, heap dump, metrics...) is exposed.
+
+```bash
+curl -s localhost:9080/actuator/health -H "Authorization: Bearer $ADMIN_TOKEN" | jq .components
+```
 
 ## CI
 

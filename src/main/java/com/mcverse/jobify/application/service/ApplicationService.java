@@ -1,5 +1,6 @@
 package com.mcverse.jobify.application.service;
 
+import com.mcverse.jobify.admin.AuditLog;
 import com.mcverse.jobify.application.dto.ApplicationResponse;
 import com.mcverse.jobify.application.dto.ApplicationStatsResponse;
 import com.mcverse.jobify.application.dto.ApplyRequest;
@@ -41,9 +42,11 @@ public class ApplicationService {
     private final SeekerRepository seekerRepo;
     private final Clock clock;
     private final ApplicationNotifier notifier;
+    private final AuditLog auditLog;
 
     public ApplicationService(ApplicationRepository applicationRepo, JobRepo jobRepo, SeekerRepository seekerRepo,
-                              Clock clock, ApplicationNotifier notifier) {
+                              Clock clock, ApplicationNotifier notifier, AuditLog auditLog) {
+        this.auditLog = auditLog;
         this.applicationRepo = applicationRepo;
         this.jobRepo = jobRepo;
         this.seekerRepo = seekerRepo;
@@ -55,6 +58,7 @@ public class ApplicationService {
     public ApplicationResponse apply(Integer jobId, ApplyRequest request, String username) {
         Seeker seeker = seekerRepo.findByUsername(username).orElseThrow(() -> {
             log.warn("Denied: user '{}' tried to apply for job {} without the SEEKER role", username, jobId);
+            auditLog.event(username, "ACCESS_DENIED", "action='apply' job=" + jobId + " reason=not a seeker");
             return new LicenseValidationException("Only job seekers can apply for jobs.");
         });
         JobPost job = jobRepo.findById(jobId)
@@ -96,6 +100,8 @@ public class ApplicationService {
         if (!application.getSeeker().getUsername().equals(username)) {
             log.warn("Denied: user '{}' tried to withdraw application {} owned by '{}'", username, applicationId,
                     application.getSeeker().getUsername());
+            auditLog.event(username, "ACCESS_DENIED", "action='withdraw' application=" + applicationId + " owner="
+                    + application.getSeeker().getUsername());
             throw new LicenseValidationException("You can only withdraw your own applications.");
         }
         if (!WITHDRAWABLE.contains(application.getStatus())) {
@@ -154,6 +160,8 @@ public class ApplicationService {
         if (owner == null || !owner.getUsername().equals(username)) {
             log.warn("Denied: user '{}' tried to {} job {} owned by '{}'", username, action, jobId,
                     owner == null ? "nobody" : owner.getUsername());
+            auditLog.event(username, "ACCESS_DENIED", "action='" + action + "' job=" + jobId + " owner="
+                    + (owner == null ? "nobody" : owner.getUsername()));
             throw new LicenseValidationException("You can only " + action + " your own jobs.");
         }
     }

@@ -1,5 +1,6 @@
 package com.mcverse.jobify.account.service;
 
+import com.mcverse.jobify.admin.AuditLog;
 import com.mcverse.jobify.account.dto.ChangePasswordRequest;
 import com.mcverse.jobify.account.dto.DeletionRequestRequest;
 import com.mcverse.jobify.account.dto.DeletionRequestResponse;
@@ -32,6 +33,7 @@ public class AccountService {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private PasswordPolicy passwordPolicy;
     @Autowired private NotificationService notifications;
+    @Autowired private AuditLog auditLog;
 
     @Transactional
     public void changePassword(String username, ChangePasswordRequest request) {
@@ -39,12 +41,14 @@ public class AccountService {
                 .orElseThrow(() -> new ResourceNotFoundException("Account", username));
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
             log.warn("Password change refused for '{}': current password is incorrect", username);
+            auditLog.event(username, "PASSWORD_CHANGE_REFUSED", "current password incorrect");
             throw new BusinessRuleException("Current password is incorrect.");
         }
         passwordPolicy.validateChange(username, request.currentPassword(), request.newPassword());
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         authUserRepository.save(user);
         log.info("Password changed for '{}'", username);
+        auditLog.event(username, "PASSWORD_CHANGED", "");
         notifications.notify(username, NotificationType.ACCOUNT, "Your password was changed",
                 "The password for your account was just changed. If this was not you, contact support.",
                 null, null);
@@ -58,6 +62,7 @@ public class AccountService {
                 });
         DeletionRequest saved = deletionRequestRepository.save(
                 new DeletionRequest(username, role, request.reason()));
+        auditLog.event(username, "DELETION_REQUESTED", "role=" + role);
         return toResponse(saved);
     }
 
@@ -73,6 +78,7 @@ public class AccountService {
                 .findFirstByUsernameAndStatusOrderByRequestedAtDesc(username, DeletionRequestStatus.PENDING)
                 .orElseThrow(() -> new ResourceNotFoundException("Deletion request", username));
         deletionRequestRepository.delete(pending);
+        auditLog.event(username, "DELETION_CANCELLED", "");
     }
 
     public DeletionRequestResponse toResponse(DeletionRequest r) {

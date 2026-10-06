@@ -8,6 +8,9 @@
 
 **Conventions used everywhere**
 
+- **Request id:** every response carries an `X-Request-Id` header (readable from browser scripts). Send your own `X-Request-Id` (up to 64 characters of letters, digits, `.`, `-`, `_`) to choose it; anything else is replaced. Quote it when reporting a problem: it finds every log line of that request. A `429` also exposes `Retry-After`.
+- **Health:** `GET /actuator/health` is public and returns only the status; an ADMIN token also sees the components (database, disk). No other actuator endpoint is exposed.
+
 - Success responses are the bare object or array, not wrapped. Errors use the envelope below.
 - Enums are uppercase strings. Timestamps are ISO-8601 `LocalDateTime` **without** a zone (e.g. `2026-10-05T14:30:00`). Dates are `yyyy-MM-dd`.
 - Profile, company, application and education/skill ids are UUID strings; a job's `postId` is an integer. `/me` routes read the username from the JWT.
