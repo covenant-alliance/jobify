@@ -109,6 +109,19 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 
 ## Change log (newest first)
 
+### Sprint 5 — PostgreSQL 18, Flyway, Docker, and how to move databases (#18, T3) — 2026-10-06
+
+**No API change.** No route, request, response, status code or enum changed; the front end needs to do nothing. This entry is about where and how the back end runs.
+
+- **New runtime profile `postgres`** (PostgreSQL 18, Flyway migrations, no demo data). The default `dev` profile (H2) is unchanged, so local work and the front end's `localhost:9080` setup behave as before.
+- **Demo accounts** (`alice_s`, `techcorp`, ... all with password `password`) exist **only** in `dev` and in tests. A PostgreSQL deployment has none; its first admin is created from `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD`. If you test against a deployed instance, register real accounts.
+- **Swagger UI, `/v3/api-docs` and the H2 console** are off in `postgres` (public in `dev`, as before). If you generate API types from `/v3/api-docs`, do it against a `dev` instance, or ask for `APP_DOCS_ENABLED=true`.
+- **CORS** for a deployed instance comes from `CORS_ALLOWED_ORIGINS`. Tell the back end the front end's real origin(s) when you deploy (`https://...`); only `localhost:3000/3001` are allowed by default.
+- **Removed column:** `job_rating` is gone from the database (it was already gone from the API in sprint 2). `hourly_rate` / `hourlyRate` **stays** and is still returned: stop reading it when you can, then ask for it to be dropped.
+- Old H2 dev files are patched automatically at startup (the unused column is dropped, rows are kept). Nothing for you to do.
+- Docs: `docs/DEPLOYMENT.md`, `docs/DATABASE_MIGRATION.md`.
+- Issue: #18. Verified against a real PostgreSQL 18.6: schema, whole suite (255 tests), an old H2 dev database moved over with a row-count check, and a PostgreSQL-to-PostgreSQL move. **Not verified:** the Dockerfile and `docker-compose.yml` have not been built or run, and the PostgreSQL-to-MySQL guide is untested.
+
 ### Sprint 4 — employer dashboard statistics (#16, P8) — 2026-10-06
 Additive. No existing route or shape changes.
 

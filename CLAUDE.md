@@ -16,8 +16,10 @@ You are the **back-end session** for Jobify, a job-marketplace platform. The Nex
 - Legacy: `model/` (top level) still holds `JobPost`, `Skill`, `WorkMode`, `EmploymentType`, `ProficiencyLevel`, `Region`. `job/model/Job.java` is dead code. Don't add to `model/`; new entities go in their feature slice.
 
 ## Stack (actual, not aspirational)
-Spring Boot **4.0.0-M3** (milestone), Java 21, Spring Security with hand-rolled **JWT HS256** (jjwt 0.12.6, `auth/security`), Spring Data JPA, **H2 file DB** (`./data/jobifydb`, `ddl-auto=update`, no migrations), springdoc 2.8.8. Port **9080**. Swagger: `/swagger-ui/index.html`. H2 console: `/h2-console`.
-`../Claude.md` mentions PostgreSQL, OAuth 2.0 and Docker. None exist yet. Moving to Postgres plus Flyway and adding a Dockerfile is backlog work, so don't assume it.
+Spring Boot **4.0.0-M3** (milestone), Java 21, Spring Security with hand-rolled **JWT HS256** (jjwt 0.12.6, `auth/security`), Spring Data JPA, springdoc 2.8.8. Port **9080**. Swagger: `/swagger-ui/index.html`.
+Two runtime setups: **`dev`** (default): H2 file DB (`./data/jobifydb`, `ddl-auto=update`), demo data, H2 console at `/h2-console`. **`postgres`** (`SPRING_PROFILES_ACTIVE=postgres`): PostgreSQL 18, schema owned by **Flyway** (`src/main/resources/db/migration/postgresql/V<n>__*.sql`), Hibernate `ddl-auto=validate`, no demo data, H2 console and Swagger off. See `docs/DEPLOYMENT.md` (Dockerfile, `docker-compose.yml`, first admin via `BOOTSTRAP_ADMIN_*`) and `docs/DATABASE_MIGRATION.md` (moving data between databases, including a PostgreSQL to MySQL guide).
+`../Claude.md` mentions OAuth 2.0, which does not exist yet.
+**Changing an entity?** On the `postgres` profile you must also add a Flyway migration (next `V<n>`; never edit an applied one) or startup fails on `validate`. Check it with `scripts/test-postgres.sh` against an empty PostgreSQL. CI runs the suite on H2 and on PostgreSQL 18.
 
 ## Commands
 ```
@@ -25,6 +27,8 @@ mvn compile                 # build
 mvn test                    # unit + MockMvc integration tests; coverage report in target/site/jacoco/index.html
 mvn spring-boot:run         # then http://localhost:9080
 fuser -k 9080/tcp           # free the port if a stale run is holding it
+scripts/test-postgres.sh    # whole suite against an EMPTY PostgreSQL (TEST_DB_URL/_USER/_PASSWORD), Flyway + validate
+scripts/db-copy.sh          # copy all rows from one database to another (docs/DATABASE_MIGRATION.md)
 ```
 Seeded accounts (all password `password`): `admin`, `alice_s`/`bob_s`/`carol_s` (SEEKER), `techcorp`/`startupxyz`/`financegroup` (EMPLOYER). See `demo-users.md`. Seeding runs in `config/DataInitializer` and `SeedService` only when the DB is empty. `cms/ContentSeeder` runs every boot and only inserts missing keys.
 Smoke test: `curl -s -X POST localhost:9080/auth/login -H 'Content-Type: application/json' -d '{"username":"techcorp","password":"password"}'`
@@ -69,6 +73,6 @@ The sessions share no memory, so they talk through two files. Each file has exac
 Validate all input with Bean Validation (`@Valid`). Never expose JPA entities in API responses or accept them as request bodies (`POST /jobs` currently violates this, see the backlog). Enforce **ownership and role** in the service layer, not just "authenticated". Log security events. The JWT secret comes from `JWT_SECRET`. Local runs use the `dev` profile (active by default), which falls back to a public placeholder key. Any other profile fails at startup without `JWT_SECRET`, and also refuses the placeholder.
 
 ## Hazards
-- `data/` holds the dev H2 DB and uploaded resumes, is git-ignored, and contains the only copy of dev data. Don't delete it casually. With `ddl-auto=update`, entity changes mutate the schema in place.
+- `data/` holds the dev H2 DB and uploaded resumes, is git-ignored, and contains the only copy of dev data. Don't delete it casually. With `ddl-auto=update`, entity changes mutate the schema in place. Never run the app or the copy tool against someone's real PostgreSQL by accident: `DB_URL` decides, and `scripts/test-postgres.sh` writes demo data into whatever database it is given.
 - Spring Boot 4.0.0-M3 is a milestone. Check compatibility before upgrading any dependency.
 - Stray untracked files `Class diagram with UML notation.pdf` and `Link to jobify-backend-review.md` are not yours. Leave them.

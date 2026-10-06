@@ -2,9 +2,9 @@ package com.mcverse.jobify.model;
 
 import com.mcverse.jobify.job.model.RateType;
 import com.mcverse.jobify.user.model.Employer;
-import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -27,15 +27,8 @@ public class JobPost {
     @Column(nullable = false)
     private String jobTitle;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONG32VARCHAR) // long text: PostgreSQL text, MySQL longtext (not a LOB handle / oid)
     private String jobDescription;
-
-    /**
-     * Deprecated and no longer exposed by the API. The column stays because it is NOT NULL in databases
-     * created before the compensation model; it is always written as 0 and can be dropped with a migration tool.
-     */
-    @Deprecated
-    private double jobRating;
 
     /** Hourly equivalent of {@link #rate}; kept for clients that still read {@code hourlyRate}. */
     private double hourlyRate;

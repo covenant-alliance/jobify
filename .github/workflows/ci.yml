@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-h2:
+    name: Tests (H2, the default)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn -B test
+
+  test-postgres:
+    name: Tests (PostgreSQL 18 + Flyway, Hibernate validate)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: jobify_test
+          POSTGRES_USER: jobify
+          POSTGRES_PASSWORD: jobify
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U jobify -d jobify_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Run the suite against PostgreSQL
+        env:
+          TEST_DB_URL: jdbc:postgresql://localhost:5432/jobify_test
+          TEST_DB_USER: jobify
+          TEST_DB_PASSWORD: jobify
+        run: scripts/test-postgres.sh

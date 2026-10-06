@@ -4,6 +4,8 @@
 **Swagger UI:** `http://localhost:9080/swagger-ui/index.html`  
 **OpenAPI spec (JSON):** `http://localhost:9080/v3/api-docs`
 
+> Swagger UI, the OpenAPI JSON and the H2 console exist only in the default `dev` profile. The `postgres` profile (deployments) turns them off unless `APP_DOCS_ENABLED=true`, and has no demo accounts (see `docs/DEPLOYMENT.md`). The routes themselves are identical in both.
+
 **Conventions used everywhere**
 
 - Success responses are the bare object or array, not wrapped. Errors use the envelope below.

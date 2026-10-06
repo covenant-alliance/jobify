@@ -36,6 +36,14 @@ public class SecurityConfig {
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
 
+    /** The H2 console is a database admin UI: reachable only where it is switched on (dev). */
+    @Value("${spring.h2.console.enabled:false}")
+    private boolean h2ConsoleEnabled;
+
+    /** Swagger UI and the OpenAPI document: switched off in the postgres profile unless app.docs.enabled=true. */
+    @Value("${app.docs.enabled:true}")
+    private boolean docsEnabled;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
@@ -47,8 +55,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/companies/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/content").permitAll()
-                        .requestMatchers("/auth/**", "/actuator/health",
-                                "/h2-console/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/auth/**", "/actuator/health").permitAll()
+                        .requestMatchers(optionalPublicPaths()).permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
@@ -62,6 +70,15 @@ public class SecurityConfig {
                 .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    private String[] optionalPublicPaths() {
+        List<String> paths = new java.util.ArrayList<>();
+        if (h2ConsoleEnabled) paths.add("/h2-console/**");
+        if (docsEnabled) paths.addAll(List.of("/swagger-ui/**", "/v3/api-docs/**"));
+        // an empty matcher list is rejected, so keep one path that nothing serves
+        if (paths.isEmpty()) paths.add("/__none__");
+        return paths.toArray(String[]::new);
     }
 
     @Bean

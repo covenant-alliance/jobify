@@ -4,10 +4,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.junit.jupiter.EnabledIf;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** A fresh schema uses VARCHAR for enum columns, and an old ENUM column is converted without data loss. */
+/**
+ * A fresh schema uses VARCHAR for enum columns, and an old ENUM column is converted without data loss.
+ * H2 only: it reads H2's INFORMATION_SCHEMA, so it is skipped when the suite runs against PostgreSQL.
+ */
+@EnabledIf(expression = "#{environment['spring.datasource.url'].startsWith('jdbc:h2')}", loadContext = true)
 @SpringBootTest
 class LegacySchemaPatchTest {
 
@@ -61,5 +66,18 @@ class LegacySchemaPatchTest {
         patch.run(null);
         patch.run(null);
         assertEquals("CHARACTER VARYING", employmentTypeColumnType());
+    }
+
+    @Test
+    void unusedJobRatingColumnIsDroppedAndNoRowIsLost() {
+        Integer before = jdbc.queryForObject("SELECT COUNT(*) FROM job_posts", Integer.class);
+        jdbc.execute("ALTER TABLE job_posts ADD COLUMN job_rating DOUBLE PRECISION DEFAULT 0 NOT NULL");
+
+        patch.run(null);
+
+        Integer columns = jdbc.queryForObject("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS "
+                + "WHERE TABLE_NAME = 'JOB_POSTS' AND COLUMN_NAME = 'JOB_RATING'", Integer.class);
+        assertEquals(0, columns);
+        assertEquals(before, jdbc.queryForObject("SELECT COUNT(*) FROM job_posts", Integer.class));
     }
 }

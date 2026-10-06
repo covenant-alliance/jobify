@@ -1,0 +1,51 @@
+# Jobify back end + PostgreSQL 18.
+#   cp .env.example .env     # then edit: JWT_SECRET and POSTGRES_PASSWORD are required
+#   docker compose up -d --build
+# Details, backups and upgrades: docs/DEPLOYMENT.md. Moving data between databases: docs/DATABASE_MIGRATION.md.
+
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jobify}
+      POSTGRES_USER: ${POSTGRES_USER:-jobify}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      # PostgreSQL 18+ images keep the cluster in a versioned subdirectory of /var/lib/postgresql, so mount that
+      # parent (not /var/lib/postgresql/data) to keep major-version upgrades possible.
+      - jobify-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-jobify} -d $${POSTGRES_DB:-jobify}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # No "ports:" on purpose: only the app container needs the database. Uncomment to reach it from the host.
+    # ports: ["127.0.0.1:5432:5432"]
+
+  app:
+    build: .
+    image: jobify-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: postgres
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-jobify}
+      DB_USERNAME: ${POSTGRES_USER:-jobify}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -base64 32)}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      TRUST_FORWARDED_FOR: ${TRUST_FORWARDED_FOR:-false}
+      APP_DOCS_ENABLED: ${APP_DOCS_ENABLED:-false}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+    ports:
+      - "${APP_PORT:-9080}:9080"
+    volumes:
+      - jobify-uploads:/data/uploads
+
+volumes:
+  jobify-db:
+  jobify-uploads:

@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Safe to run on every boot: it only touches rows that have no rate yet, and never deletes anything.
  * There is no migration tool yet ({@code ddl-auto=update}), so this stands in for a Flyway script.
  */
+@ConditionalOnProperty(name = "app.legacy-patches.enabled", havingValue = "true", matchIfMissing = true)
 @Component
 @Order(100)
 public class JobCompensationBackfill implements ApplicationRunner {

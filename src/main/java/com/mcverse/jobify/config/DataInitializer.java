@@ -8,10 +8,13 @@ import com.mcverse.jobify.user.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+/** Demo data with a shared well-known password: on by default for dev/test, off in the postgres profile. */
 @Component
+@ConditionalOnProperty(name = "app.seed.demo-data", havingValue = "true", matchIfMissing = true)
 public class DataInitializer implements ApplicationRunner {
 
     @Autowired private AuthUserRepository appUserRepo;
