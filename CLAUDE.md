@@ -52,6 +52,8 @@ The sessions share no memory, so they talk through two files. Each file has exac
 3. Update `api-documentation.md`, and move the issue's Kanban label (`status: in progress` / `in review` / done).
 4. Do not consider a change finished until these are done.
 
+**Issue numbers: never write one from memory.** Read the number from the issue itself (`list_issues` or `issue_read`, and check the title matches) before using it in a commit, a pull request, a doc or a label change. A `Closes #N` in a PR body closes that issue on merge, so a wrong number silently closes unrelated work. After a merge, verify the issues that were closed are the ones you meant.
+
 ## Conventions you must keep (the front end depends on them)
 - **Error envelope**: `{ "success": false, "message": "...", "data": null, "status": <int> }` from `common/exception/GlobalExceptionHandler`. The front end shows `message` verbatim. Write user-readable messages. 401 makes it log the user out. 404 = `ResourceNotFoundException`, 422 = `BusinessRuleException`, 403 = `LicenseValidationException`, 400 = validation.
 - **Success responses are bare DTOs**, not wrapped in `ApiResponse`. Keep it that way.

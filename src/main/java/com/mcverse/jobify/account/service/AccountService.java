@@ -11,6 +11,9 @@ import com.mcverse.jobify.auth.model.Role;
 import com.mcverse.jobify.auth.repository.AuthUserRepository;
 import com.mcverse.jobify.common.exception.BusinessRuleException;
 import com.mcverse.jobify.common.exception.ResourceNotFoundException;
+import com.mcverse.jobify.auth.security.PasswordPolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,19 +22,26 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AccountService {
 
+    private static final Logger log = LoggerFactory.getLogger(AccountService.class);
+
+
     @Autowired private AuthUserRepository authUserRepository;
     @Autowired private DeletionRequestRepository deletionRequestRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private PasswordPolicy passwordPolicy;
 
     @Transactional
     public void changePassword(String username, ChangePasswordRequest request) {
         AppUser user = authUserRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("Account", username));
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            log.warn("Password change refused for '{}': current password is incorrect", username);
             throw new BusinessRuleException("Current password is incorrect.");
         }
+        passwordPolicy.validateChange(username, request.currentPassword(), request.newPassword());
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         authUserRepository.save(user);
+        log.info("Password changed for '{}'", username);
     }
 
     @Transactional

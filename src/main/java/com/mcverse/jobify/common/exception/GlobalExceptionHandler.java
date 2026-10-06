@@ -3,6 +3,7 @@ package com.mcverse.jobify.common.exception;
 import com.mcverse.jobify.common.response.ApiResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -88,6 +89,13 @@ public class GlobalExceptionHandler {
 
     private static String describe(FieldError error) {
         return error.getField() + " " + error.getDefaultMessage();
+    }
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTooManyRequests(TooManyRequestsException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(ApiResponse.error(ex.getMessage(), HttpStatus.TOO_MANY_REQUESTS.value()));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

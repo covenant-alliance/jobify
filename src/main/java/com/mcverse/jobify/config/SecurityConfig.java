@@ -1,5 +1,6 @@
 package com.mcverse.jobify.config;
 
+import com.mcverse.jobify.auth.security.AuthRateLimitFilter;
 import com.mcverse.jobify.auth.security.JwtAuthFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +30,9 @@ public class SecurityConfig {
     @Autowired
     private AuthenticationProvider authenticationProvider;
 
+    @Autowired
+    private AuthRateLimitFilter authRateLimitFilter;
+
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
 
@@ -55,6 +59,7 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authenticationProvider(authenticationProvider)
+                .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

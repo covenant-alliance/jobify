@@ -22,7 +22,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P11. ✅ Job compensation model (#28).** `rate` + `rateType` (`HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`) replace `hourlyRate` and `jobRating`; `EmploymentType.B2B` added. Requested by the front end. Done in sprint 2. Follow-up (T3): drop the unused `job_rating` and `hourly_rate` columns with a real migration once no client reads `hourlyRate`.
 
-**P1. Applications.** *(Split into stories #30 apply + list mine, #31 withdraw, #32 employer applicants, #33 employer stage changes. all four are built and in review in the applications pull request.)* Entity: seeker, job, status (`APPLIED, IN_REVIEW, INTERVIEW, OFFER, REJECTED, WITHDRAWN`), createdAt, updatedAt, optional cover note. Unique on (seeker, job). Endpoints: `POST /jobs/{id}/apply` (SEEKER), `GET /applications/me`, `DELETE /applications/{id}` (withdraw), `GET /jobs/{id}/applications` (owning EMPLOYER), `PUT /applications/{id}/status` (owning EMPLOYER). This replaces the fake stage in `applicationStage.ts`. Also unblocks the company pipeline and funnel widgets and the notification triggers.
+**P1. Applications.** *(Split into stories #30 apply + list mine, #31 withdraw, #32 employer applicants, #33 employer stage changes. all four are done and merged (PR #40).)* Entity: seeker, job, status (`APPLIED, IN_REVIEW, INTERVIEW, OFFER, REJECTED, WITHDRAWN`), createdAt, updatedAt, optional cover note. Unique on (seeker, job). Endpoints: `POST /jobs/{id}/apply` (SEEKER), `GET /applications/me`, `DELETE /applications/{id}` (withdraw), `GET /jobs/{id}/applications` (owning EMPLOYER), `PUT /applications/{id}/status` (owning EMPLOYER). This replaces the fake stage in `applicationStage.ts`. Also unblocks the company pipeline and funnel widgets and the notification triggers.
 
 **P2. ✅ Saved jobs (#10, done in sprint 2).** `PUT /jobs/{id}/save`, `DELETE /jobs/{id}/save`, `GET /jobs/saved` (SEEKER). Small, and independent of P1.
 
@@ -36,7 +36,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P7. Admin stats and user management.** `GET /admin/users` exists and is unpaged. Add paging and search, plus `GET /admin/stats` (users by role, open jobs, applications). Optional: disable or delete user, and job moderation.
 
-**P8. Employer stats.** *(Open question for the Product Owner on job "views", see #17.)* Per-job application counts, funnel counts by status, and applications over time (`GET /employers/me/stats`) for the company dashboard.
+**P8. Employer stats.** *(Open question for the Product Owner on job "views", see #16.)* Per-job application counts, funnel counts by status, and applications over time (`GET /employers/me/stats`) for the company dashboard.
 
 **P9. User preferences.** Optional `GET/PUT /users/me/preferences` (notification toggles) to replace the front end's `localStorage` copy. Low priority.
 
@@ -58,7 +58,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **T1. Tests.** *(Sprint 1 progress: JaCoCo report added; security, job, auth, account-deletion and password tests done; overall instruction coverage 53% against the 85% target. Still uncovered: user/seeker profile services, admin users, CMS controllers, file storage, `common/validation`. Add tests with each new feature.)* Only `contextLoads` exists, against a 85% coverage target in `../Claude.md`. Start with security tests (public vs authed vs admin routes), `JobService`, `AuthService`, and account deletion, then add each new feature test-first.
 
-**T2. ✅ Bean Validation everywhere (#15, done in sprint 2: all bodies validated, guard test, limits, framework errors no longer 500). Follow-up: "X not found with id: Y" wording of 404s is shown verbatim by the front end and could be friendlier.** Audit every request DTO for `@Valid` and constraints. Check that `MethodArgumentNotValidException` yields a readable 400 `message` in the envelope, since the front end prints it.
+**T2. ✅ Bean Validation everywhere (#17, done in sprint 2: all bodies validated, guard test, limits, framework errors no longer 500). Follow-up: "X not found with id: Y" wording of 404s is shown verbatim by the front end and could be friendlier.** Audit every request DTO for `@Valid` and constraints. Check that `MethodArgumentNotValidException` yields a readable 400 `message` in the envelope, since the front end prints it.
 
 **T3. PostgreSQL + Flyway + Docker.** Currently H2 with `ddl-auto=update`. Add a `postgres` profile, Flyway migrations (baseline the current schema), a `Dockerfile` and a `docker-compose.yml`. Keep H2 as the default dev and test profile.
 
@@ -66,8 +66,8 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **T5. Observability.** JSON structured logging, a correlation-ID filter, and health details. Audit-log security events (login failure, admin actions, deletion approvals).
 
-**T6. ✅ API docs (#18, done in sprint 2: all routes documented; OpenAPI JSON checked by a test).** Bring `api-documentation.md` up to date (account, CMS, seeker profile, job fields, admin) or generate it from `/v3/api-docs`. Point the front-end session at the OpenAPI JSON.
+**T6. ✅ API docs (#21, done in sprint 2: all routes documented; OpenAPI JSON checked by a test).** Bring `api-documentation.md` up to date (account, CMS, seeker profile, job fields, admin) or generate it from `/v3/api-docs`. Point the front-end session at the OpenAPI JSON.
 
 **T7. Dependencies.** Spring Boot `4.0.0-M3` is a milestone. Move to GA when available and run a vulnerability check.
 
-**T8. Cleanup.** Also consider a rate limit on `/auth/**` and password rules (front end currently enforces none beyond non-empty).
+**T8. ✅ Cleanup (#23, done in sprint 3: login/register rate limit, failed-login lock, password policy, security event logging).** Also consider a rate limit on `/auth/**` and password rules (front end currently enforces none beyond non-empty).
