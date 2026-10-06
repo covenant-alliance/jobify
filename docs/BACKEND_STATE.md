@@ -38,6 +38,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
+- [ ] **Optional, location facet (#37):** replace the facet built from the free-text `location` strings with `GET /jobs/locations` (show `name` and `jobs`; for a type-ahead send `q`), and filter jobs with `GET /jobs/search?locationId=<id>` (repeat for several). Keep showing `job.location` as written on a job's own page. Nothing breaks until you switch.
 - [ ] **Responsibilities and requirements (#36):** add two list inputs to the Post-a-Job form (and the edit form) and send `responsibilities: string[]` and `requirements: string[]` in `POST /jobs` / `PUT /jobs/{id}` (max 20 items of 300 characters each). On the job page render `job.responsibilities` / `job.requirements` when they are not empty and keep the sentence-splitting heuristic only for jobs where both are empty. Until you send them nothing changes: an edit that omits the fields keeps what is saved.
 - [ ] **Optional, logo, benefits and gallery (#34, #35):** replace the initials/gradient with `${API}${job.logoUrl}` when it is not null, and `BENEFIT_POOL` / `GALLERY_POOL` with `job.benefits` / `job.images` (prefix each image with the API base) when they are not empty; keep the pools only as fallback for jobs without any. Add the three inputs to the Post-a-Job form if you want employers to fill them: benefits as `benefits: string[]` in the job body, pictures as separate multipart `POST /jobs/{id}/images` calls after the job exists (up to 6, 2 MB each), and a logo upload on the company page (`POST /users/companies/{id}/logo`, 1 MB).
 - [x] **Optional, company dashboard funnel (#53):** *(NOT NEEDED for now, per your 2026-10-06 note: the dashboards show applications by current status only. The funnel fields stay available in the response whenever you want them.)* show `applications.funnel` (and `perJob[].funnel`) as a real conversion funnel and, if you like, "typical time in stage" from `medianDaysInStage`. Details and the `null` rule are in the 2026-10-06 entry "a true hiring funnel".
@@ -59,6 +60,19 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 6 — places: clean location values, facet list and search filter (#37, P15) — 2026-10-06
+
+The Product Owner left the model to me ("do what is best, like a location DB"). I built a **catalogue of places** behind the free text. **Additive: nothing existing breaks**, and `location` stays exactly as the employer typed it.
+
+- **New field `locationId: string | null` on `JobPostResponse`** (every job route, including search). It is the id of the clean place the text resolves to; `null` when the text names no place (for example just `Hybrid`).
+- **New public route `GET /jobs/locations`**: `[{ id, name, city, region, countryCode, country, remote, jobs }]`, most jobs first. `?available=true|false|all` (default open jobs), `?q=` (name contains, for a type-ahead), `?limit=` (1 to 500, default 100). Places without a counted job are not listed. `name` is ready to show (`Berlin, Germany`, `Remote, United States`, `Austin, TX, United States`, `Berlin, Germany (remote)`).
+- **`GET /jobs/search` has a new repeatable `locationId` filter** (max 20 ids, OR between them, unknown id = no match). The old free-text `location` filter is unchanged.
+- **Merging, the point of the story:** `Remote — US`, `Remote, USA` and `remote (us)` are one place; so are `Berlin, DE`, `berlin, Germany` and `BERLIN,Deutschland`. Case, accents, country names, aliases (USA, UK, Deutschland...), ISO codes, US state names or codes, and `remote` written before, after or in brackets are understood. The full rules are in `api-documentation.md`. Limits to know: a bare capital `CA`, `PA`, `GA` and the other codes that are both a country and a US state mean the **state** (write `Canada` for the country); a city typed **without** a country joins the one known country for that city if there is exactly one, otherwise it is its own entry; the catalogue cannot know that a city exists, so a misspelling is a new place.
+- Existing jobs are filled at startup (`LocationBackfill`, harmless to repeat). Editing a job re-resolves its place. A job saved without its place can only be a very old row.
+- Database: table `locations` and column `job_posts.location_id` (Flyway `V8` on PostgreSQL). No external geo service.
+- For you: replace your client-side location facet (the one built from free-text strings) with `GET /jobs/locations` and filter with `locationId` (see "Open requests for the front end"). Show `job.location` as the job's own text.
+- Issue: #37.
 
 ### Sprint 6 — structured responsibilities and requirements on jobs (#36, P14) — 2026-10-06
 

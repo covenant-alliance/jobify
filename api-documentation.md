@@ -212,7 +212,24 @@ Returns job postings. By default returns **all** posts regardless of status, fro
 | `responsibilities` | string[] | What the person will do, in display order; `[]` when none (since #36) |
 | `requirements` | string[] | What the person needs to bring, in display order; `[]` when none (since #36) |
 | `images` | string[] | Picture URLs, oldest first, at most 6, relative to the API address (e.g. `/jobs/7/images/<id>`); `[]` when none (since #35) |
+| `locationId` | string \| null | The place behind `location` (see `GET /jobs/locations`); `null` when the text names no place (since #37) |
 | `logoUrl` | string \| null | The company's logo URL, relative to the API address (e.g. `/companies/<id>/logo?v=1760000000000`); `null` when none (since #34) |
+
+---
+
+### `GET /jobs/locations`
+
+Public. The places jobs can be filtered by, with job counts: a clean value learned from each job's free-text `location`. Two spellings of one place (`Berlin, DE`, `berlin, Germany`, `BERLIN,Deutschland`) are **one entry**; remote positions are their own entries (`Remote`, `Remote, United States`); a city in a country with remote work is a third (`Berlin, Germany (remote)`). Most jobs first, then by name.
+
+| Query parameter | Notes |
+|---|---|
+| `available` | `true` (default) counts open jobs, `false` closed ones, `all` both. A place with no counted job is not listed |
+| `q` | the shown name contains this (any case, `%` and `_` literal); max 100 chars. For a type-ahead |
+| `limit` | 1 to 500, default 100 |
+
+Response `200`, array of `{ id, name, city, region, countryCode, country, remote, jobs }` (`city`, `region`, `countryCode`, `country` may be `null`; `countryCode` is ISO 3166-1 alpha-2; `region` is the US state code or the text typed). Use `id` as `locationId` in `GET /jobs/search`. Errors: `400` (`limit must be between 1 and 500.`, `available must be true, false or all.`, `q must be at most 100 characters.`).
+
+How a text becomes a place: split on `, ; | / · – — ` and ` - `; `remote`, `worldwide`, `anywhere` (also as `Remote US`, `US Remote`, `(remote)`) set the remote flag; `hybrid` and `on-site` are ignored; a country is recognised by English name, common alias (`USA`, `UK`, `Deutschland`, `Holland`...) or ISO code; a US state by name or code (it also gives country `US`); the first other word group is the city, the next the region. A bare capital `CA`, `PA`, `GA`... (codes that are both a country and a US state) is read as the US state: write the country name to mean the country. A city typed without a country joins the one known country for that city if there is exactly one. Text that names no place (for example `Hybrid`) has no place and no `locationId`.
 
 ---
 
@@ -930,7 +947,7 @@ Adding a value to any of these is a contract change: tell the front-end session.
 | Area | Routes | Access |
 |---|---|---|
 | Auth | `POST /auth/register`, `POST /auth/login` | public |
-| Jobs | `GET /jobs`, `GET /jobs/search`, `GET /jobs/{id}`, `GET /jobs/{id}/images/{imageId}`, `GET /companies/{id}`, `GET /companies/{id}/logo` | public |
+| Jobs | `GET /jobs`, `GET /jobs/search`, `GET /jobs/locations`, `GET /jobs/{id}`, `GET /jobs/{id}/images/{imageId}`, `GET /companies/{id}`, `GET /companies/{id}/logo` | public |
 | Jobs | `POST /jobs`, `PUT /jobs/{id}`, `PATCH /jobs/{id}/available`, `GET /jobs/mine` | employer (owner) |
 | Saved jobs | `PUT`/`DELETE /jobs/{id}/save`, `GET /jobs/saved` | seeker |
 | Applications | `POST /jobs/{id}/apply`, `GET /applications/me`, `GET /applications/me/stats`, `DELETE /applications/{id}` | seeker |
@@ -981,6 +998,7 @@ interface JobPostResponse {
   requirements: string[];         // display order; [] when none
   images: string[];               // relative URLs, oldest first, max 6
   logoUrl: string | null;         // relative URL of the company logo
+  locationId: string | null;      // place behind `location`, for GET /jobs/locations and ?locationId=
 }
 ```
 

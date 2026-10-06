@@ -26,6 +26,9 @@ public interface JobRepo extends JpaRepository<JobPost, Integer>, JpaSpecificati
     /** Jobs saved before the plain-text description column existed. */
     List<JobPost> findAllByDescriptionTextIsNull();
 
+    /** Jobs that have location text but no resolved place yet (jobs from before places existed). */
+    List<JobPost> findAllByLocationRefIsNullAndLocationIsNotNullOrderByPostId();
+
     long countByAvailable(boolean available);
 
     long countByCreatedAtGreaterThanEqual(LocalDateTime since);

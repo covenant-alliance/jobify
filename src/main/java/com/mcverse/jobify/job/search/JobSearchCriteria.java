@@ -26,12 +26,15 @@ public record JobSearchCriteria(
         Availability availability,
         Sort sort,
         int page,
-        int size) {
+        int size,
+        List<String> locationIds) {
 
     public static final int DEFAULT_SIZE = 20;
     public static final int MAX_SIZE = 50;
     public static final int MAX_TEXT_LENGTH = 100;
     public static final int MAX_SKILLS = 20;
+    public static final int MAX_LOCATION_IDS = 20;
+    public static final int MAX_LOCATION_ID_LENGTH = 64;
 
     /** Whether a job needs any or all of the requested skills. */
     public enum SkillsMatch { ANY, ALL }
@@ -70,6 +73,14 @@ public record JobSearchCriteria(
                                        List<EmploymentType> employmentTypes, Double minRate, Double maxRate,
                                        List<String> skills, String skillsMatch, String available, String sort,
                                        Integer page, Integer size) {
+        return of(q, location, null, workModes, employmentTypes, minRate, maxRate, skills, skillsMatch, available,
+                sort, page, size);
+    }
+
+    public static JobSearchCriteria of(String q, String location, List<String> locationIds, List<WorkMode> workModes,
+                                       List<EmploymentType> employmentTypes, Double minRate, Double maxRate,
+                                       List<String> skills, String skillsMatch, String available, String sort,
+                                       Integer page, Integer size) {
         int pageNumber = page == null ? 0 : page;
         int pageSize = size == null ? DEFAULT_SIZE : size;
         if (pageNumber < 0) {
@@ -92,7 +103,7 @@ public record JobSearchCriteria(
                 workModes == null ? Set.of() : new LinkedHashSet<>(workModes),
                 employmentTypes == null ? Set.of() : new LinkedHashSet<>(employmentTypes),
                 minRate, maxRate, skillNames(skills), parseSkillsMatch(skillsMatch),
-                parseAvailability(available), Sort.parse(sort), pageNumber, pageSize);
+                parseAvailability(available), Sort.parse(sort), pageNumber, pageSize, locationIdList(locationIds));
     }
 
     /** Trims; a blank value means "no filter"; an over-long one is refused rather than silently cut. */
@@ -105,6 +116,30 @@ public record JobSearchCriteria(
             throw new IllegalArgumentException(name + " must be at most " + MAX_TEXT_LENGTH + " characters.");
         }
         return trimmed;
+    }
+
+    private static List<String> locationIdList(List<String> ids) {
+        if (ids == null) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        for (String id : ids) {
+            if (id == null || id.isBlank()) {
+                continue;
+            }
+            String trimmed = id.trim();
+            if (trimmed.length() > MAX_LOCATION_ID_LENGTH) {
+                throw new IllegalArgumentException("locationId must be at most " + MAX_LOCATION_ID_LENGTH
+                        + " characters.");
+            }
+            if (!out.contains(trimmed)) {
+                out.add(trimmed);
+            }
+        }
+        if (out.size() > MAX_LOCATION_IDS) {
+            throw new IllegalArgumentException("locationId must have at most " + MAX_LOCATION_IDS + " entries.");
+        }
+        return List.copyOf(out);
     }
 
     private static List<String> skillNames(List<String> skills) {
@@ -142,7 +177,7 @@ public record JobSearchCriteria(
         };
     }
 
-    private static Availability parseAvailability(String value) {
+    public static Availability parseAvailability(String value) {
         if (value == null || value.isBlank()) {
             return Availability.OPEN;
         }

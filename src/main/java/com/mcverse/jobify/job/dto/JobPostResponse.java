@@ -74,5 +74,9 @@ public record JobPostResponse(
 
         @Schema(description = "The company's logo URL, relative to the API address; null when it has none",
                 example = "/companies/7f3b.../logo?v=1760000000000", nullable = true)
-        String logoUrl
+        String logoUrl,
+
+        @Schema(description = "Id of the place behind `location` (for GET /jobs/locations and the locationId search "
+                + "filter); null when the text names no place", nullable = true)
+        String locationId
 ) {}

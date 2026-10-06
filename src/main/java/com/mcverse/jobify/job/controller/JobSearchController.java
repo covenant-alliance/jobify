@@ -50,6 +50,8 @@ public class JobSearchController {
             @RequestParam(required = false) String q,
             @Parameter(description = "Contains match (any case) on the free-text location", example = "berlin")
             @RequestParam(required = false) String location,
+            @Parameter(description = "Place ids from GET /jobs/locations; repeat to allow several. Max 20")
+            @RequestParam(required = false) List<String> locationId,
             @Parameter(description = "REMOTE, HYBRID or ONSITE; repeat to allow several")
             @RequestParam(required = false) List<WorkMode> workMode,
             @Parameter(description = "FULL_TIME, PART_TIME, CONTRACT, TEMPORARY, INTERNSHIP, FREELANCE or B2B; "
@@ -74,7 +76,7 @@ public class JobSearchController {
             @RequestParam(required = false) Integer page,
             @Parameter(description = "Page size, 1 to 50 (default 20)", example = "20")
             @RequestParam(required = false) Integer size) {
-        return searchService.search(JobSearchCriteria.of(q, location, workMode, employmentType, minRate, maxRate,
+        return searchService.search(JobSearchCriteria.of(q, location, locationId, workMode, employmentType, minRate, maxRate,
                 skills, skillsMatch, available, sort, page, size));
     }
 }

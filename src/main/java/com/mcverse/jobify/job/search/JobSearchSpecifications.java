@@ -53,6 +53,9 @@ public final class JobSearchSpecifications {
             if (criteria.location() != null) {
                 where.add(cb.like(cb.lower(root.get("location")), likePattern(criteria.location()), '\\'));
             }
+            if (!criteria.locationIds().isEmpty()) {
+                where.add(root.get("locationRef").get("id").in(criteria.locationIds()));
+            }
             if (!criteria.workModes().isEmpty()) {
                 where.add(root.get("workMode").in(criteria.workModes()));
             }
