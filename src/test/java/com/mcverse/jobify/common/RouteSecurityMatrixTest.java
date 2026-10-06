@@ -48,6 +48,7 @@ class RouteSecurityMatrixTest {
     private static final Set<String> PUBLIC = Set.of(
             "GET /jobs",
             "GET /jobs/{id}",
+            "GET /jobs/search",
             "GET /content",
             "GET /companies/{id}",
             "POST /auth/login",

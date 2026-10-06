@@ -1,6 +1,7 @@
 package com.mcverse.jobify.job.model;
 
 import com.mcverse.jobify.common.model.EmploymentType;
+import com.mcverse.jobify.common.text.PlainText;
 import com.mcverse.jobify.user.model.Employer;
 import com.mcverse.jobify.user.model.Skill;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -30,6 +31,13 @@ public class JobPost {
 
     @JdbcTypeCode(SqlTypes.LONG32VARCHAR) // long text: PostgreSQL text, MySQL longtext (not a LOB handle / oid)
     private String jobDescription;
+
+    /**
+     * {@link #jobDescription} without its HTML tags, kept in step by {@link #setJobDescription}, so job search can
+     * look at the words only. Null only until the startup backfill has run on jobs that predate the column.
+     */
+    @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
+    private String descriptionText;
 
     /** Pay amount, in the unit given by {@link #rateType}. */
     @Column(nullable = false)
@@ -67,7 +75,7 @@ public class JobPost {
 
     public JobPost(String jobTitle, String jobDescription, double rate, RateType rateType) {
         this.jobTitle = jobTitle;
-        this.jobDescription = jobDescription;
+        setJobDescription(jobDescription);
         setCompensation(rate, rateType);
         this.available = true;
         this.createdAt = LocalDateTime.now();
@@ -81,7 +89,13 @@ public class JobPost {
 
     public void setPostId(Integer postId)                { this.postId = postId; }
     public void setJobTitle(String jobTitle)             { this.jobTitle = jobTitle; }
-    public void setJobDescription(String jobDescription) { this.jobDescription = jobDescription; }
+    public void setJobDescription(String jobDescription) {
+        this.jobDescription = jobDescription;
+        this.descriptionText = PlainText.fromHtml(jobDescription);
+    }
+    public String getDescriptionText()                   { return descriptionText; }
+    /** Used only by the backfill for jobs saved before the plain-text column existed. */
+    public void refreshDescriptionText()                 { this.descriptionText = PlainText.fromHtml(jobDescription); }
     public double getRate()                              { return rate; }
     public RateType getRateType()                        { return rateType; }
 
