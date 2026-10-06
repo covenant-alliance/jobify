@@ -54,7 +54,7 @@ public class AccountController {
     @ResponseStatus(HttpStatus.CREATED)
     public DeletionRequestResponse requestDeletion(
             @AuthenticationPrincipal UserDetails principal,
-            @RequestBody(required = false) DeletionRequestRequest request) {
+            @Valid @RequestBody(required = false) DeletionRequestRequest request) {
         Role role = Role.valueOf(principal.getAuthorities().iterator().next().getAuthority().replace("ROLE_", ""));
         return accountService.requestDeletion(principal.getUsername(), role,
                 request != null ? request : new DeletionRequestRequest(null));

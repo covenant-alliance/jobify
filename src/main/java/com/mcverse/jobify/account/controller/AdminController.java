@@ -1,5 +1,6 @@
 package com.mcverse.jobify.account.controller;
 
+import jakarta.validation.Valid;
 import com.mcverse.jobify.account.dto.DeletionRequestResponse;
 import com.mcverse.jobify.account.dto.ResolveDeletionRequestRequest;
 import com.mcverse.jobify.account.service.AdminAccountService;
@@ -60,7 +61,7 @@ public class AdminController {
     @PostMapping("/deletion-requests/{id}/reject")
     public DeletionRequestResponse reject(
             @Parameter(description = "Deletion request ID") @PathVariable String id,
-            @RequestBody(required = false) ResolveDeletionRequestRequest body) {
+            @Valid @RequestBody(required = false) ResolveDeletionRequestRequest body) {
         return adminAccountService.reject(id, body != null ? body : new ResolveDeletionRequestRequest(null));
     }
 }

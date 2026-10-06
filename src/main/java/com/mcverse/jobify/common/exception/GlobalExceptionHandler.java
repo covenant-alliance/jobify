@@ -1,12 +1,18 @@
 package com.mcverse.jobify.common.exception;
 
 import com.mcverse.jobify.common.response.ApiResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -82,6 +88,47 @@ public class GlobalExceptionHandler {
 
     private static String describe(FieldError error) {
         return error.getField() + " " + error.getDefaultMessage();
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
+    public ApiResponse<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        return ApiResponse.error(ex.getMethod() + " is not supported for this endpoint.",
+                HttpStatus.METHOD_NOT_ALLOWED.value());
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    @ResponseStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+    public ApiResponse<Void> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex) {
+        return ApiResponse.error("The content type is not supported. Send the request as application/json.",
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE.value());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleNoResource(NoResourceFoundException ex) {
+        return ApiResponse.error("The requested resource was not found.", HttpStatus.NOT_FOUND.value());
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleMissingParameter(MissingServletRequestParameterException ex) {
+        return ApiResponse.error("The parameter '" + ex.getParameterName() + "' is required.",
+                HttpStatus.BAD_REQUEST.value());
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleMissingPart(MissingServletRequestPartException ex) {
+        return ApiResponse.error("The file part '" + ex.getRequestPartName() + "' is required.",
+                HttpStatus.BAD_REQUEST.value());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Void> handleDataIntegrity(DataIntegrityViolationException ex) {
+        return ApiResponse.error("That change conflicts with existing data. Please refresh and try again.",
+                HttpStatus.CONFLICT.value());
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

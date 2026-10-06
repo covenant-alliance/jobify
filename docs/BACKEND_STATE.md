@@ -44,6 +44,19 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 
 ## Change log (newest first)
 
+### Sprint 2 — validation audit and API documentation (#15 T2, #18 T6) — 2026-10-05
+Mostly stricter validation and clearer errors. Nothing the current front end sends is rejected, except where noted.
+
+- **Every request body is now validated**, and a test fails the build if a new endpoint forgets `@Valid`. Newly covered: login, availability toggle, CMS update, deletion request and its resolution note.
+- **Wording:** a missing required field now reads `<field> is required` everywhere (it used to read `must not be blank` on the older endpoints). Length problems read `<field> must be at most N characters`.
+- **New limits, which used to be 500 errors from the database:** username 50, password 72, first/last name 100, company name 150, profile list text 255, experience description 5,000, skill name and category 100, deletion reason and note 255, CMS value 4,000. `yearsOfExperience` must be 0 to 80. `credentialUrl` must start with `http://` or `https://`.
+- **Login** with a missing username or password is now `400` `username is required` (wrong credentials are still `401`).
+- **`PATCH /jobs/{id}/available`** without the flag is `400` `available is required` (it used to be a vague `400`).
+- **`PUT /admin/content`** without `values` is `400` (it used to crash with a 500).
+- **`PUT /account/password`**: the rule is now stated as `newPassword must be 8 to 72 characters`.
+- **Errors that used to be a 500** are now proper responses in the usual envelope: unknown route `404`, wrong HTTP method `405`, wrong content type `415`, missing request parameter or upload part `400`, and a database conflict `409`.
+- **`docs`:** `api-documentation.md` now covers all 55 routes (resume, education, certifications, experiences, skills, account, deletion requests, admin, CMS), the enums, the limits and the new error codes. The OpenAPI JSON at `/v3/api-docs` is generated from the code and is the machine-readable source; you can generate typed clients from it.
+
 ### Sprint 2 — saved jobs (#10, P2) — 2026-10-05
 Additive. New table `saved_jobs`, created in place.
 

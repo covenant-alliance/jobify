@@ -1,5 +1,6 @@
 package com.mcverse.jobify.cms.controller;
 
+import jakarta.validation.Valid;
 import com.mcverse.jobify.cms.dto.ContentEntryResponse;
 import com.mcverse.jobify.cms.dto.UpdateContentRequest;
 import com.mcverse.jobify.cms.service.ContentService;
@@ -32,7 +33,7 @@ public class ContentAdminController {
 
     @PutMapping
     @Operation(summary = "Update one or more content entries by key")
-    public List<ContentEntryResponse> update(@RequestBody UpdateContentRequest request) {
+    public List<ContentEntryResponse> update(@Valid @RequestBody UpdateContentRequest request) {
         return contentService.updateEntries(request.values());
     }
 }

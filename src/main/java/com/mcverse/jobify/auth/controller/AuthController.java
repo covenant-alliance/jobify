@@ -52,7 +52,7 @@ public class AuthController {
                     content = @Content(schema = @Schema(ref = "#/components/schemas/ErrorResponse"))),
     })
     @PostMapping("/login")
-    public TokenResponse login(@RequestBody LoginRequest request) {
+    public TokenResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
     }
 }

@@ -140,7 +140,7 @@ public class JobController {
             @AuthenticationPrincipal UserDetails principal,
             @Parameter(description = "Job post ID", example = "3")
             @PathVariable Integer id,
-            @RequestBody UpdateJobAvailabilityRequest request) {
+            @Valid @RequestBody UpdateJobAvailabilityRequest request) {
         return jobService.updateAvailability(id, request.available(), principal.getUsername());
     }
 }
