@@ -39,7 +39,7 @@ Three things make up "the data", and a migration has to move all three:
 
 | Database | Who creates the tables | How |
 |---|---|---|
-| H2 (dev profile, default) | Hibernate | `ddl-auto=update` at startup, plus `LegacySchemaPatch` / `JobCompensationBackfill` for old files |
+| H2 (dev profile, default) | Hibernate | `ddl-auto=update` at startup, plus `LegacySchemaPatch` for old files |
 | PostgreSQL (`postgres` profile) | **Flyway** | SQL files in `db/migration/postgresql/`; Hibernate only checks them (`ddl-auto=validate`) and refuses to start if an entity and the schema disagree |
 
 So moving data is always two separate jobs: **(1) get an empty database with the right tables**, which is
@@ -87,10 +87,10 @@ Replace the paths and URLs with yours. `$JAR` is the packaged jar (`mvn -DskipTe
 
 ### A1. Bring the H2 file up to date with the current build (once)
 
-Old dev databases were created by older builds. Starting the **new** build on them once runs two small
-helpers that are restricted to H2: `LegacySchemaPatch` (turns old enum columns into `VARCHAR`) and
-`JobCompensationBackfill` (fills `rate`/`rateType` on old jobs). This is what makes the old file match the
-current entities, so the copy has nothing odd to trip over. It also gives applications made before status history existed a minimal history (`ApplicationHistoryBackfill`), so the copy carries history rows for every application and the employer funnel works after the move.
+Old dev databases were created by older builds. Starting the **new** build on them once runs a small
+helper that is restricted to H2, `LegacySchemaPatch`: it turns old enum columns into `VARCHAR`, gives very old jobs
+their `rate`/`rateType` from the old `hourly_rate` (and then drops that column and `job_rating`). This is what makes
+the old file match the current entities, so the copy has nothing odd to trip over. It also gives applications made before status history existed a minimal history (`ApplicationHistoryBackfill`), so the copy carries history rows for every application and the employer funnel works after the move.
 
 ```bash
 # stop any app that uses the H2 file first, then:

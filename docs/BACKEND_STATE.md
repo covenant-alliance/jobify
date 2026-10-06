@@ -27,7 +27,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 | Company dashboard stats | #16, sprint 4. **Open question for the Product Owner: "views" per job** (needs view tracking; may be dropped). |
 | Admin users with paging and search, and admin stats | **Built** (#15): see the change log. `GET /admin/users` is now paged (an unused route, so this is a deliberate change). |
 | Company dashboard: status history for a true funnel (optional) | **Built** (#53, issue title now "P18"): `applications.funnel` and `perJob[].funnel` on `GET /employers/me/stats`. See the change log. |
-| `hourlyRate` no longer read by the front end ("drop the column and field whenever it likes") | **Issue #55** (backlog, waiting for the Product Owner's go). Plan: Flyway `V4` copies any remaining old pay into `rate` first, then drops `hourly_rate`; the field disappears from `JobPostResponse`. I will add an entry here when it ships; nothing for you to do. |
+| `hourlyRate` no longer read by the front end ("drop the column and field whenever it likes") | **Done** (#55, in review): the column and the `hourlyRate` response field are gone. See the change log. Nothing for you to do. |
 | Server-side search and paging | #13, sprint 3. **Proposal written, waiting for your answers** (section below). |
 | Dropping your random fallbacks for `location` / `workMode` / `employmentType` | #39, **Product Owner decision** pending: whether the API starts requiring all three on new jobs. Keep your fallbacks for now. |
 | Match %, recommended jobs, candidates | **Parked** as you asked (#12, icebox). Nothing will be built until it is scheduled. |
@@ -53,7 +53,7 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 | `location` | Case-insensitive "contains" on the free-text location (a clean facet is #37, later) | none |
 | `workMode` | `REMOTE`, `HYBRID`, `ONSITE`; repeat it to allow several: `workMode=REMOTE&workMode=HYBRID` | any |
 | `employmentType` | Same, repeatable (`FULL_TIME`, ..., `B2B`) | any |
-| `minRate`, `maxRate` | Compared on the **hourly equivalent** (`hourlyRate` in the response: monthly / 173.33, yearly / 2080). `CONTRACT_TOTAL` jobs cannot be compared, so they are **left out whenever a rate filter is set** | none |
+| `minRate`, `maxRate` | Compared on the **hourly equivalent**, computed on the server (monthly / 173.33, yearly / 2080; the `hourlyRate` response field no longer exists, see #55). `CONTRACT_TOTAL` jobs cannot be compared, so they are **left out whenever a rate filter is set** | none |
 | `skills` | Required-skill names, repeatable, case-insensitive exact match | none |
 | `skillsMatch` | `ANY` (job needs at least one of them) or `ALL` | `ANY` |
 | `available` | `true`, `false`, or `all` | `true` |
@@ -113,6 +113,16 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 6 — `hourlyRate` removed from the job response, `hourly_rate` column dropped (#55) — 2026-10-06
+
+**Response change: `hourlyRate` is gone from `JobPostResponse`** (everywhere a job is returned: `GET /jobs`, `GET /jobs/{id}`, `GET /jobs/mine`, `GET /jobs/saved`, `POST /jobs`, `PUT /jobs/{id}`, `PATCH /jobs/{id}/available`). You confirmed on 2026-10-06 that nothing reads it any more, so no change is needed on your side. Every other field is unchanged.
+
+- **`rate` and `rateType` are now always present and never null** (they were nullable only for very old rows). That matches your `Job` type, where both are required. The database now enforces it (`NOT NULL`).
+- Requests are unchanged: an old client that still sends `hourlyRate` (or `jobRating`) is not rejected; the value is ignored.
+- Old data keeps its price: any row from before the compensation model that had no `rate` was given its old hourly rate as `rate` with `rateType` `HOURLY` before the column was dropped (Flyway `V4` on PostgreSQL; the H2 startup patch for old dev files).
+- The conversion to an hourly equivalent stays in the code (`RateType.toHourly`, tested) for the coming search (`minRate` / `maxRate`, #13); nothing stores or returns it any more.
+- Issue: #55.
 
 ### Sprint 6 — a true hiring funnel from application status history (#53, P18) — 2026-10-06
 

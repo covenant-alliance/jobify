@@ -31,14 +31,13 @@ public class JobPost {
     @JdbcTypeCode(SqlTypes.LONG32VARCHAR) // long text: PostgreSQL text, MySQL longtext (not a LOB handle / oid)
     private String jobDescription;
 
-    /** Hourly equivalent of {@link #rate}; kept for clients that still read {@code hourlyRate}. */
-    private double hourlyRate;
-
-    /** Pay amount, in the unit given by {@link #rateType}. Nullable only for rows awaiting the backfill. */
-    private Double rate;
+    /** Pay amount, in the unit given by {@link #rateType}. */
+    @Column(nullable = false)
+    private double rate;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false)
     private RateType rateType;
 
     private String location;
@@ -78,20 +77,18 @@ public class JobPost {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public String getJobTitle()        { return jobTitle; }
     public String getJobDescription()  { return jobDescription; }
-    public double getHourlyRate()      { return hourlyRate; }
     public boolean isAvailable()       { return available; }
 
     public void setPostId(Integer postId)                { this.postId = postId; }
     public void setJobTitle(String jobTitle)             { this.jobTitle = jobTitle; }
     public void setJobDescription(String jobDescription) { this.jobDescription = jobDescription; }
-    public Double getRate()                              { return rate; }
+    public double getRate()                              { return rate; }
     public RateType getRateType()                        { return rateType; }
 
-    /** Sets the pay and keeps the derived hourly equivalent in step. */
+    /** Sets the pay: an amount and the unit it is expressed in. */
     public void setCompensation(double rate, RateType rateType) {
         this.rate = rate;
         this.rateType = rateType;
-        this.hourlyRate = rateType.toHourly(rate);
     }
     public void setAvailable(boolean available)          { this.available = available; }
     public Employer getEmployer()                        { return employer; }

@@ -28,10 +28,6 @@ public record JobPostResponse(
                 example = "HOURLY")
         RateType rateType,
 
-        @Schema(description = "Deprecated: rate converted to an hourly amount (monthly / 173.33, yearly / 2080); " +
-                "0 for CONTRACT_TOTAL. Use rate and rateType.", example = "75.00")
-        double hourlyRate,
-
         @Schema(description = "Username of the employer who created this post; null if unassigned",
                 example = "acme_corp", nullable = true)
         String employerUsername,

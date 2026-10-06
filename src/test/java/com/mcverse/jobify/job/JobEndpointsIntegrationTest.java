@@ -228,31 +228,31 @@ class JobEndpointsIntegrationTest {
     }
 
     @Test
-    void hourlyRateIsReturnedAsIs() throws Exception {
+    void theAmountAndUnitAreReturnedAsSentAndThereIsNoHourlyRateField() throws Exception {
         mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(createJobJson("75.5", "HOURLY")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.rate").value(75.5))
                 .andExpect(jsonPath("$.rateType").value("HOURLY"))
-                .andExpect(jsonPath("$.hourlyRate").value(75.5));
+                .andExpect(jsonPath("$.hourlyRate").doesNotExist()); // retired in #55; the front end no longer reads it
     }
 
     @Test
-    void monthlyYearlyAndContractRatesGetTheirHourlyEquivalent() throws Exception {
+    void monthlyYearlyAndContractRatesAreKeptInTheirOwnUnit() throws Exception {
         String token = bearer(mvc, "techcorp");
         mvc.perform(post("/jobs").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
                         .content(createJobJson("5200", "MONTHLY")))
                 .andExpect(jsonPath("$.rate").value(5200.0))
                 .andExpect(jsonPath("$.rateType").value("MONTHLY"))
-                .andExpect(jsonPath("$.hourlyRate").value(30.0));
+                .andExpect(jsonPath("$.hourlyRate").doesNotExist());
         mvc.perform(post("/jobs").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
                         .content(createJobJson("104000", "YEARLY")))
-                .andExpect(jsonPath("$.hourlyRate").value(50.0));
+                .andExpect(jsonPath("$.rate").value(104000.0))
+                .andExpect(jsonPath("$.rateType").value("YEARLY"));
         mvc.perform(post("/jobs").header(AUTHORIZATION, token).contentType(APPLICATION_JSON)
                         .content(createJobJson("20000", "CONTRACT_TOTAL")))
                 .andExpect(jsonPath("$.rate").value(20000.0))
-                .andExpect(jsonPath("$.rateType").value("CONTRACT_TOTAL"))
-                .andExpect(jsonPath("$.hourlyRate").value(0.0));
+                .andExpect(jsonPath("$.rateType").value("CONTRACT_TOTAL"));
     }
 
     @Test
@@ -290,7 +290,8 @@ class JobEndpointsIntegrationTest {
         mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.hourlyRate").value(40.0))
+                .andExpect(jsonPath("$.rate").value(40.0)) // the 999 an old client sent as hourlyRate is ignored
+                .andExpect(jsonPath("$.hourlyRate").doesNotExist())
                 .andExpect(jsonPath("$.jobRating").doesNotExist());
     }
 
@@ -315,7 +316,7 @@ class JobEndpointsIntegrationTest {
                         .content(createJobJson("6000", "MONTHLY")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rateType").value("MONTHLY"))
-                .andExpect(jsonPath("$.hourlyRate").value(34.62));
+                .andExpect(jsonPath("$.rate").value(6000.0));
     }
 
     @Test
