@@ -40,13 +40,15 @@ public class ApplicationService {
     private final JobRepo jobRepo;
     private final SeekerRepository seekerRepo;
     private final Clock clock;
+    private final ApplicationNotifier notifier;
 
     public ApplicationService(ApplicationRepository applicationRepo, JobRepo jobRepo, SeekerRepository seekerRepo,
-                              Clock clock) {
+                              Clock clock, ApplicationNotifier notifier) {
         this.applicationRepo = applicationRepo;
         this.jobRepo = jobRepo;
         this.seekerRepo = seekerRepo;
         this.clock = clock;
+        this.notifier = notifier;
     }
 
     @Transactional
@@ -64,13 +66,17 @@ public class ApplicationService {
 
         Application existing = applicationRepo.findBySeekerUsernameAndJobPostId(username, jobId).orElse(null);
         if (existing == null) {
-            return toResponse(applicationRepo.save(new Application(seeker, job, note)));
+            Application created = applicationRepo.save(new Application(seeker, job, note));
+            notifier.applicationSubmitted(created);
+            return toResponse(created);
         }
         if (existing.getStatus() != ApplicationStatus.WITHDRAWN) {
             throw new BusinessRuleException("You have already applied to this job.");
         }
         existing.reapply(note);
-        return toResponse(applicationRepo.save(existing));
+        Application reopened = applicationRepo.save(existing);
+        notifier.applicationSubmitted(reopened);
+        return toResponse(reopened);
     }
 
     @Transactional(readOnly = true)
@@ -140,6 +146,7 @@ public class ApplicationService {
     private void updateStatus(Application application, ApplicationStatus newStatus) {
         application.changeStatus(newStatus);
         applicationRepo.save(application);
+        notifier.statusChanged(application, newStatus);
     }
 
     private void requireJobOwner(JobPost job, String username, String action, Integer jobId) {

@@ -32,7 +32,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P5. ✅ Company name on job responses (#11, done in sprint 2: `companyName`, `companyId`, public `GET /companies/{id}`).** `JobPostResponse` has `employerUsername` only, and the UI title-cases it as the company. Add `companyName` (nullable) and `companyId`. Additive, so safe. Also consider a public `GET /companies/{id}`.
 
-**P6. Notifications.** `Notification` entity (user, type, title, body, read, createdAt) with `GET /notifications`, `POST /notifications/{id}/read` and `POST /notifications/read-all`. Emit on application status change, new application (employer), and new match (P3). The front-end types are in `app/lib/mockDashboardData.ts` (`type: interview | application | system | hiring | account`).
+**P6. ✅ Notifications (#14, done in sprint 4; "new match" events wait for the parked matching engine, old read notifications are not cleaned up yet).** `Notification` entity (user, type, title, body, read, createdAt) with `GET /notifications`, `POST /notifications/{id}/read` and `POST /notifications/read-all`. Emit on application status change, new application (employer), and new match (P3). The front-end types are in `app/lib/mockDashboardData.ts` (`type: interview | application | system | hiring | account`).
 
 **P7. Admin stats and user management.** `GET /admin/users` exists and is unpaged. Add paging and search, plus `GET /admin/stats` (users by role, open jobs, applications). Optional: disable or delete user, and job moderation.
 

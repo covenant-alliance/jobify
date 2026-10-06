@@ -2,6 +2,8 @@ package com.mcverse.jobify.account.service;
 
 import com.mcverse.jobify.application.repository.ApplicationRepository;
 import com.mcverse.jobify.job.repository.SavedJobRepository;
+import com.mcverse.jobify.notification.model.NotificationType;
+import com.mcverse.jobify.notification.service.NotificationService;
 import com.mcverse.jobify.account.dto.DeletionRequestResponse;
 import com.mcverse.jobify.account.dto.ResolveDeletionRequestRequest;
 import com.mcverse.jobify.account.model.DeletionRequest;
@@ -28,6 +30,7 @@ public class AdminAccountService {
     @Autowired private AccountService accountService;
     @Autowired private ApplicationRepository applicationRepo;
     @Autowired private SavedJobRepository savedJobRepo;
+    @Autowired private NotificationService notifications;
 
     public List<DeletionRequestResponse> listPending() {
         return deletionRequestRepository.findAllByStatusOrderByRequestedAtAsc(DeletionRequestStatus.PENDING)
@@ -52,6 +55,7 @@ public class AdminAccountService {
             }
             case ADMIN -> { /* no domain profile to remove */ }
         }
+        notifications.deleteAllFor(request.getUsername());
         authUserRepository.findByUsername(request.getUsername()).ifPresent(authUserRepository::delete);
 
         request.resolve(DeletionRequestStatus.APPROVED, null);
@@ -62,7 +66,12 @@ public class AdminAccountService {
     public DeletionRequestResponse reject(String requestId, ResolveDeletionRequestRequest body) {
         DeletionRequest request = pendingRequest(requestId);
         request.resolve(DeletionRequestStatus.REJECTED, body.note());
-        return accountService.toResponse(deletionRequestRepository.save(request));
+        DeletionRequest saved = deletionRequestRepository.save(request);
+        String reason = body.note() == null || body.note().isBlank() ? "" : " Note from the admin: " + body.note();
+        notifications.notify(request.getUsername(), NotificationType.ACCOUNT, "Account deletion request declined",
+                "Your request to delete your account was declined, so your account stays active." + reason,
+                null, null);
+        return accountService.toResponse(saved);
     }
 
     private DeletionRequest pendingRequest(String requestId) {

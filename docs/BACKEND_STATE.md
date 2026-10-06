@@ -23,7 +23,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 | Responsibilities / requirements | #36, **Product Owner decision** pending (keep your sentence heuristic meanwhile). |
 | Location facet | #37, icebox. `location` stays free text. |
 | Seeker dashboard charts | #38 `GET /applications/me/stats`, sprint 4, after applications. |
-| Notifications | #14, sprint 4. |
+| Notifications | **Built** (#14): see the change log. The bell can be wired now. |
 | Company dashboard stats | #16, sprint 4. **Open question for the Product Owner: "views" per job** (needs view tracking; may be dropped). |
 | Admin users with paging and search, and admin stats | #15, sprint 4. `GET /admin/users` already exists unpaged; you can wire it today. |
 | Server-side search and paging | #13, sprint 3. **Proposal written, waiting for your answers** (section below). |
@@ -92,7 +92,7 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 8 points: query builder with every filter and sort, input validation, tests for each filter and combination (including the rate rules and the empty and invalid cases), documentation, and a check of query cost on a few thousand generated jobs.
 
 ## Open requests for the front end
-- [ ] **Seeker dashboard charts:** replace the static `EMPLOYEE_CHART_DATA` with `GET /applications/me/stats` (a weekly bar or line from `weekly`, and a status breakdown from `byStatus`; `active` for the headline number) (issue #38).- [ ] **Answer the search proposal** (section "Proposal awaiting your answer", issue #13): reply under "Requests to the back end" in your file. "Accept the defaults" is enough. I will not start until you do.
+- [ ] **Notifications:** replace `MOCK_NOTIFICATIONS` with `GET /notifications`, drive the bell badge from `GET /notifications/unread-count` (poll every 30 to 60 s), call `POST /notifications/{id}/read` when one is opened and `POST /notifications/read-all` for "mark all as read". Use `jobId` / `applicationId` for links. Map `type` (uppercase) to your existing icons (issue #14).- [ ] **Seeker dashboard charts:** replace the static `EMPLOYEE_CHART_DATA` with `GET /applications/me/stats` (a weekly bar or line from `weekly`, and a status breakdown from `byStatus`; `active` for the headline number) (issue #38).- [ ] **Answer the search proposal** (section "Proposal awaiting your answer", issue #13): reply under "Requests to the back end" in your file. "Accept the defaults" is enough. I will not start until you do.
 - [ ] **Login and register forms:** show the `message` of a `429` as it is (it already says how long to wait), and keep the form usable afterwards. A `429` is not an auth failure, so it must **not** log the user out or clear the token (only `401` does that).
 - [ ] **Register and change-password forms:** show the password rules up front (8 to 72 characters, not your username, not a common password) so the user does not hit the `400` first (issue #23).Updated 2026-10-06 after reading your snapshot of the same day. Everything below is merged on `master` and ready to use.
 
@@ -108,6 +108,18 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 4 — in-app notifications (#14, P6) — 2026-10-06
+Additive. New table `notifications`, created in place. Nothing existing changes.
+
+- **`GET /notifications`** (any signed-in user, own only): newest first, `?unreadOnly=true`, `?limit=` 1 to 100 (default 50). Each item: `id`, `type`, `title`, `body`, `read`, `createdAt`, `jobId`, `applicationId` (the last two nullable, for deep links).
+- **`GET /notifications/unread-count`** returns `{ "count": n }` for the bell badge. **There is no push yet: poll it** (30 to 60 s).
+- **`POST /notifications/{id}/read`** (idempotent, returns the notification; `404` if not yours) and **`POST /notifications/read-all`** (returns `{ "updated": n }`).
+- **`type`** is `INTERVIEW | APPLICATION | SYSTEM | HIRING | ACCOUNT`, the same five values as your `MOCK_NOTIFICATIONS` union, in uppercase. Please mirror it exactly.
+- **What triggers them:** a seeker applying or withdrawing (the employer is told); the employer moving an application to `IN_REVIEW` (`APPLICATION`), `INTERVIEW` (`INTERVIEW`), `OFFER` (`HIRING`) or `REJECTED` (`APPLICATION`) (the seeker is told); a password change and a declined deletion request (`ACCOUNT`). The full table is in `api-documentation.md`.
+- **`title` and `body` are plain text** (they can contain names and job titles typed by users): render them as text, never as HTML.
+- **Not sent yet:** "new match" (the matching engine is parked) and `SYSTEM` announcements.
+- Read notifications are kept; there is no cleanup of old ones yet. Deleting an account deletes its notifications.
 
 ### Sprint 4 — seeker application statistics (#38, P16) — 2026-10-06
 Additive. No existing route or shape changes.
