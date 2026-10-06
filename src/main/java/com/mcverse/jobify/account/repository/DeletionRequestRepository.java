@@ -10,4 +10,6 @@ import java.util.Optional;
 public interface DeletionRequestRepository extends JpaRepository<DeletionRequest, String> {
     Optional<DeletionRequest> findFirstByUsernameAndStatusOrderByRequestedAtDesc(String username, DeletionRequestStatus status);
     List<DeletionRequest> findAllByStatusOrderByRequestedAtAsc(DeletionRequestStatus status);
+
+    long countByStatus(DeletionRequestStatus status);
 }

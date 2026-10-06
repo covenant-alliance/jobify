@@ -5,7 +5,10 @@ import com.mcverse.jobify.cms.dto.ContentEntryResponse;
 import com.mcverse.jobify.cms.dto.UpdateContentRequest;
 import com.mcverse.jobify.cms.service.ContentService;
 import io.swagger.v3.oas.annotations.Operation;
+import com.mcverse.jobify.admin.AuditLog;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +28,9 @@ public class ContentAdminController {
     @Autowired
     private ContentService contentService;
 
+    @Autowired
+    private AuditLog auditLog;
+
     @GetMapping
     @Operation(summary = "List all content entries with category and last-updated metadata")
     public List<ContentEntryResponse> getAll() {
@@ -33,7 +39,9 @@ public class ContentAdminController {
 
     @PutMapping
     @Operation(summary = "Update one or more content entries by key")
-    public List<ContentEntryResponse> update(@Valid @RequestBody UpdateContentRequest request) {
+    public List<ContentEntryResponse> update(@AuthenticationPrincipal UserDetails principal,
+                                             @Valid @RequestBody UpdateContentRequest request) {
+        auditLog.record(principal.getUsername(), "UPDATE_CONTENT", "keys=" + request.values().keySet());
         return contentService.updateEntries(request.values());
     }
 }
