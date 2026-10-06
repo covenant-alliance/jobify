@@ -36,7 +36,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P7. ✅ Admin stats and user management (#15, done in sprint 4: paged and searchable `GET /admin/users`, `GET /admin/stats`, audit log). Not built: disable/delete a user directly and job moderation (the optional stretch).** `GET /admin/users` exists and is unpaged. Add paging and search, plus `GET /admin/stats` (users by role, open jobs, applications). Optional: disable or delete user, and job moderation.
 
-**P8. Employer stats.** *(Open question for the Product Owner on job "views", see #16.)* Per-job application counts, funnel counts by status, and applications over time (`GET /employers/me/stats`) for the company dashboard.
+**P8. ✅ Employer stats (#16, done in sprint 4: `GET /employers/me/stats`; counts are current-status snapshots, not a stage history; no job views).** *(Open question for the Product Owner on job "views", see #16.)* Per-job application counts, funnel counts by status, and applications over time (`GET /employers/me/stats`) for the company dashboard.
 
 **P9. User preferences.** Optional `GET/PUT /users/me/preferences` (notification toggles) to replace the front end's `localStorage` copy. Low priority.
 
