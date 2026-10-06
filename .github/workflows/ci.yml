@@ -19,7 +19,8 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - run: mvn -B test
+      # verify = test + the JaCoCo coverage floor from pom.xml (jacoco.min.line / jacoco.min.branch)
+      - run: mvn -B verify
 
   test-postgres:
     name: Tests (PostgreSQL 18 + Flyway, Hibernate validate)

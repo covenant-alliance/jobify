@@ -110,6 +110,14 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 
 ## Change log (newest first)
 
+### Sprint 5 — test foundation (#8, T1) — 2026-10-06
+
+**No API change.** Tests, a coverage floor and one small fix to an operations tool. Nothing for the front end to do.
+- Coverage is now **95.5% lines / 84.5% branches (345 tests)**, enforced in CI.
+- **Finding for you to be aware of (issue #50, waiting for the Product Owner's decision):** a request with **no token, or with a malformed or expired token, gets `403`, not `401`**. Your interceptor logs the user out on `401`, so an expired 24-hour session currently shows an error instead of logging out. The proposed fix (return `401` with the usual error envelope for unauthenticated requests, keep `403` for "signed in but not allowed") would change those responses from 403 to 401; I will add an entry here before doing it. Until then nothing changes.
+- Fixed while testing: the database copy tool exited with an error code on `--dry-run`. Not an API matter.
+- Issue: #8.
+
 ### Sprint 5 — package clean-up (#19, T4) — 2026-10-06
 
 **No API change at all** and nothing for the front end to do. Internal only: two unused classes were deleted and the legacy `model/` package was split into the feature slices. Routes, request and response bodies, status codes, enum names and values, table and column names are identical (the PostgreSQL suite still validates against the unchanged Flyway migrations).

@@ -157,4 +157,65 @@ class DatabaseCopyToolTest {
         assertEquals("0", one("select count(*) from a_child"), "the failed table is rolled back");
         assertFalse(log.toString().contains("All tables match"));
     }
+
+    // ---------------------------------------------------------------------------------------- the command line
+
+    private static String urlOf(Connection c) throws SQLException {
+        return c.getMetaData().getURL();
+    }
+
+    private int run(java.io.ByteArrayOutputStream out, java.io.ByteArrayOutputStream err, String... args) {
+        return DatabaseCopyTool.run(args, new java.io.PrintStream(out), new java.io.PrintStream(err));
+    }
+
+    @Test
+    void commandLineCopiesAndExitsZero() throws SQLException {
+        var out = new java.io.ByteArrayOutputStream();
+        var err = new java.io.ByteArrayOutputStream();
+        int code = run(out, err, "--source-url=" + urlOf(source), "--source-user=sa",
+                "--target-url=" + urlOf(target), "--target-user=sa");
+        assertEquals(0, code, err.toString());
+        assertTrue(out.toString().contains("All tables match."));
+        assertEquals("2", one("select count(*) from a_child"));
+    }
+
+    @Test
+    void commandLineSupportsDryRunAndTruncate() throws SQLException {
+        var out = new java.io.ByteArrayOutputStream();
+        var err = new java.io.ByteArrayOutputStream();
+        assertEquals(0, run(out, err, "--source-url=" + urlOf(source), "--source-user=sa",
+                "--target-url=" + urlOf(target), "--target-user=sa", "--dry-run"));
+        assertEquals("0", one("select count(*) from z_parent"));
+
+        try (Statement st = target.createStatement()) {
+            st.execute("insert into z_parent (id, name) values (1, 'old')");
+        }
+        target.commit();
+        // refused without --truncate: exit code 1 and a readable message on stderr
+        assertEquals(1, run(out, err, "--source-url=" + urlOf(source), "--source-user=sa",
+                "--target-url=" + urlOf(target), "--target-user=sa"));
+        assertTrue(err.toString().contains("--truncate"), err.toString());
+        assertEquals(0, run(out, err, "--source-url=" + urlOf(source), "--source-user=sa",
+                "--target-url=" + urlOf(target), "--target-user=sa", "--truncate"));
+        assertEquals("2", one("select count(*) from z_parent"));
+    }
+
+    @Test
+    void missingUrlsAreAUsageErrorWithExitCodeTwo() {
+        var out = new java.io.ByteArrayOutputStream();
+        var err = new java.io.ByteArrayOutputStream();
+        assertEquals(2, run(out, err, "--source-url=jdbc:h2:mem:x"));
+        assertTrue(err.toString().contains("--target-url"), err.toString());
+        assertEquals(2, run(out, err));
+    }
+
+    @Test
+    void anUnreachableDatabaseIsReportedNotThrown() {
+        var out = new java.io.ByteArrayOutputStream();
+        var err = new java.io.ByteArrayOutputStream();
+        int code = run(out, err, "--source-url=jdbc:postgresql://127.0.0.1:1/none", "--source-user=x",
+                "--target-url=jdbc:h2:mem:unused-target", "--target-user=sa");
+        assertEquals(1, code);
+        assertTrue(err.toString().startsWith("ERROR:"), err.toString());
+    }
 }
