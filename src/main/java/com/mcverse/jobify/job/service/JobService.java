@@ -99,6 +99,12 @@ public class JobService {
         if (request.benefits() != null) { // omitted on edit = unchanged, so clients that predate benefits lose nothing
             job.setBenefits(request.benefits().stream().map(String::trim).toList());
         }
+        if (request.responsibilities() != null) {
+            job.setResponsibilities(request.responsibilities().stream().map(String::trim).toList());
+        }
+        if (request.requirements() != null) {
+            job.setRequirements(request.requirements().stream().map(String::trim).toList());
+        }
     }
 
     private Employer requireEmployer(String username, String action) {

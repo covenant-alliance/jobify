@@ -78,6 +78,20 @@ public class JobPost {
     @Column(name = "benefit", nullable = false, length = 80)
     private List<String> benefits = new ArrayList<>();
 
+    /** What the person will do, one short sentence each, in display order. */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "job_responsibilities", joinColumns = @JoinColumn(name = "job_post_id"))
+    @OrderColumn(name = "position")
+    @Column(name = "responsibility", nullable = false, length = 300)
+    private List<String> responsibilities = new ArrayList<>();
+
+    /** What the person needs to bring, one short sentence each, in display order. */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "job_requirements", joinColumns = @JoinColumn(name = "job_post_id"))
+    @OrderColumn(name = "position")
+    @Column(name = "requirement", nullable = false, length = 300)
+    private List<String> requirements = new ArrayList<>();
+
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("position")
     private List<JobImage> images = new ArrayList<>();
@@ -106,6 +120,19 @@ public class JobPost {
     }
     public List<String> getBenefits()                    { return benefits; }
     public List<JobImage> getImages()                    { return images; }
+
+    public List<String> getResponsibilities()            { return responsibilities; }
+    public List<String> getRequirements()                { return requirements; }
+
+    public void setResponsibilities(List<String> items) {
+        this.responsibilities.clear();
+        this.responsibilities.addAll(items);
+    }
+
+    public void setRequirements(List<String> items) {
+        this.requirements.clear();
+        this.requirements.addAll(items);
+    }
 
     public void setBenefits(List<String> benefits) {
         this.benefits.clear();

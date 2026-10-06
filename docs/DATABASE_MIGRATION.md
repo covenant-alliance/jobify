@@ -27,7 +27,7 @@ Related: [`DEPLOYMENT.md`](DEPLOYMENT.md) (running the app), `src/main/resources
 
 Three things make up "the data", and a migration has to move all three:
 
-1. **The database rows.** Users, jobs, applications and their status history, CMS text, and so on (23 tables).
+1. **The database rows.** Users, jobs, applications and their status history, CMS text, and so on (25 tables).
 2. **The upload folder** (`UPLOAD_DIR`, `/data/uploads` in Docker, `./data/uploads` in dev). Resumes live there as
    files. The database stores only a relative path such as `alice_s_resume/cv.pdf` (job pictures and company logos live under `job-images/` and `company-logos/` in the same folder), so copying the folder
    as-is keeps the links working.

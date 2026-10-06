@@ -408,4 +408,89 @@ class JobExtrasIntegrationTest {
         // the logo route does not answer to POST/PUT from the public side
         mvc.perform(post("/companies/" + companyId + "/logo")).andExpect(status().is4xxClientError());
     }
+
+    // ------------------------------------------------------------------ responsibilities and requirements (#36)
+
+    private String jobWith(String field, String json) {
+        return "{\"jobTitle\":\"Points\",\"jobDescription\":\"<p>x</p>\",\"rate\":50,\"rateType\":\"HOURLY\","
+                + "\"location\":\"Berlin\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\""
+                + (field == null ? "" : ",\"" + field + "\":" + json) + "}";
+    }
+
+    @Test
+    void responsibilitiesAndRequirementsAreStoredInOrderTrimmedAndReturnedOnEveryRoute() throws Exception {
+        String body = mvc.perform(post("/jobs").header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWith("responsibilities", "[\"  Own the API \",\"Review code\"]").replace("}",
+                                ",\"requirements\":[\"5 years of Java\",\"English\"]}")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.responsibilities", contains("Own the API", "Review code")))
+                .andExpect(jsonPath("$.requirements", contains("5 years of Java", "English")))
+                .andReturn().getResponse().getContentAsString();
+        int id = JsonPath.read(body, "$.postId");
+        mvc.perform(get("/jobs/" + id)).andExpect(jsonPath("$.responsibilities", contains("Own the API", "Review code")))
+                .andExpect(jsonPath("$.requirements", contains("5 years of Java", "English")));
+        mvc.perform(get("/jobs/search").param("q", "Points")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.postId==" + id + ")].requirements[0]").value("5 years of Java"));
+        mvc.perform(get("/jobs/mine").header(AUTHORIZATION, owner))
+                .andExpect(jsonPath("$[?(@.postId==" + id + ")].responsibilities[1]").value("Review code"));
+    }
+
+    @Test
+    void jobsWithoutThemReturnEmptyListsNotNull() throws Exception {
+        int id = createJob(null);
+        mvc.perform(get("/jobs/" + id)).andExpect(jsonPath("$.responsibilities", empty()))
+                .andExpect(jsonPath("$.requirements", empty()));
+    }
+
+    @Test
+    void editingKeepsThemWhenOmittedReplacesThemWhenSentAndClearsThemWithAnEmptyList() throws Exception {
+        String created = mvc.perform(post("/jobs").header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWith("responsibilities", "[\"A\",\"B\"]").replace("}", ",\"requirements\":[\"R\"]}")))
+                .andReturn().getResponse().getContentAsString();
+        int id = JsonPath.read(created, "$.postId");
+        mvc.perform(put("/jobs/" + id).header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWith(null, null)))
+                .andExpect(jsonPath("$.responsibilities", contains("A", "B")))
+                .andExpect(jsonPath("$.requirements", contains("R")));
+        mvc.perform(put("/jobs/" + id).header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWith("responsibilities", "[\"C\"]")))
+                .andExpect(jsonPath("$.responsibilities", contains("C")))
+                .andExpect(jsonPath("$.requirements", contains("R"))); // the other list is untouched
+        mvc.perform(put("/jobs/" + id).header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                        .content(jobWith("requirements", "[]")))
+                .andExpect(jsonPath("$.requirements", empty()))
+                .andExpect(jsonPath("$.responsibilities", contains("C")));
+    }
+
+    @Test
+    void theLimitsGiveReadableMessagesAndTheBoundariesAreAccepted() throws Exception {
+        for (String field : new String[] {"responsibilities", "requirements"}) {
+            String twentyOne = "[" + "\"x\",".repeat(20) + "\"x\"]";
+            mvc.perform(post("/jobs").header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                            .content(jobWith(field, twentyOne)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString(field + " must have at most 20 entries")));
+            mvc.perform(post("/jobs").header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                            .content(jobWith(field, "[\"" + "y".repeat(301) + "\"]")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString("must be at most 300 characters")));
+            mvc.perform(post("/jobs").header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                            .content(jobWith(field, "[\"   \"]")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString("must not be blank")));
+            String twenty = "[" + ("\"" + "z".repeat(300) + "\",").repeat(19) + "\"" + "z".repeat(300) + "\"]";
+            mvc.perform(post("/jobs").header(AUTHORIZATION, owner).contentType(APPLICATION_JSON)
+                            .content(jobWith(field, twenty)))
+                    .andExpect(status().isCreated());
+        }
+    }
+
+    @Test
+    void anotherEmployerCannotEditThem() throws Exception {
+        int id = createJob(null);
+        mvc.perform(put("/jobs/" + id).header(AUTHORIZATION, other).contentType(APPLICATION_JSON)
+                        .content(jobWith("requirements", "[\"Hacked\"]")))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/jobs/" + id)).andExpect(jsonPath("$.requirements", empty()));
+    }
 }

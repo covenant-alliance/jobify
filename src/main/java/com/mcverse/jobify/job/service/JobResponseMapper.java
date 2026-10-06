@@ -23,6 +23,7 @@ public class JobResponseMapper {
                 company != null ? company.getName() : null, company != null ? company.getId() : null,
                 job.isAvailable(), job.getLocation(), job.getWorkMode(), job.getEmploymentType(),
                 job.getCreatedAt(), requiredSkills, List.copyOf(job.getBenefits()),
+                List.copyOf(job.getResponsibilities()), List.copyOf(job.getRequirements()),
                 job.getImages().stream().map(i -> "/jobs/" + job.getPostId() + "/images/" + i.getId()).toList(),
                 CompanyLogos.urlOf(company));
     }

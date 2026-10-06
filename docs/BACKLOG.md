@@ -46,7 +46,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P13. Benefits and gallery on jobs (#35).** *(DONE 2026-10-06, see `docs/BACKEND_STATE.md`.)* `benefits[]` and `images[]`; the front end keeps hardcoded pools meanwhile.
 
-**P14. Responsibilities and requirements (#36, decision).** Keep the front end's sentence-splitting heuristic, or add structured fields.
+**P14. Responsibilities and requirements (#36).** *(DONE 2026-10-06: Product Owner chose structured fields; see `docs/BACKEND_STATE.md`.)* Keep the front end's sentence-splitting heuristic, or add structured fields.
 
 **P15. Location normalization (#37, icebox).** Clean facet values and `GET /jobs/locations`.
 

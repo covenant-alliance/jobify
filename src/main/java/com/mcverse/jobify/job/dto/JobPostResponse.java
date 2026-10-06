@@ -61,6 +61,13 @@ public record JobPostResponse(
         @Schema(description = "What the employer offers, in display order; empty when none were given")
         List<String> benefits,
 
+        @Schema(description = "What the person will do, in display order; empty when none were given (the front "
+                + "end may derive them from the description then)")
+        List<String> responsibilities,
+
+        @Schema(description = "What the person needs to bring, in display order; empty when none were given")
+        List<String> requirements,
+
         @Schema(description = "Picture URLs (at most 6), oldest first, relative to the API address. Public; empty "
                 + "when none", example = "[\"/jobs/7/images/3f2a...\"]")
         List<String> images,

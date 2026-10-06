@@ -209,6 +209,8 @@ Returns job postings. By default returns **all** posts regardless of status, fro
 | `createdAt` | ISO-8601 datetime \| null | No zone |
 | `requiredSkills` | string[] | Skill names |
 | `benefits` | string[] | What the employer offers, in display order; `[]` when none (since #35) |
+| `responsibilities` | string[] | What the person will do, in display order; `[]` when none (since #36) |
+| `requirements` | string[] | What the person needs to bring, in display order; `[]` when none (since #36) |
 | `images` | string[] | Picture URLs, oldest first, at most 6, relative to the API address (e.g. `/jobs/7/images/<id>`); `[]` when none (since #35) |
 | `logoUrl` | string \| null | The company's logo URL, relative to the API address (e.g. `/companies/<id>/logo?v=1760000000000`); `null` when none (since #34) |
 
@@ -975,6 +977,8 @@ interface JobPostResponse {
   createdAt: string | null;       // ISO-8601, no zone
   requiredSkills: string[];
   benefits: string[];             // display order; [] when none
+  responsibilities: string[];     // display order; [] when none
+  requirements: string[];         // display order; [] when none
   images: string[];               // relative URLs, oldest first, max 6
   logoUrl: string | null;         // relative URL of the company logo
 }
@@ -993,6 +997,8 @@ interface CreateJobRequest {
   employmentType: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "TEMPORARY" | "INTERNSHIP" | "FREELANCE" | "B2B";   // required
   requiredSkills?: string[];      // skill names
   benefits?: string[];            // max 15, each non-blank and at most 80 chars; omit on edit = unchanged, [] = clear
+  responsibilities?: string[];    // max 20, each non-blank and at most 300 chars; same omit/[] rules
+  requirements?: string[];        // same as responsibilities
 }
 ```
 
