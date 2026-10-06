@@ -30,6 +30,9 @@
 		<java.version>21</java.version>
 		<!-- Boot 4.0.0-M3 manages Flyway 11.13.1, which warns that PostgreSQL 18 is untested. Same major, newer patch level. -->
 		<flyway.version>11.20.3</flyway.version>
+		<!-- Coverage floor enforced by `mvn verify` (CI). Measured 2026-10-06: 95.5% lines, 84.5% branches. Raise, never lower. -->
+		<jacoco.min.line>0.90</jacoco.min.line>
+		<jacoco.min.branch>0.80</jacoco.min.branch>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -134,6 +137,30 @@
 						<id>report</id>
 						<phase>test</phase>
 						<goals><goal>report</goal></goals>
+					</execution>
+					<execution>
+						<id>check</id>
+						<phase>verify</phase>
+						<goals><goal>check</goal></goals>
+						<configuration>
+							<rules>
+								<rule>
+									<element>BUNDLE</element>
+									<limits>
+										<limit>
+											<counter>LINE</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>${jacoco.min.line}</minimum>
+										</limit>
+										<limit>
+											<counter>BRANCH</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>${jacoco.min.branch}</minimum>
+										</limit>
+									</limits>
+								</rule>
+							</rules>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>

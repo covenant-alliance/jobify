@@ -25,6 +25,7 @@ Two runtime setups: **`dev`** (default): H2 file DB (`./data/jobifydb`, `ddl-aut
 ```
 mvn compile                 # build
 mvn test                    # unit + MockMvc integration tests; coverage report in target/site/jacoco/index.html
+mvn verify                  # mvn test + the coverage floor (lines 90%, branches 80%, see pom.xml); this is what CI runs
 mvn spring-boot:run         # then http://localhost:9080
 fuser -k 9080/tcp           # free the port if a stale run is holding it
 scripts/test-postgres.sh    # whole suite against an EMPTY PostgreSQL (TEST_DB_URL/_USER/_PASSWORD), Flyway + validate
@@ -36,7 +37,7 @@ Smoke test: `curl -s -X POST localhost:9080/auth/login -H 'Content-Type: applica
 ## Workflow (from ../Claude.md)
 1. Branch first: `feature-<brief-description>`. Never commit straight to `master`.
 2. Write tests for all new behaviour (JUnit 5, `@SpringBootTest`/`@WebMvcTest`, spring-security-test). Test profile: `src/test/resources/application.properties` (in-memory H2).
-3. `mvn test` must pass before every commit.
+3. `mvn verify` must pass before every commit (tests plus the JaCoCo floor: 90% lines, 80% branches; measured 95.5% / 84.5%). A new story ships with its tests; never lower the floor to make a build pass. `RouteSecurityMatrixTest` fails if a new route is reachable without a token and is not on its PUBLIC list, so a new public route is a deliberate edit there.
 4. Detailed commit message (what and why), referencing the ticket. Existing style: `feat: …`, `fix: …`, `chore: …`.
 5. Follow SOLID, Google Java style, and constructor injection for new code. Older classes use field `@Autowired`; don't mass-rewrite them unless asked.
 6. The API contract is shared with the front end. Any change to a request or response shape, status code, or route means updating `api-documentation.md` and adding an entry to `docs/BACKEND_STATE.md` in the same commit.

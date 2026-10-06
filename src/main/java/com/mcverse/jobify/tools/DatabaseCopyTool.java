@@ -65,12 +65,21 @@ public final class DatabaseCopyTool {
 
     // ---------------------------------------------------------------------------------------------------- main
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
+        System.exit(run(args, System.out, System.err));
+    }
+
+    /**
+     * The command line, without exiting the JVM.
+     *
+     * @return 0 when every table matched, 1 when a table failed or the counts differ, 2 for a usage error
+     */
+    static int run(String[] args, java.io.PrintStream out, java.io.PrintStream err) {
         Map<String, String> opts = parse(args);
         for (String required : List.of("source-url", "target-url")) {
             if (!opts.containsKey(required)) {
-                System.err.println("Missing --" + required + ". See docs/DATABASE_MIGRATION.md.");
-                System.exit(2);
+                err.println("Missing --" + required + ". See docs/DATABASE_MIGRATION.md.");
+                return 2;
             }
         }
         String sourcePassword = opts.getOrDefault("source-password", env("COPY_SOURCE_PASSWORD"));
@@ -79,15 +88,17 @@ public final class DatabaseCopyTool {
                      opts.getOrDefault("source-user", ""), sourcePassword);
              Connection tgt = DriverManager.getConnection(opts.get("target-url"),
                      opts.getOrDefault("target-user", ""), targetPassword)) {
-            DatabaseCopyTool tool = new DatabaseCopyTool(src, tgt, System.out);
-            List<TableResult> results = tool.copy(opts.containsKey("truncate"), opts.containsKey("dry-run"));
-            System.exit(results.stream().allMatch(TableResult::matches) ? 0 : 1);
+            DatabaseCopyTool tool = new DatabaseCopyTool(src, tgt, out);
+            boolean dryRun = opts.containsKey("dry-run");
+            List<TableResult> results = tool.copy(opts.containsKey("truncate"), dryRun);
+            // A dry run writes nothing, so its target counts are meaningless: it succeeds if it could read everything.
+            return dryRun || results.stream().allMatch(TableResult::matches) ? 0 : 1;
         } catch (IllegalStateException | SQLException e) {
-            System.err.println("ERROR: " + e.getMessage());
+            err.println("ERROR: " + e.getMessage());
             if (e instanceof SQLException) {
-                System.err.println("(Is the application still running against the H2 file? Stop it first: H2 locks the file.)");
+                err.println("(Is the application still running against the H2 file? Stop it first: H2 locks the file.)");
             }
-            System.exit(1);
+            return 1;
         }
     }
 

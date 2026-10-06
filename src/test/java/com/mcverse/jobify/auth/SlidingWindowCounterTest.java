@@ -58,4 +58,30 @@ class SlidingWindowCounterTest {
         counter.clear("a");
         assertEquals(0, counter.count("a"));
     }
+
+    @Test
+    void retryAfterIsOneSecondForUnknownOrExpiredKeys() {
+        assertEquals(1, counter.secondsUntilOldestExpires("never-seen"));
+        counter.add("a");
+        clock.advance(Duration.ofSeconds(120));
+        assertEquals(1, counter.secondsUntilOldestExpires("a"));
+    }
+
+    @Test
+    void retryAfterCountsDownToTheOldestEvent() {
+        counter.add("a");
+        clock.advance(Duration.ofSeconds(20));
+        assertEquals(40, counter.secondsUntilOldestExpires("a"));
+    }
+
+    @Test
+    void manyOldKeysAreDroppedSoMemoryDoesNotGrowForever() {
+        for (int i = 0; i < 10_001; i++) {
+            counter.add("old-" + i);
+        }
+        clock.advance(Duration.ofSeconds(61));
+        counter.add("trigger"); // crossing the threshold again prunes everything that has expired
+        assertEquals(0, counter.count("old-0"));
+        assertEquals(1, counter.count("trigger"));
+    }
 }
