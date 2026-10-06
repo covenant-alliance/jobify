@@ -35,3 +35,6 @@ build/
 ### Local dev data ###
 /data/
 .next/
+
+# Local secrets for docker compose
+.env

@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -18,7 +19,10 @@ import java.util.List;
  * This turns those columns into plain {@code VARCHAR} and drops those checks, so adding an enum constant never
  * needs a schema change (the values are still validated by Jackson and Hibernate). It changes no data, only acts
  * on columns that still have an ENUM type or a check constraint, and is a no-op once done.
+ * It also drops {@code job_posts.job_rating}, which the entity no longer maps (it carried only zeros; on PostgreSQL the
+ * same change is migration V2).
  */
+@ConditionalOnProperty(name = "app.legacy-patches.enabled", havingValue = "true", matchIfMissing = true)
 @Component
 @Order(0)
 public class LegacySchemaPatch implements ApplicationRunner {
@@ -31,6 +35,9 @@ public class LegacySchemaPatch implements ApplicationRunner {
             new Column("JOB_POSTS", "EMPLOYMENT_TYPE"),
             new Column("JOB_POSTS", "WORK_MODE"),
             new Column("JOB_POSTS", "RATE_TYPE"));
+
+    /** Columns the entities no longer map. Old H2 files still have them, some as NOT NULL, which would reject inserts. */
+    private static final List<Column> REMOVED_COLUMNS = List.of(new Column("JOB_POSTS", "JOB_RATING"));
 
     private final JdbcTemplate jdbc;
 
@@ -53,6 +60,23 @@ public class LegacySchemaPatch implements ApplicationRunner {
                 log.debug("Skipped schema patch for {}.{}: {}", c.table(), c.column(), e.getMessage());
             }
         }
+        for (Column c : REMOVED_COLUMNS) {
+            try {
+                if (columnExists(c)) {
+                    jdbc.execute("ALTER TABLE " + c.table() + " DROP COLUMN " + c.column());
+                    log.info("Dropped unused column {}.{}", c.table(), c.column());
+                }
+            } catch (RuntimeException e) {
+                log.debug("Skipped dropping {}.{}: {}", c.table(), c.column(), e.getMessage());
+            }
+        }
+    }
+
+    private boolean columnExists(Column c) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE UPPER(TABLE_NAME) = ? AND UPPER(COLUMN_NAME) = ?",
+                Integer.class, c.table(), c.column());
+        return count != null && count > 0;
     }
 
     private void dropCheckConstraints(Column c) {

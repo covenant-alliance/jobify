@@ -22,7 +22,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.security.auth-rate-limit.max-requests=5",
         "app.security.auth-rate-limit.window-seconds=60",
         "app.security.login-lock.max-failures=1000",
-        "spring.datasource.url=jdbc:h2:mem:ratelimit-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"})
+        "spring.datasource.url=jdbc:h2:mem:ratelimit-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
+        // own in-memory H2 even when the suite is pointed at PostgreSQL (see docs/DATABASE_MIGRATION.md)
+        "spring.flyway.enabled=false",
+        "spring.jpa.hibernate.ddl-auto=create-drop"})
 class AuthRateLimitIntegrationTest {
 
     @Autowired

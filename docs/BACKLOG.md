@@ -20,7 +20,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 ## Product features the front end is waiting on (P1 is the big one)
 
-**P11. ✅ Job compensation model (#28).** `rate` + `rateType` (`HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`) replace `hourlyRate` and `jobRating`; `EmploymentType.B2B` added. Requested by the front end. Done in sprint 2. Follow-up (T3): drop the unused `job_rating` and `hourly_rate` columns with a real migration once no client reads `hourlyRate`.
+**P11. ✅ Job compensation model (#28).** `rate` + `rateType` (`HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`) replace `hourlyRate` and `jobRating`; `EmploymentType.B2B` added. Requested by the front end. Done in sprint 2. Follow-up: `job_rating` dropped in T3 (migration V2); `hourly_rate` stays until no client reads `hourlyRate`.
 
 **P1. Applications.** *(Split into stories #30 apply + list mine, #31 withdraw, #32 employer applicants, #33 employer stage changes. all four are done and merged (PR #40).)* Entity: seeker, job, status (`APPLIED, IN_REVIEW, INTERVIEW, OFFER, REJECTED, WITHDRAWN`), createdAt, updatedAt, optional cover note. Unique on (seeker, job). Endpoints: `POST /jobs/{id}/apply` (SEEKER), `GET /applications/me`, `DELETE /applications/{id}` (withdraw), `GET /jobs/{id}/applications` (owning EMPLOYER), `PUT /applications/{id}/status` (owning EMPLOYER). This replaces the fake stage in `applicationStage.ts`. Also unblocks the company pipeline and funnel widgets and the notification triggers.
 
@@ -60,7 +60,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **T2. ✅ Bean Validation everywhere (#17, done in sprint 2: all bodies validated, guard test, limits, framework errors no longer 500). Follow-up: "X not found with id: Y" wording of 404s is shown verbatim by the front end and could be friendlier.** Audit every request DTO for `@Valid` and constraints. Check that `MethodArgumentNotValidException` yields a readable 400 `message` in the envelope, since the front end prints it.
 
-**T3. PostgreSQL + Flyway + Docker.** Currently H2 with `ddl-auto=update`. Add a `postgres` profile, Flyway migrations (baseline the current schema), a `Dockerfile` and a `docker-compose.yml`. Keep H2 as the default dev and test profile.
+**T3. ✅ PostgreSQL 18 + Flyway + Docker (#18, done in sprint 5).** `postgres` profile (env-driven, no default secrets, no demo data, H2 console and Swagger off), Flyway `V1__baseline` (20 tables) and `V2__drop_job_rating`, first admin from `BOOTSTRAP_ADMIN_*`, `Dockerfile` + `docker-compose.yml` (`postgres:18`), CI on H2 and PostgreSQL 18, a database-neutral copy tool (`DatabaseCopyTool`) and the guides `docs/DEPLOYMENT.md` and `docs/DATABASE_MIGRATION.md` (H2 to PostgreSQL, server to server, PostgreSQL to MySQL). Verified against a real PostgreSQL 18.6; the Docker files are not yet built or run (no Docker daemon where they were written). Still open: dropping `hourly_rate` (the API still returns `hourlyRate`; needs the front end to stop reading it), a MySQL profile (guide only), a Redis-backed rate limit if more than one instance is ever run.
 
 **T4. Dead code.** `job/model/Job.java` and the top-level `model/Region.java` appear unused. Confirm with a grep, then remove. Move `model/JobPost`, `Skill` and the enums into their feature slices.
 

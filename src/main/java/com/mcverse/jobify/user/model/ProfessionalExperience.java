@@ -1,6 +1,8 @@
 package com.mcverse.jobify.user.model;
 
 import com.mcverse.jobify.model.EmploymentType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
@@ -33,7 +35,7 @@ public class ProfessionalExperience {
 
     private LocalDate endDate;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONG32VARCHAR) // long text: PostgreSQL text, MySQL longtext (not a LOB handle / oid)
     private String description;
 
     protected ProfessionalExperience() {}

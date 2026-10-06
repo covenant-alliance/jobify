@@ -21,7 +21,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.security.login-lock.max-failures=3",
         "app.security.login-lock.window-minutes=10",
         "app.security.auth-rate-limit.max-requests=100000",
-        "spring.datasource.url=jdbc:h2:mem:login-lock-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"})
+        "spring.datasource.url=jdbc:h2:mem:login-lock-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
+        // own in-memory H2 even when the suite is pointed at PostgreSQL (see docs/DATABASE_MIGRATION.md)
+        "spring.flyway.enabled=false",
+        "spring.jpa.hibernate.ddl-auto=create-drop"})
 class LoginLockIntegrationTest {
 
     @Autowired

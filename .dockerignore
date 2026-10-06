@@ -1,0 +1,11 @@
+# Keep the build context small and never ship local data or secrets into an image.
+.git
+.github
+.claude
+.idea
+target
+data
+.env
+*.md
+!README.md
+*.pdf
