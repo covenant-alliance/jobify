@@ -22,7 +22,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 ## Product features the front end is waiting on (P1 is the big one)
 
-**P11. ✅ Job compensation model (#28).** `rate` + `rateType` (`HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`) replace `hourlyRate` and `jobRating`; `EmploymentType.B2B` added. Requested by the front end. Done in sprint 2. Follow-up: `job_rating` dropped in T3 (migration V2); `hourly_rate` stays until no client reads `hourlyRate`.
+**P11. ✅ Job compensation model (#28).** `rate` + `rateType` (`HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`) replace `hourlyRate` and `jobRating`; `EmploymentType.B2B` added. Requested by the front end. Done in sprint 2. Follow-ups done: `job_rating` dropped in T3 (migration V2); `hourly_rate` and the `hourlyRate` response field dropped in #55 (migration V4) once the front end stopped reading it.
 
 **P1. Applications.** *(Split into stories #30 apply + list mine, #31 withdraw, #32 employer applicants, #33 employer stage changes. all four are done and merged (PR #40).)* Entity: seeker, job, status (`APPLIED, IN_REVIEW, INTERVIEW, OFFER, REJECTED, WITHDRAWN`), createdAt, updatedAt, optional cover note. Unique on (seeker, job). Endpoints: `POST /jobs/{id}/apply` (SEEKER), `GET /applications/me`, `DELETE /applications/{id}` (withdraw), `GET /jobs/{id}/applications` (owning EMPLOYER), `PUT /applications/{id}/status` (owning EMPLOYER). This replaces the fake stage in `applicationStage.ts`. Also unblocks the company pipeline and funnel widgets and the notification triggers.
 

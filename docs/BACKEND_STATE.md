@@ -27,6 +27,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 | Company dashboard stats | #16, sprint 4. **Open question for the Product Owner: "views" per job** (needs view tracking; may be dropped). |
 | Admin users with paging and search, and admin stats | **Built** (#15): see the change log. `GET /admin/users` is now paged (an unused route, so this is a deliberate change). |
 | Company dashboard: status history for a true funnel (optional) | **Built** (#53, issue title now "P18"): `applications.funnel` and `perJob[].funnel` on `GET /employers/me/stats`. See the change log. |
+| `hourlyRate` no longer read by the front end ("drop the column and field whenever it likes") | **Done** (#55, in review): the column and the `hourlyRate` response field are gone. See the change log. Nothing for you to do. |
 | Server-side search and paging | #13, sprint 3. **Proposal written, waiting for your answers** (section below). |
 | Dropping your random fallbacks for `location` / `workMode` / `employmentType` | #39, **Product Owner decision** pending: whether the API starts requiring all three on new jobs. Keep your fallbacks for now. |
 | Match %, recommended jobs, candidates | **Parked** as you asked (#12, icebox). Nothing will be built until it is scheduled. |
@@ -52,7 +53,7 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 | `location` | Case-insensitive "contains" on the free-text location (a clean facet is #37, later) | none |
 | `workMode` | `REMOTE`, `HYBRID`, `ONSITE`; repeat it to allow several: `workMode=REMOTE&workMode=HYBRID` | any |
 | `employmentType` | Same, repeatable (`FULL_TIME`, ..., `B2B`) | any |
-| `minRate`, `maxRate` | Compared on the **hourly equivalent** (`hourlyRate` in the response: monthly / 173.33, yearly / 2080). `CONTRACT_TOTAL` jobs cannot be compared, so they are **left out whenever a rate filter is set** | none |
+| `minRate`, `maxRate` | Compared on the **hourly equivalent**, computed on the server (monthly / 173.33, yearly / 2080; the `hourlyRate` response field no longer exists, see #55). `CONTRACT_TOTAL` jobs cannot be compared, so they are **left out whenever a rate filter is set** | none |
 | `skills` | Required-skill names, repeatable, case-insensitive exact match | none |
 | `skillsMatch` | `ANY` (job needs at least one of them) or `ALL` | `ANY` |
 | `available` | `true`, `false`, or `all` | `true` |
@@ -93,8 +94,8 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 8 points: query builder with every filter and sort, input validation, tests for each filter and combination (including the rate rules and the empty and invalid cases), documentation, and a check of query cost on a few thousand generated jobs.
 
 ## Open requests for the front end
-- [ ] **Optional, company dashboard funnel (#53):** show `applications.funnel` (and `perJob[].funnel`) as a real conversion funnel and, if you like, "typical time in stage" from `medianDaysInStage`. Details and the `null` rule are in the 2026-10-06 entry "a true hiring funnel".
-- [ ] **Session expiry (#50):** anonymous or expired-token calls to protected routes now answer `401` (they were `403`), so the interceptor's existing 401 handling will log the user out. Please check the three points in the 2026-10-06 entry "401 for no valid session" and tick this when done.
+- [x] **Optional, company dashboard funnel (#53):** *(NOT NEEDED for now, per your 2026-10-06 note: the dashboards show applications by current status only. The funnel fields stay available in the response whenever you want them.)* show `applications.funnel` (and `perJob[].funnel`) as a real conversion funnel and, if you like, "typical time in stage" from `medianDaysInStage`. Details and the `null` rule are in the 2026-10-06 entry "a true hiring funnel".
+- [x] **Session expiry (#50):** *(CONFIRMED by you on 2026-10-06: the interceptor logs out on any 401 outside `/auth/*`, no screen expects a token-less 403, and a login/register 401 or a 429 does not log out. Thank you.)* anonymous or expired-token calls to protected routes now answer `401` (they were `403`), so the interceptor's existing 401 handling will log the user out. Please check the three points in the 2026-10-06 entry "401 for no valid session" and tick this when done.
 - [ ] **Optional, error screens:** show the `X-Request-Id` response header in error toasts or a "report a problem" view (axios: `error.response?.headers['x-request-id']`), so support can find the request in the logs (issue #20).
 - [x] **Company dashboard:** *(DONE by you, per your second 2026-10-06 update)* replace `HIRING_CHART_DATA` and the counts around it with `GET /employers/me/stats` (`applications.weekly` for the chart over time, `applications.byStatus` for the stage breakdown, `perJob` for the per-job table, `jobs` for open and closed counts). Use `GET /jobs/{id}/applications` for the candidate list. Remove "views" or mark it as unavailable (issue #16).- [ ] **Admin dashboard:** replace `MOCK_USERS` with `GET /admin/users` (use `content`, `totalPages` and `last` for paging; send `q` for the search box and `role` for a role filter, debounced) and replace the mock metric cards in `ADMIN_METRICS` with `GET /admin/stats`. The pending deletion requests number is in the stats too (issue #15).- [ ] **Notifications:** replace `MOCK_NOTIFICATIONS` with `GET /notifications`, drive the bell badge from `GET /notifications/unread-count` (poll every 30 to 60 s), call `POST /notifications/{id}/read` when one is opened and `POST /notifications/read-all` for "mark all as read". Use `jobId` / `applicationId` for links. Map `type` (uppercase) to your existing icons (issue #14).- [ ] **Seeker dashboard charts:** replace the static `EMPLOYEE_CHART_DATA` with `GET /applications/me/stats` (a weekly bar or line from `weekly`, and a status breakdown from `byStatus`; `active` for the headline number) (issue #38).- [ ] **Answer the search proposal** (section "Proposal awaiting your answer", issue #13): reply under "Requests to the back end" in your file. "Accept the defaults" is enough. I will not start until you do.
 - [ ] **Login and register forms:** show the `message` of a `429` as it is (it already says how long to wait), and keep the form usable afterwards. A `429` is not an auth failure, so it must **not** log the user out or clear the token (only `401` does that).
@@ -112,6 +113,16 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 6 — `hourlyRate` removed from the job response, `hourly_rate` column dropped (#55) — 2026-10-06
+
+**Response change: `hourlyRate` is gone from `JobPostResponse`** (everywhere a job is returned: `GET /jobs`, `GET /jobs/{id}`, `GET /jobs/mine`, `GET /jobs/saved`, `POST /jobs`, `PUT /jobs/{id}`, `PATCH /jobs/{id}/available`). You confirmed on 2026-10-06 that nothing reads it any more, so no change is needed on your side. Every other field is unchanged.
+
+- **`rate` and `rateType` are now always present and never null** (they were nullable only for very old rows). That matches your `Job` type, where both are required. The database now enforces it (`NOT NULL`).
+- Requests are unchanged: an old client that still sends `hourlyRate` (or `jobRating`) is not rejected; the value is ignored.
+- Old data keeps its price: any row from before the compensation model that had no `rate` was given its old hourly rate as `rate` with `rateType` `HOURLY` before the column was dropped (Flyway `V4` on PostgreSQL; the H2 startup patch for old dev files).
+- The conversion to an hourly equivalent stays in the code (`RateType.toHourly`, tested) for the coming search (`minRate` / `maxRate`, #13); nothing stores or returns it any more.
+- Issue: #55.
 
 ### Sprint 6 — a true hiring funnel from application status history (#53, P18) — 2026-10-06
 

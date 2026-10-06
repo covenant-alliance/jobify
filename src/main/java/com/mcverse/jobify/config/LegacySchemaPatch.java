@@ -21,6 +21,11 @@ import java.util.List;
  * on columns that still have an ENUM type or a check constraint, and is a no-op once done.
  * It also drops {@code job_posts.job_rating}, which the entity no longer maps (it carried only zeros; on PostgreSQL the
  * same change is migration V2).
+ *
+ * <p>And it retires {@code job_posts.hourly_rate} (on PostgreSQL: migration V4). Pay is stored as {@code rate} +
+ * {@code rate_type}; the old column was only a derived copy. Before dropping it, any row that has no rate yet (a very
+ * old row) gets its old hourly rate as {@code rate} with type HOURLY, so no job loses its price, and then both
+ * columns become NOT NULL if no row is missing a value.
  */
 @ConditionalOnProperty(name = "app.legacy-patches.enabled", havingValue = "true", matchIfMissing = true)
 @Component
@@ -60,6 +65,7 @@ public class LegacySchemaPatch implements ApplicationRunner {
                 log.debug("Skipped schema patch for {}.{}: {}", c.table(), c.column(), e.getMessage());
             }
         }
+        retireHourlyRate();
         for (Column c : REMOVED_COLUMNS) {
             try {
                 if (columnExists(c)) {
@@ -69,6 +75,30 @@ public class LegacySchemaPatch implements ApplicationRunner {
             } catch (RuntimeException e) {
                 log.debug("Skipped dropping {}.{}: {}", c.table(), c.column(), e.getMessage());
             }
+        }
+    }
+
+    /** Copies the old hourly rate into rate/rate_type where those are missing, tightens them, then drops hourly_rate. */
+    private void retireHourlyRate() {
+        Column hourly = new Column("JOB_POSTS", "HOURLY_RATE");
+        try {
+            if (!columnExists(hourly)) {
+                return;
+            }
+            int copied = jdbc.update("UPDATE JOB_POSTS SET RATE = HOURLY_RATE, RATE_TYPE = 'HOURLY' "
+                    + "WHERE RATE IS NULL OR RATE_TYPE IS NULL");
+            Integer missing = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM JOB_POSTS WHERE RATE IS NULL OR RATE_TYPE IS NULL", Integer.class);
+            if (missing != null && missing == 0) {
+                jdbc.execute("ALTER TABLE JOB_POSTS ALTER COLUMN RATE SET NOT NULL");
+                jdbc.execute("ALTER TABLE JOB_POSTS ALTER COLUMN RATE_TYPE SET NOT NULL");
+            }
+            jdbc.execute("ALTER TABLE JOB_POSTS DROP COLUMN HOURLY_RATE");
+            log.info("Dropped JOB_POSTS.HOURLY_RATE (pay now lives in RATE and RATE_TYPE); copied it into {} old rows",
+                    copied);
+        } catch (RuntimeException e) {
+            // not H2, or the table does not exist yet: nothing to patch. The column is kept if the copy failed.
+            log.debug("Skipped retiring JOB_POSTS.HOURLY_RATE: {}", e.getMessage());
         }
     }
 

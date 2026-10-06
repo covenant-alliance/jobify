@@ -199,7 +199,6 @@ Returns job postings. By default returns **all** posts regardless of status, fro
 | `jobDescription` | string | Sanitized rich-text HTML, see *Description sanitizing* below |
 | `rate` | double | Pay amount, in the unit given by `rateType` |
 | `rateType` | string | `HOURLY`, `MONTHLY`, `YEARLY` or `CONTRACT_TOTAL` (a fixed total for the engagement) |
-| `hourlyRate` | double | **Deprecated.** `rate` as an hourly amount (monthly / 173.33, yearly / 2080, rounded to cents); `0` for `CONTRACT_TOTAL`. Use `rate` and `rateType`. |
 | `employerUsername` | string \| null | Username of the posting employer; `null` if unassigned |
 | `companyName` | string \| null | Name of the employer's company; `null` if the employer has none |
 | `companyId` | string \| null | Company id (UUID), for `GET /companies/{id}` |
@@ -262,7 +261,7 @@ Public, no token. Response `200`: `{ "id": "...", "name": "TechCorp Ltd" }`. `40
 | `rateType` | required: `HOURLY`, `MONTHLY`, `YEARLY` or `CONTRACT_TOTAL` |
 | `location` | optional, max 255 characters |
 | `workMode`, `employmentType` | optional enum strings (`employmentType` includes `B2B`) |
-| `jobRating`, `hourlyRate` | **removed from the request.** Old clients that still send them are not rejected; the values are ignored. |
+| `jobRating`, `hourlyRate` | **removed from the request, and `hourlyRate` from the response (#55).** Old clients that still send them are not rejected; the values are ignored. Pay is `rate` + `rateType`, both always present. |
 | `requiredSkills` | optional array of skill **names** (max 30, each not blank, max 100). Unknown names are added to the shared skill catalog. This replaces the old array-of-objects form. |
 
 **Response `201 Created`** — the saved `JobPostResponse`.
@@ -931,7 +930,6 @@ interface JobPostResponse {
   jobDescription: string;
   rate: number;                   // amount, in the unit of rateType
   rateType: "HOURLY" | "MONTHLY" | "YEARLY" | "CONTRACT_TOTAL";
-  hourlyRate: number;             // deprecated: hourly equivalent of rate, 0 for CONTRACT_TOTAL
   employerUsername: string | null;
   companyName: string | null;     // the employer's company, if any
   companyId: string | null;
