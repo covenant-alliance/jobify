@@ -1,6 +1,6 @@
 package com.mcverse.jobify.user.dto;
 
-import com.mcverse.jobify.model.ProficiencyLevel;
+import com.mcverse.jobify.user.model.ProficiencyLevel;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.DecimalMax;

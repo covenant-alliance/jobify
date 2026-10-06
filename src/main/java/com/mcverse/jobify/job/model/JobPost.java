@@ -1,7 +1,8 @@
-package com.mcverse.jobify.model;
+package com.mcverse.jobify.job.model;
 
-import com.mcverse.jobify.job.model.RateType;
+import com.mcverse.jobify.common.model.EmploymentType;
 import com.mcverse.jobify.user.model.Employer;
+import com.mcverse.jobify.user.model.Skill;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import jakarta.persistence.*;

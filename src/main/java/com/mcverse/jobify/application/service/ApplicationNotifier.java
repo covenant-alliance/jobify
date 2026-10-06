@@ -2,7 +2,7 @@ package com.mcverse.jobify.application.service;
 
 import com.mcverse.jobify.application.model.Application;
 import com.mcverse.jobify.application.model.ApplicationStatus;
-import com.mcverse.jobify.model.JobPost;
+import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.notification.model.NotificationType;
 import com.mcverse.jobify.notification.service.NotificationService;
 import com.mcverse.jobify.user.model.Employer;

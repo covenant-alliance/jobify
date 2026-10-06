@@ -1,11 +1,11 @@
 package com.mcverse.jobify.job.service;
 
 import com.mcverse.jobify.job.dto.JobPostResponse;
+import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.job.model.RateType;
-import com.mcverse.jobify.model.JobPost;
-import com.mcverse.jobify.model.Skill;
 import com.mcverse.jobify.user.model.Company;
 import com.mcverse.jobify.user.model.Employer;
+import com.mcverse.jobify.user.model.Skill;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

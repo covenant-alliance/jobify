@@ -1,6 +1,5 @@
 package com.mcverse.jobify.job.model;
 
-import com.mcverse.jobify.model.JobPost;
 import com.mcverse.jobify.user.model.Seeker;
 import jakarta.persistence.*;
 

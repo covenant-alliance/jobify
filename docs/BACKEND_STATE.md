@@ -110,6 +110,11 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 
 ## Change log (newest first)
 
+### Sprint 5 — package clean-up (#19, T4) — 2026-10-06
+
+**No API change at all** and nothing for the front end to do. Internal only: two unused classes were deleted and the legacy `model/` package was split into the feature slices. Routes, request and response bodies, status codes, enum names and values, table and column names are identical (the PostgreSQL suite still validates against the unchanged Flyway migrations).
+- Issue: #19.
+
 ### Sprint 5 — observability and security audit logging (#20, T5) — 2026-10-06
 
 **No request, response body, status code or enum changed.** Everything old works as before. Additions you can use:

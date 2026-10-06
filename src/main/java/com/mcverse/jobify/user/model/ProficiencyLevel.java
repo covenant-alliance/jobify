@@ -1,4 +1,4 @@
-package com.mcverse.jobify.model;
+package com.mcverse.jobify.user.model;
 
 public enum ProficiencyLevel {
     BEGINNER,

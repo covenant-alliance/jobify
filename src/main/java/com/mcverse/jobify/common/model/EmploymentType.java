@@ -1,4 +1,4 @@
-package com.mcverse.jobify.model;
+package com.mcverse.jobify.common.model;
 
 public enum EmploymentType {
     FULL_TIME("Full-time"),

@@ -1,6 +1,6 @@
 package com.mcverse.jobify.user.dto;
 
-import com.mcverse.jobify.model.ProficiencyLevel;
+import com.mcverse.jobify.user.model.ProficiencyLevel;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "A skill on a seeker's profile")

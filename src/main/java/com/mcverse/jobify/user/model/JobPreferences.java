@@ -1,7 +1,7 @@
 package com.mcverse.jobify.user.model;
 
+import com.mcverse.jobify.common.model.EmploymentType;
 import com.mcverse.jobify.common.validation.ValidSalaryRange;
-import com.mcverse.jobify.model.EmploymentType;
 import jakarta.persistence.*;
 
 @Entity
