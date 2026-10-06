@@ -7,6 +7,8 @@ import com.mcverse.jobify.application.dto.ApplyRequest;
 import com.mcverse.jobify.application.dto.JobApplicationResponse;
 import com.mcverse.jobify.application.model.Application;
 import com.mcverse.jobify.application.model.ApplicationStatus;
+import com.mcverse.jobify.application.model.ApplicationStatusChange;
+import com.mcverse.jobify.application.repository.ApplicationStatusChangeRepository;
 import com.mcverse.jobify.application.repository.ApplicationRepository;
 import com.mcverse.jobify.common.exception.BusinessRuleException;
 import com.mcverse.jobify.common.exception.LicenseValidationException;
@@ -43,10 +45,13 @@ public class ApplicationService {
     private final Clock clock;
     private final ApplicationNotifier notifier;
     private final AuditLog auditLog;
+    private final ApplicationStatusChangeRepository historyRepo;
 
     public ApplicationService(ApplicationRepository applicationRepo, JobRepo jobRepo, SeekerRepository seekerRepo,
-                              Clock clock, ApplicationNotifier notifier, AuditLog auditLog) {
+                              Clock clock, ApplicationNotifier notifier, AuditLog auditLog,
+                              ApplicationStatusChangeRepository historyRepo) {
         this.auditLog = auditLog;
+        this.historyRepo = historyRepo;
         this.applicationRepo = applicationRepo;
         this.jobRepo = jobRepo;
         this.seekerRepo = seekerRepo;
@@ -71,6 +76,7 @@ public class ApplicationService {
         Application existing = applicationRepo.findBySeekerUsernameAndJobPostId(username, jobId).orElse(null);
         if (existing == null) {
             Application created = applicationRepo.save(new Application(seeker, job, note));
+            recordChange(created, null, ApplicationStatus.APPLIED, username);
             notifier.applicationSubmitted(created);
             return toResponse(created);
         }
@@ -79,6 +85,7 @@ public class ApplicationService {
         }
         existing.reapply(note);
         Application reopened = applicationRepo.save(existing);
+        recordChange(reopened, ApplicationStatus.WITHDRAWN, ApplicationStatus.APPLIED, username);
         notifier.applicationSubmitted(reopened);
         return toResponse(reopened);
     }
@@ -107,7 +114,7 @@ public class ApplicationService {
         if (!WITHDRAWABLE.contains(application.getStatus())) {
             throw new BusinessRuleException("This application can no longer be withdrawn.");
         }
-        updateStatus(application, ApplicationStatus.WITHDRAWN);
+        updateStatus(application, ApplicationStatus.WITHDRAWN, username);
     }
 
     /** Employer lists the applicants of a job they own, newest first, optionally only one stage. */
@@ -141,18 +148,25 @@ public class ApplicationService {
             throw new BusinessRuleException(
                     "An application in " + current + " cannot move to " + target + ".");
         }
-        updateStatus(application, target);
+        updateStatus(application, target, username);
         return toJobApplicationResponse(application);
     }
 
     /**
-     * The one place an application's status changes after it was created. Notifications (backlog P6) will hook in
-     * here, so keep every status change going through this method.
+     * The one place an application's status changes after it was created. Notifications and the status history both
+     * hook in here, so keep every status change going through this method.
      */
-    private void updateStatus(Application application, ApplicationStatus newStatus) {
+    private void updateStatus(Application application, ApplicationStatus newStatus, String actor) {
+        ApplicationStatus previous = application.getStatus();
         application.changeStatus(newStatus);
         applicationRepo.save(application);
+        recordChange(application, previous, newStatus, actor);
         notifier.statusChanged(application, newStatus);
+    }
+
+    /** Adds a row to the application's history. Stamped with the application's own timestamp so the two agree. */
+    private void recordChange(Application application, ApplicationStatus from, ApplicationStatus to, String actor) {
+        historyRepo.save(new ApplicationStatusChange(application, from, to, application.getUpdatedAt(), actor));
     }
 
     private void requireJobOwner(JobPost job, String username, String action, Integer jobId) {

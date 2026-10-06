@@ -4,6 +4,7 @@ import com.mcverse.jobify.application.dto.ApplicationStatsResponse;
 import com.mcverse.jobify.application.dto.EmployerStatsResponse;
 import com.mcverse.jobify.application.model.Application;
 import com.mcverse.jobify.application.repository.ApplicationRepository;
+import com.mcverse.jobify.application.repository.ApplicationStatusChangeRepository;
 import com.mcverse.jobify.common.exception.LicenseValidationException;
 import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.job.repository.JobRepo;
@@ -26,10 +27,13 @@ public class EmployerStatsService {
     private final EmployerRepository employerRepo;
     private final JobRepo jobRepo;
     private final ApplicationRepository applicationRepo;
+    private final ApplicationStatusChangeRepository historyRepo;
     private final Clock clock;
 
     public EmployerStatsService(EmployerRepository employerRepo, JobRepo jobRepo,
-                                ApplicationRepository applicationRepo, Clock clock) {
+                                ApplicationRepository applicationRepo, ApplicationStatusChangeRepository historyRepo,
+                                Clock clock) {
+        this.historyRepo = historyRepo;
         this.employerRepo = employerRepo;
         this.jobRepo = jobRepo;
         this.applicationRepo = applicationRepo;
@@ -56,6 +60,22 @@ public class EmployerStatsService {
             byJob.computeIfAbsent(application.getJob().getPostId(), id -> new ArrayList<>()).add(entry);
         }
 
+        // every application's recorded history, grouped by application, then assembled per job and overall
+        Map<String, List<ApplicationFunnelCalculator.Change>> changesByApplication = new HashMap<>();
+        for (ApplicationStatusChangeRepository.Row row : historyRepo.findRowsByEmployer(username)) {
+            changesByApplication.computeIfAbsent(row.applicationId(), id -> new ArrayList<>())
+                    .add(new ApplicationFunnelCalculator.Change(row.from(), row.to(), row.at()));
+        }
+        Map<Integer, List<ApplicationFunnelCalculator.History>> historiesByJob = new HashMap<>();
+        List<ApplicationFunnelCalculator.History> allHistories = new ArrayList<>();
+        for (Application application : applications) {
+            ApplicationFunnelCalculator.History history = new ApplicationFunnelCalculator.History(
+                    application.getStatus(), application.getCreatedAt(),
+                    changesByApplication.getOrDefault(application.getId(), List.of()));
+            allHistories.add(history);
+            historiesByJob.computeIfAbsent(application.getJob().getPostId(), id -> new ArrayList<>()).add(history);
+        }
+
         ApplicationStatsResponse overall = ApplicationStatsCalculator.calculate(all, today);
         List<EmployerStatsResponse.JobStats> perJob = jobs.stream()
                 .sorted(Comparator.comparing(JobPost::getPostId).reversed())
@@ -63,7 +83,8 @@ public class EmployerStatsService {
                     ApplicationStatsResponse stats = ApplicationStatsCalculator.calculate(
                             byJob.getOrDefault(job.getPostId(), List.of()), today);
                     return new EmployerStatsResponse.JobStats(job.getPostId(), job.getJobTitle(), job.isAvailable(),
-                            job.getCreatedAt(), stats.total(), stats.active(), stats.byStatus());
+                            job.getCreatedAt(), stats.total(), stats.active(), stats.byStatus(),
+                            ApplicationFunnelCalculator.calculate(historiesByJob.getOrDefault(job.getPostId(), List.of())));
                 })
                 .toList();
 
@@ -71,7 +92,7 @@ public class EmployerStatsService {
         return new EmployerStatsResponse(
                 new EmployerStatsResponse.Jobs(jobs.size(), open, jobs.size() - open),
                 new EmployerStatsResponse.Applications(overall.total(), overall.active(), overall.byStatus(),
-                        overall.weekly()),
+                        overall.weekly(), ApplicationFunnelCalculator.calculate(allHistories)),
                 perJob);
     }
 }

@@ -31,7 +31,10 @@ public record EmployerStatsResponse(
             Map<ApplicationStatus, Integer> byStatus,
             @Schema(description = "Applications received in each of the last 12 weeks, oldest first, zero-filled, " +
                     "the last entry being the current week (weeks start on Monday)")
-            List<WeekCount> weekly
+            List<WeekCount> weekly,
+            @Schema(description = "How far applications actually got, from their recorded history (unlike byStatus, " +
+                    "which only shows where they are now)")
+            Funnel funnel
     ) {}
 
     @Schema(description = "Applications to one job")
@@ -43,6 +46,24 @@ public record EmployerStatsResponse(
             LocalDateTime createdAt,
             int total,
             int active,
-            Map<ApplicationStatus, Integer> byStatus
+            Map<ApplicationStatus, Integer> byStatus,
+            @Schema(description = "The same funnel, for this job only") Funnel funnel
+    ) {}
+
+    @Schema(description = "A true hiring funnel built from each application's recorded history")
+    public record Funnel(
+            @Schema(description = "How many applications EVER reached each stage, cumulative, for the keys APPLIED, " +
+                    "IN_REVIEW, INTERVIEW and OFFER (always all four, zero-filled, in pipeline order). An application " +
+                    "now at INTERVIEW counts for APPLIED, IN_REVIEW and INTERVIEW; one rejected after an interview " +
+                    "counts up to INTERVIEW; one withdrawn while in review counts up to IN_REVIEW. The numbers never " +
+                    "increase from one stage to the next. An application that was withdrawn and re-applied is counted " +
+                    "by its latest attempt only.")
+            Map<ApplicationStatus, Integer> reached,
+            @Schema(description = "Median number of days applications stayed in each stage (same four keys), counting " +
+                    "only stays that have ended: the application moved on, was rejected or was withdrawn. An application " +
+                    "still sitting in a stage is not counted yet. The value is null while no stay has ended. " +
+                    "Applications that predate history recording contribute no durations.",
+                    nullable = true)
+            Map<ApplicationStatus, Double> medianDaysInStage
     ) {}
 }

@@ -30,6 +30,11 @@ public interface ApplicationRepository extends JpaRepository<Application, String
 
     long countByCreatedAtGreaterThanEqual(LocalDateTime since);
 
+    /** Applications that have no history yet: the ones that existed before history was recorded. */
+    @Query("select a from Application a where not exists "
+            + "(select 1 from ApplicationStatusChange c where c.application = a)")
+    List<Application> findAllWithoutHistory();
+
     /** Needed before a seeker account is deleted, otherwise the foreign key blocks it. */
     @Modifying
     @Query("delete from Application a where a.seeker in (select s from Seeker s where s.username = :username)")

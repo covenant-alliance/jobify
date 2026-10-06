@@ -343,11 +343,17 @@ Employer only, own jobs only (a seeker or admin gets `403` `Only employers have 
   "applications": {
     "total": 4, "active": 2,
     "byStatus": { "APPLIED": 1, "IN_REVIEW": 0, "INTERVIEW": 1, "OFFER": 0, "REJECTED": 1, "WITHDRAWN": 1 },
-    "weekly": [ { "weekStart": "2026-07-20", "count": 0 }, "... 12 entries ...", { "weekStart": "2026-10-05", "count": 4 } ]
+    "weekly": [ { "weekStart": "2026-07-20", "count": 0 }, "... 12 entries ...", { "weekStart": "2026-10-05", "count": 4 } ],
+    "funnel": {
+      "reached":           { "APPLIED": 4, "IN_REVIEW": 3, "INTERVIEW": 2, "OFFER": 1 },
+      "medianDaysInStage": { "APPLIED": 1.5, "IN_REVIEW": 3.0, "INTERVIEW": 4.2, "OFFER": null }
+    }
   },
   "perJob": [
     { "postId": 12, "jobTitle": "Backend Engineer", "available": true, "createdAt": "2026-10-01T09:00:00",
-      "total": 3, "active": 2, "byStatus": { "APPLIED": 1, "...": 0 } }
+      "total": 3, "active": 2, "byStatus": { "APPLIED": 1, "...": 0 },
+      "funnel": { "reached": { "APPLIED": 3, "IN_REVIEW": 2, "INTERVIEW": 1, "OFFER": 0 },
+                  "medianDaysInStage": { "APPLIED": 1.0, "IN_REVIEW": null, "INTERVIEW": null, "OFFER": null } } }
   ]
 }
 ```
@@ -358,7 +364,11 @@ Employer only, own jobs only (a seeker or admin gets `403` `Only employers have 
 | `applications.byStatus` | Where applications are **now**, all six statuses, zero-filled. It is a snapshot, not a history: an application that reached `INTERVIEW` and was then `REJECTED` counts only as `REJECTED`. A true "reached this stage" funnel would need a status history, which is not stored yet |
 | `applications.active` | `APPLIED` + `IN_REVIEW` + `INTERVIEW` + `OFFER`. Rejected and withdrawn are not active |
 | `applications.weekly` | Applications **received** in each of the last 12 weeks, oldest first, zero-filled, the last entry being the current week. Weeks start on Monday |
-| `perJob` | One entry per job, **including jobs with no applicants**, newest job first (highest `postId`), with that job's `total`, `active` and `byStatus` |
+| `perJob` | One entry per job, **including jobs with no applicants**, newest job first (highest `postId`), with that job's `total`, `active`, `byStatus` and `funnel` |
+| `funnel.reached` | **A true funnel, from each application's recorded history** (added with #53). How many applications *ever reached* each stage; always the four keys `APPLIED`, `IN_REVIEW`, `INTERVIEW`, `OFFER`, zero-filled, in that order. Cumulative, so the numbers never increase from one stage to the next: an application now at `INTERVIEW` counts for `APPLIED`, `IN_REVIEW` and `INTERVIEW`; one rejected after an interview counts up to `INTERVIEW`; one withdrawn while in review counts up to `IN_REVIEW`. A withdrawn application that was re-applied counts by its latest attempt only |
+| `funnel.medianDaysInStage` | Median days applications **stayed** in each stage (same four keys, one decimal). Only stays that have ended count (the application moved on, was rejected or withdrawn): one still sitting in a stage is not counted yet, so a value is `null` until the first stay ends. Compare `reached` with `byStatus`: `byStatus` says where applications are now, `funnel` says how far they got |
+
+**History and older data.** Every status change (apply, employer stage move, withdraw, re-apply) is recorded from #53 on. Applications that existed before that were given a minimal history at startup: created as `APPLIED`, and, if they had moved on, one step from `APPLIED` to their current status. For those, the stages in between and the stage a rejected or withdrawn application left from are unknown, so they count only for what is known (a rejected one counts for `APPLIED`) and contribute durations only for the time from creation to their last update. Applications from now on are exact.
 
 Job **views** are not tracked, so they are not included (open question in issue #16).
 

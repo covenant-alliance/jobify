@@ -203,7 +203,7 @@ Locally: `TEST_DB_URL=jdbc:postgresql://localhost:5432/jobify_test TEST_DB_USER=
 - [ ] `curl localhost:9080/actuator/health` returns `UP`; `curl -i localhost:9080/swagger-ui/index.html` is **not** 200.
 - [ ] Log in with the bootstrap admin; the demo accounts (`alice_s` ...) do **not** exist.
 - [ ] Upload a resume as a seeker, then `docker compose down && docker compose up -d`: the resume and the data survive.
-- [ ] `docker compose exec db psql -U jobify -d jobify -c '\dt'` lists 21 tables (20 + `flyway_schema_history`).
+- [ ] `docker compose exec db psql -U jobify -d jobify -c '\dt'` lists 22 tables (21 + `flyway_schema_history`).
 - [ ] If the `postgres:18` volume layout differs from what the compose file assumes (the cluster must be under
       `/var/lib/postgresql/18/...` inside the volume), adjust the mount; the PostgreSQL image's own documentation
       for version 18 is the reference.

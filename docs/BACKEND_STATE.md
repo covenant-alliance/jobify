@@ -26,7 +26,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 | Notifications | **Built** (#14): see the change log. The bell can be wired now. |
 | Company dashboard stats | #16, sprint 4. **Open question for the Product Owner: "views" per job** (needs view tracking; may be dropped). |
 | Admin users with paging and search, and admin stats | **Built** (#15): see the change log. `GET /admin/users` is now paged (an unused route, so this is a deliberate change). |
-| Company dashboard: status history for a true funnel (optional) | **Issue #53, icebox.** Today the funnel is a snapshot by current status, as you say. A real conversion funnel needs a status-change table; sketched in the issue, not scheduled. Tell the Product Owner if you want it. |
+| Company dashboard: status history for a true funnel (optional) | **Built** (#53, issue title now "P18"): `applications.funnel` and `perJob[].funnel` on `GET /employers/me/stats`. See the change log. |
 | Server-side search and paging | #13, sprint 3. **Proposal written, waiting for your answers** (section below). |
 | Dropping your random fallbacks for `location` / `workMode` / `employmentType` | #39, **Product Owner decision** pending: whether the API starts requiring all three on new jobs. Keep your fallbacks for now. |
 | Match %, recommended jobs, candidates | **Parked** as you asked (#12, icebox). Nothing will be built until it is scheduled. |
@@ -93,6 +93,7 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 8 points: query builder with every filter and sort, input validation, tests for each filter and combination (including the rate rules and the empty and invalid cases), documentation, and a check of query cost on a few thousand generated jobs.
 
 ## Open requests for the front end
+- [ ] **Optional, company dashboard funnel (#53):** show `applications.funnel` (and `perJob[].funnel`) as a real conversion funnel and, if you like, "typical time in stage" from `medianDaysInStage`. Details and the `null` rule are in the 2026-10-06 entry "a true hiring funnel".
 - [ ] **Session expiry (#50):** anonymous or expired-token calls to protected routes now answer `401` (they were `403`), so the interceptor's existing 401 handling will log the user out. Please check the three points in the 2026-10-06 entry "401 for no valid session" and tick this when done.
 - [ ] **Optional, error screens:** show the `X-Request-Id` response header in error toasts or a "report a problem" view (axios: `error.response?.headers['x-request-id']`), so support can find the request in the logs (issue #20).
 - [x] **Company dashboard:** *(DONE by you, per your second 2026-10-06 update)* replace `HIRING_CHART_DATA` and the counts around it with `GET /employers/me/stats` (`applications.weekly` for the chart over time, `applications.byStatus` for the stage breakdown, `perJob` for the per-job table, `jobs` for open and closed counts). Use `GET /jobs/{id}/applications` for the candidate list. Remove "views" or mark it as unavailable (issue #16).- [ ] **Admin dashboard:** replace `MOCK_USERS` with `GET /admin/users` (use `content`, `totalPages` and `last` for paging; send `q` for the search box and `role` for a role filter, debounced) and replace the mock metric cards in `ADMIN_METRICS` with `GET /admin/stats`. The pending deletion requests number is in the stats too (issue #15).- [ ] **Notifications:** replace `MOCK_NOTIFICATIONS` with `GET /notifications`, drive the bell badge from `GET /notifications/unread-count` (poll every 30 to 60 s), call `POST /notifications/{id}/read` when one is opened and `POST /notifications/read-all` for "mark all as read". Use `jobId` / `applicationId` for links. Map `type` (uppercase) to your existing icons (issue #14).- [ ] **Seeker dashboard charts:** replace the static `EMPLOYEE_CHART_DATA` with `GET /applications/me/stats` (a weekly bar or line from `weekly`, and a status breakdown from `byStatus`; `active` for the headline number) (issue #38).- [ ] **Answer the search proposal** (section "Proposal awaiting your answer", issue #13): reply under "Requests to the back end" in your file. "Accept the defaults" is enough. I will not start until you do.
@@ -111,6 +112,25 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 6 — a true hiring funnel from application status history (#53, P18) — 2026-10-06
+
+**Additive. The old shape of `GET /employers/me/stats` still works unchanged; two new fields are added.**
+
+New fields (same route, same status codes, no new route):
+- `applications.funnel` (all of the employer's jobs) and `perJob[].funnel` (that job only), each:
+  - `reached`: `{ "APPLIED": n, "IN_REVIEW": n, "INTERVIEW": n, "OFFER": n }`. How many applications **ever reached** each stage. Always these four keys, zero-filled, in pipeline order. **Cumulative**, so it never increases from one stage to the next: an application now at INTERVIEW counts for APPLIED, IN_REVIEW and INTERVIEW; one rejected after an interview counts up to INTERVIEW; one withdrawn while in review counts up to IN_REVIEW. A withdrawn-then-reapplied application counts once, by its latest attempt.
+  - `medianDaysInStage`: same four keys, a number with one decimal or **`null`**. Median days applications stayed in a stage, counting only stays that **ended** (moved on, rejected or withdrawn). It is `null` until the first stay ends; an application still in a stage is not counted yet.
+- `applications.byStatus` is unchanged and still means "where applications are now".
+
+How you can use it: a funnel chart from `reached` (drop-off between bars is the number who left at that stage), and percentages computed on your side (`reached.INTERVIEW / reached.APPLIED`). Treat `null` medians as "no data yet", not zero. Render both new objects defensively (an older back end would not send them).
+
+Behaviour worth knowing:
+- Every apply, stage move, withdrawal and re-application now writes a history row (who and when). Failed or refused moves write nothing.
+- Applications made before this change got a **minimal history at startup**: created as APPLIED and, if they had moved on, one step from APPLIED to their current status. For those, the stages in between are unknown, so a rejected old application counts only for APPLIED and their durations only run from creation to last update. The data is exact for everything from now on.
+- Deleting an account (approved deletion request) removes the history with the applications; nothing for you to do.
+- Not built (say so if you want it): a per-application history route for a timeline view, and time-to-hire.
+- Database: Flyway `V3__application_status_changes`. Issue: #53 (title renamed from "P17" to "P18" to avoid a clash in the backlog numbering).
 
 ### Sprint 5 — 401 for "no valid session" instead of 403 (#50, B8) — 2026-10-06
 
