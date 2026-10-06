@@ -15,9 +15,9 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 | Your request | Back-end answer |
 |---|---|
 | Job compensation model | **Shipped and merged into `master`** (#28, PR #29). See the change log. |
-| Applications: apply, list mine, withdraw, employer pipeline | **In progress**, split into #30 apply + list mine, #31 withdraw, #32 employer applicants, #33 employer stage changes. Epic #9. Sprint 2. |
-| Saved jobs | **Built**, in the pull request for this branch (#10). See the change log. |
-| Company name | **Built**, same pull request (#11): `companyName` and `companyId` on jobs, public `GET /companies/{id}`. |
+| Applications: apply, list mine, withdraw, employer pipeline | **Done and merged to `master`** (PR #40, 2026-10-05): #30 apply + list mine, #31 withdraw, #32 employer applicants, #33 employer stage changes. Epic #9. Ready for you to wire. |
+| Saved jobs | **Done and merged** (PR #41, #10). You have wired it. |
+| Company name | **Done and merged** (PR #41, #11): `companyName` and `companyId` on jobs, public `GET /companies/{id}`. You have wired it. |
 | Company **logo** | #34, icebox (no logo storage exists yet). Until it ships, jobs return no `logoUrl`. |
 | Benefits and gallery | #35, icebox, optional. Keep your pools for now. |
 | Responsibilities / requirements | #36, **Product Owner decision** pending (keep your sentence heuristic meanwhile). |
@@ -36,13 +36,18 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
-- [ ] Replace the in-memory `saveJob` / `unsaveJob` with `PUT` / `DELETE /jobs/{id}/save`, and load the saved list from `GET /jobs/saved` (issue #10).- [ ] Use `companyName` from the job response instead of the capitalised `employerUsername`; keep the "Jobify Partner" fallback only for `null` (issue #11).- [ ] Company dashboard: replace `MOCK_PIPELINE_CANDIDATES` with `GET /jobs/{id}/applications`, add stage actions with `PUT /applications/{id}/status` (show only the allowed next stages), and delete the fake `applicationStage.ts` (issues #32, #33).
-- [ ] Replace the in-memory `applyForJob` with `POST /jobs/{id}/apply`, load `GET /applications/me` for the seeker dashboard, and add a withdraw action using `DELETE /applications/{id}` (show it for every status except `REJECTED` and `WITHDRAWN`; issues #30, #31; the endpoints are in the applications pull request and reach `master` when it is merged). Show a readable message from the 422/403 responses.- [ ] Show `rate` with `rateType` on job cards, details and the JSON-LD (per-hour, per-month, per-year or fixed total), and stop reading `hourlyRate`. Remove any `jobRating` usage (issue #28).- [ ] Switch `useEmployerJobs` to `GET /jobs/mine`, and handle 403 on job writes (issue #3, #4).
-- [ ] Add `requiredSkills: string[]` to `Job` and `CreateJobRequest`, and add a skills picker to `PostJobModal` (issue #6).
-- [ ] Extend `SeekerResponse` with `educations/certifications/experiences/skills`, then build the profile-editing UI.
-- [ ] Replace `applyForJob` / `saveJob` in-memory state with API calls once the P1 and P2 endpoints ship (issues #9, #10).
-- [ ] Replace the fake `matchScore` in `jobEnrichment.ts` once the matching endpoint ships (issue #12).
-- [ ] Replace `MOCK_USERS` with `GET /admin/users` (issue #15).
+Updated 2026-10-06 after reading your snapshot of the same day. Everything below is merged on `master` and ready to use.
+
+- [ ] **Applications, seeker side.** Replace the in-memory `applyForJob` with `POST /jobs/{id}/apply`, load `GET /applications/me` for the seeker dashboard, and add a withdraw action with `DELETE /applications/{id}` (show it for every status except `REJECTED` and `WITHDRAWN`). Show the readable `message` from the 422 and 403 responses (issues #30, #31).
+- [ ] **Applications, employer side.** Replace `MOCK_PIPELINE_CANDIDATES` with `GET /jobs/{id}/applications`, add stage actions with `PUT /applications/{id}/status` (offer only the allowed next stages), and delete the fake `applicationStage.ts` (issues #32, #33). Note: your snapshot says the applications endpoints are "in an unmerged back-end PR"; they are merged (PR #40, 2026-10-05).
+- [ ] **Seeker profile editing.** Extend `SeekerResponse` with `educations`, `certifications`, `experiences`, `skills` and build the CRUD UI against `/users/seekers/me/*`. All routes exist; field limits are in `api-documentation.md`.
+- [ ] **Admin user table.** Replace `MOCK_USERS` with `GET /admin/users` (exists today, unpaged; paging and search are #15).
+- [ ] **Typed clients (optional).** The OpenAPI JSON at `/v3/api-docs` now covers every route; you can generate types from it instead of hand-writing them.
+- [ ] **Show the new field limits** in forms if you want to prevent 400s up front (they are in `api-documentation.md`, "Conventions").
+
+**Done by you, thank you (per your 2026-10-06 snapshot):** `GET /jobs/mine` with 403 handling, `requiredSkills` with the tag input, saved jobs, `companyName`, posted-ago from `createdAt`, and `rate` / `rateType` display.
+
+**Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
 
@@ -76,7 +81,7 @@ Additive. Existing fields and shapes are unchanged.
 - `logoUrl` is not returned yet: there is no logo storage (issue #34, icebox). Keep deriving initials and colour from the name for now.
 
 ### Sprint 2 — applications, stories P1.3 and P1.4: employer side (#32, #33, epic #9) — 2026-10-05
-Additive. **In review in the applications pull request (branch `feature-applications`); not on `master` until it is merged.** With these, the applications epic is complete on the back end.
+Additive. **Merged to `master` in PR #40 (2026-10-05).** With these, the applications epic is complete on the back end.
 
 - **`GET /jobs/{id}/applications`** (the employer who owns the job). Newest first, withdrawn ones included. Optional `?status=`. Each item is a `JobApplicationResponse`: `id`, `status`, `coverNote`, `createdAt`, `updatedAt` and `applicant { seekerId, username, name, lastName, hasCv }`. Counting per stage is up to you for now (group the list); a stats endpoint comes with #16.
   - `403` `You can only view applications for your own jobs.` (other employers, seekers), `404` unknown job, `400` for an unknown `status` (the message lists the allowed values).
@@ -88,7 +93,7 @@ Additive. **In review in the applications pull request (branch `feature-applicat
 - **The pipeline is real now**, so `applicationStage.ts` (fake stage from `postId`) can go, and `MOCK_PIPELINE_CANDIDATES` can be replaced by the list endpoint.
 
 ### Sprint 2 — applications, story P1.2: withdraw (#31, epic #9) — 2026-10-04
-Additive. **In review in the applications pull request**, same as P1.1 below.
+Additive. **Merged to `master` in PR #40 (2026-10-05).**
 
 - **`DELETE /applications/{id}`** (the applicant only). Returns **`204`**. It does **not** delete the record: the status becomes `WITHDRAWN` and `updatedAt` changes, so `GET /applications/me` still lists it, flagged `WITHDRAWN`.
 - Allowed from `APPLIED`, `IN_REVIEW`, `INTERVIEW`, `OFFER`. From `REJECTED` or `WITHDRAWN` it is `422` `This application can no longer be withdrawn.`
@@ -96,7 +101,7 @@ Additive. **In review in the applications pull request**, same as P1.1 below.
 - After withdrawing, the seeker can apply to the job again (`POST /jobs/{id}/apply` re-opens the same application as `APPLIED`).
 
 ### Sprint 2 — applications, story P1.1: apply and list mine (#30, epic #9) — 2026-10-03
-Additive only; nothing existing changes. **In review in the applications pull request** (branch `feature-applications`).
+Additive only; nothing existing changes. **Merged to `master` in PR #40 (2026-10-05).**
 
 - **`POST /jobs/{id}/apply`** (SEEKER). Optional body `{ "coverNote": "..." }`, max 2,000 characters. `201` with an `ApplicationResponse`. Starts as `APPLIED`.
   - `422` `This job is no longer accepting applications.` (closed job), `422` `You have already applied to this job.`, `403` `Only job seekers can apply for jobs.` (employers), `404` unknown job, `400` `coverNote must be at most 2000 characters`.
