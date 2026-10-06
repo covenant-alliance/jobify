@@ -13,6 +13,8 @@ public final class JobLimits {
 
     public static final int BENEFITS_MAX = 15;
     public static final int BENEFIT_MAX = 80;
+    public static final int POINTS_MAX = 20;
+    public static final int POINT_MAX = 300;
     public static final int IMAGES_MAX = 6;
     public static final long IMAGE_MAX_BYTES = 2L * 1024 * 1024;
 

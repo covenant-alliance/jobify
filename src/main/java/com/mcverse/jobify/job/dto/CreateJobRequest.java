@@ -64,5 +64,19 @@ public record CreateJobRequest(
         @Size(max = JobLimits.BENEFITS_MAX, message = "must have at most " + JobLimits.BENEFITS_MAX + " entries")
         List<@NotBlank(message = "must not be blank")
         @Size(max = JobLimits.BENEFIT_MAX,
-                message = "must be at most " + JobLimits.BENEFIT_MAX + " characters") String> benefits
+                message = "must be at most " + JobLimits.BENEFIT_MAX + " characters") String> benefits,
+
+        @Schema(description = "What the person will do, one short sentence each, in display order (at most 20, each "
+                + "at most 300 characters). Omit on edit to leave them unchanged; send [] to remove them all.",
+                nullable = true)
+        @Size(max = JobLimits.POINTS_MAX, message = "must have at most " + JobLimits.POINTS_MAX + " entries")
+        List<@NotBlank(message = "must not be blank")
+        @Size(max = JobLimits.POINT_MAX,
+                message = "must be at most " + JobLimits.POINT_MAX + " characters") String> responsibilities,
+
+        @Schema(description = "What the person needs to bring, same rules as responsibilities", nullable = true)
+        @Size(max = JobLimits.POINTS_MAX, message = "must have at most " + JobLimits.POINTS_MAX + " entries")
+        List<@NotBlank(message = "must not be blank")
+        @Size(max = JobLimits.POINT_MAX,
+                message = "must be at most " + JobLimits.POINT_MAX + " characters") String> requirements
 ) {}

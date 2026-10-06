@@ -38,6 +38,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
+- [ ] **Responsibilities and requirements (#36):** add two list inputs to the Post-a-Job form (and the edit form) and send `responsibilities: string[]` and `requirements: string[]` in `POST /jobs` / `PUT /jobs/{id}` (max 20 items of 300 characters each). On the job page render `job.responsibilities` / `job.requirements` when they are not empty and keep the sentence-splitting heuristic only for jobs where both are empty. Until you send them nothing changes: an edit that omits the fields keeps what is saved.
 - [ ] **Optional, logo, benefits and gallery (#34, #35):** replace the initials/gradient with `${API}${job.logoUrl}` when it is not null, and `BENEFIT_POOL` / `GALLERY_POOL` with `job.benefits` / `job.images` (prefix each image with the API base) when they are not empty; keep the pools only as fallback for jobs without any. Add the three inputs to the Post-a-Job form if you want employers to fill them: benefits as `benefits: string[]` in the job body, pictures as separate multipart `POST /jobs/{id}/images` calls after the job exists (up to 6, 2 MB each), and a logo upload on the company page (`POST /users/companies/{id}/logo`, 1 MB).
 - [x] **Optional, company dashboard funnel (#53):** *(NOT NEEDED for now, per your 2026-10-06 note: the dashboards show applications by current status only. The funnel fields stay available in the response whenever you want them.)* show `applications.funnel` (and `perJob[].funnel`) as a real conversion funnel and, if you like, "typical time in stage" from `medianDaysInStage`. Details and the `null` rule are in the 2026-10-06 entry "a true hiring funnel".
 - [x] **Session expiry (#50):** *(CONFIRMED by you on 2026-10-06: the interceptor logs out on any 401 outside `/auth/*`, no screen expects a token-less 403, and a login/register 401 or a 429 does not log out. Thank you.)* anonymous or expired-token calls to protected routes now answer `401` (they were `403`), so the interceptor's existing 401 handling will log the user out. Please check the three points in the 2026-10-06 entry "401 for no valid session" and tick this when done.
@@ -58,6 +59,17 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 6 — structured responsibilities and requirements on jobs (#36, P14) — 2026-10-06
+
+The Product Owner chose option 2. **Additive: nothing existing breaks.**
+
+- **New fields on `JobPostResponse`** (every route that returns a job, including `GET /jobs/search`): `responsibilities: string[]` and `requirements: string[]`, in display order, `[]` when none.
+- **`POST /jobs` and `PUT /jobs/{id}` accept both** (`CreateJobRequest`): each at most **20** entries, each non-blank and at most **300** characters, trimmed. **Omit a field on `PUT` and the saved list stays** (each list is independent); send `[]` to remove it. Errors (400): `responsibilities must have at most 20 entries`, `responsibilities[0] must be at most 300 characters`, `... must not be blank`.
+- **Existing jobs return `[]`.** Keep your sentence-splitting heuristic as the fallback for jobs where both lists are empty, so old jobs look the same as today.
+- Database: tables `job_responsibilities` and `job_requirements` (Flyway `V7` on PostgreSQL).
+- For you: add a "Responsibilities" and a "Requirements" list input to the Post-a-Job form (one line per item; the limits above) and send them as arrays; render `job.responsibilities` / `job.requirements` when not empty (see "Open requests for the front end").
+- Issue: #36.
 
 ### Sprint 6 — company logo (#34) and job benefits and images (#35) — 2026-10-06
 
