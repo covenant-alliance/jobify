@@ -66,7 +66,7 @@ class ValidationAndErrorHandlingIntegrationTest {
                                 + "\",\"role\":\"SEEKER\",\"firstName\":\"" + repeat(101) + "\",\"lastName\":\"B\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", containsString("username must be at most 50 characters")))
-                .andExpect(jsonPath("$.message", containsString("password must be at most 72 characters")))
+                .andExpect(jsonPath("$.message", containsString("password must be 8 to 72 characters")))
                 .andExpect(jsonPath("$.message", containsString("firstName must be at most 100 characters")));
     }
 

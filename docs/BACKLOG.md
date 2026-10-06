@@ -70,4 +70,4 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **T7. Dependencies.** Spring Boot `4.0.0-M3` is a milestone. Move to GA when available and run a vulnerability check.
 
-**T8. Cleanup.** Also consider a rate limit on `/auth/**` and password rules (front end currently enforces none beyond non-empty).
+**T8. ✅ Cleanup (#23, done in sprint 3: login/register rate limit, failed-login lock, password policy, security event logging).** Also consider a rate limit on `/auth/**` and password rules (front end currently enforces none beyond non-empty).

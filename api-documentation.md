@@ -50,6 +50,7 @@ All error responses share the same envelope:
 | `403` | Forbidden: wrong role or not the owner of the resource |
 | `404` | Resource not found, or no such route |
 | `405` | The route exists but not for that HTTP method |
+| `429` | Rate limited or temporarily locked out; see the `Retry-After` header |
 | `409` | The change conflicts with existing data (rare: a concurrent duplicate) |
 | `415` | Wrong content type (send `application/json`) |
 | `422` | Business rule violation (e.g. duplicate company, closed job, disallowed status move) |
@@ -84,7 +85,7 @@ Creates an account and immediately returns a token. A domain profile (Seeker **o
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `username` | string | yes | Must be unique across the platform |
-| `password` | string | yes | Plain text — hashed server-side (BCrypt) |
+| `password` | string | yes | 8 to 72 characters, hashed server-side (BCrypt). Must also pass the **password policy** below |
 | `role` | `"SEEKER"` \| `"EMPLOYER"` | yes | Determines which profile type is created |
 | `firstName` | string | yes | |
 | `lastName` | string | yes | |
@@ -128,7 +129,37 @@ Authenticates an existing account.
 
 | Status | When |
 |---|---|
-| `401` | Username not found or wrong password |
+| `400` | A field is missing or blank (`username is required`) |
+| `401` | Username not found or wrong password: `Invalid username or password` (the same message either way) |
+| `429` | Too many failed attempts for this username, or too many requests from this address, see below |
+
+---
+
+### Password policy
+
+Applies to `POST /auth/register` and `PUT /account/password`. Failures are `400` with one of these messages:
+
+| Rule | Message |
+|---|---|
+| 8 to 72 characters | `password must be 8 to 72 characters` (`newPassword ...` when changing) |
+| Not the same as the username (any case) | `Password must not be the same as your username.` |
+| Not a very common password (for example `password123`, `12345678`) | `That password is too common. Please choose a less predictable one.` |
+
+When changing a password, the new one must also differ from the current one (`422` `The new password must be different from the current one.`). Existing accounts keep their passwords; the policy only applies when a password is set.
+
+### Brute-force protection (`429`)
+
+Two limits protect `POST /auth/login` and `POST /auth/register`. Both answer `429 Too Many Requests` in the usual error envelope with a `Retry-After` header (seconds).
+
+| Limit | Default | Message |
+|---|---|---|
+| Requests per client address, per route | 30 per minute | `Too many requests. Please wait 1 minute and try again.` |
+| Failed logins per username | 5 within 10 minutes locks that username until the oldest failure expires | `Too many failed login attempts. Try again in 10 minutes.` |
+
+- While a username is locked even the correct password is refused. A successful login resets the count, and other usernames are unaffected.
+- Unknown usernames count and lock exactly like real ones, so the response never reveals whether an account exists.
+- Settings: `app.security.auth-rate-limit.*`, `app.security.login-lock.*`. The client address is the connection address; set `app.security.trust-forwarded-for=true` only behind a proxy you control that overwrites `X-Forwarded-For`, otherwise clients could spoof it.
+- Counts are held in memory per instance and reset on restart.
 
 ---
 
@@ -635,8 +666,8 @@ Rules: an `endDate`/`expirationDate` earlier than the start is `422` `End date c
 
 ### `PUT /account/password`
 
-Body `{ "currentPassword": "...", "newPassword": "..." }` (new password 8 to 72 characters). `200` with an empty body.
-Errors: `400` validation (`newPassword must be 8 to 72 characters`), `422` `Current password is incorrect.`
+Body `{ "currentPassword": "...", "newPassword": "..." }` (new password 8 to 72 characters, plus the password policy). `200` with an empty body.
+Errors: `400` validation (`newPassword must be 8 to 72 characters`) or a policy message, `422` `Current password is incorrect.` or `The new password must be different from the current one.`
 
 ### Deletion requests
 

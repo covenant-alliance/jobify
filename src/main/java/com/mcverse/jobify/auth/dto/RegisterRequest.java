@@ -12,7 +12,7 @@ public record RegisterRequest(
         @NotBlank(message = "is required") @Size(max = 50, message = "must be at most 50 characters") String username,
 
         @Schema(description = "Password — minimum 8 characters recommended", example = "s3cur3P@ss")
-        @NotBlank(message = "is required") @Size(max = 72, message = "must be at most 72 characters") String password,
+        @NotBlank(message = "is required") @Size(min = 8, max = 72, message = "must be 8 to 72 characters") String password,
 
         @Schema(description = "SEEKER or EMPLOYER only — ADMIN is seeded and cannot be self-registered",
                 example = "SEEKER", allowableValues = {"SEEKER", "EMPLOYER"})

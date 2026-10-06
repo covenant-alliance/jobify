@@ -2,6 +2,7 @@ package com.mcverse.jobify.config;
 
 import com.mcverse.jobify.auth.security.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -16,6 +17,12 @@ public class ApplicationConfig {
 
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
+
+    /** Injected wherever time matters, so tests can control it. */
+    @Bean
+    public Clock clock() {
+        return Clock.systemUTC();
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
