@@ -38,13 +38,13 @@ class DevToolsSwitchIntegrationTest {
 
     @Test
     void apiDocsAreNotPublicWhenSwitchedOff() throws Exception {
-        mvc.perform(get("/v3/api-docs")).andExpect(status().isForbidden());
-        mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isForbidden());
+        mvc.perform(get("/v3/api-docs")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void h2ConsoleIsNotPublicWhenSwitchedOff() throws Exception {
-        mvc.perform(get("/h2-console/")).andExpect(status().isForbidden());
+        mvc.perform(get("/h2-console/")).andExpect(status().isUnauthorized());
     }
 
     @Test

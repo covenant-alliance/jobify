@@ -92,6 +92,7 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 8 points: query builder with every filter and sort, input validation, tests for each filter and combination (including the rate rules and the empty and invalid cases), documentation, and a check of query cost on a few thousand generated jobs.
 
 ## Open requests for the front end
+- [ ] **Session expiry (#50):** anonymous or expired-token calls to protected routes now answer `401` (they were `403`), so the interceptor's existing 401 handling will log the user out. Please check the three points in the 2026-10-06 entry "401 for no valid session" and tick this when done.
 - [ ] **Optional, error screens:** show the `X-Request-Id` response header in error toasts or a "report a problem" view (axios: `error.response?.headers['x-request-id']`), so support can find the request in the logs (issue #20).
 - [ ] **Company dashboard:** replace `HIRING_CHART_DATA` and the counts around it with `GET /employers/me/stats` (`applications.weekly` for the chart over time, `applications.byStatus` for the stage breakdown, `perJob` for the per-job table, `jobs` for open and closed counts). Use `GET /jobs/{id}/applications` for the candidate list. Remove "views" or mark it as unavailable (issue #16).- [ ] **Admin dashboard:** replace `MOCK_USERS` with `GET /admin/users` (use `content`, `totalPages` and `last` for paging; send `q` for the search box and `role` for a role filter, debounced) and replace the mock metric cards in `ADMIN_METRICS` with `GET /admin/stats`. The pending deletion requests number is in the stats too (issue #15).- [ ] **Notifications:** replace `MOCK_NOTIFICATIONS` with `GET /notifications`, drive the bell badge from `GET /notifications/unread-count` (poll every 30 to 60 s), call `POST /notifications/{id}/read` when one is opened and `POST /notifications/read-all` for "mark all as read". Use `jobId` / `applicationId` for links. Map `type` (uppercase) to your existing icons (issue #14).- [ ] **Seeker dashboard charts:** replace the static `EMPLOYEE_CHART_DATA` with `GET /applications/me/stats` (a weekly bar or line from `weekly`, and a status breakdown from `byStatus`; `active` for the headline number) (issue #38).- [ ] **Answer the search proposal** (section "Proposal awaiting your answer", issue #13): reply under "Requests to the back end" in your file. "Accept the defaults" is enough. I will not start until you do.
 - [ ] **Login and register forms:** show the `message` of a `429` as it is (it already says how long to wait), and keep the form usable afterwards. A `429` is not an auth failure, so it must **not** log the user out or clear the token (only `401` does that).
@@ -109,6 +110,24 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 5 — 401 for "no valid session" instead of 403 (#50, B8) — 2026-10-06
+
+**Response change for authenticated routes: this one affects you.**
+
+| Situation | Before | Now |
+|---|---|---|
+| No token, a malformed token, or an **expired** token on a protected route | `403`, empty body | **`401`**, standard envelope, `message`: `Your session has expired or is not valid. Please sign in again.`, header `WWW-Authenticate: Bearer` |
+| Valid token for an account that no longer exists (for example after an approved deletion request) | `500` | **`401`**, same envelope |
+| Signed in but the route is not for your role (a seeker calling `/admin/**`, a seeker calling `GET /jobs/mine`) | `403`, empty body | `403`, standard envelope, `message`: `You do not have permission to do that.` |
+| Ownership and role rules inside a service (`Only employers can post jobs.` and similar) | `403` with their own messages | unchanged |
+| Wrong password at `/auth/login` | `401` `Invalid username or password` | unchanged |
+| Public routes (`GET /jobs`, `GET /jobs/{id}`, `GET /content`, `GET /companies/{id}`, `/auth/**`) with a stale or garbage token | worked | unchanged (the token is ignored) |
+
+- **Why:** your interceptor logs the user out on `401`, but an expired 24-hour token used to get `403`, so the session never ended; users saw errors on every call instead.
+- **For you to check:** (1) an expired session should now log the user out as intended; (2) make sure no screen deliberately calls a protected route without a token and expects `403`; (3) the interceptor must keep **not** treating a `401` from `/auth/login` (wrong password) as "session ended", exactly as it does today, because that case is unchanged.
+- The `401` and `403` responses carry the CORS headers, so browser scripts can read them (tested).
+- Issue: #50. Tests: 10 new ones plus about 22 updated expectations (every "anonymous is refused" test now expects 401).
 
 ### Sprint 5 — test foundation (#8, T1) — 2026-10-06
 

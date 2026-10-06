@@ -131,7 +131,7 @@ class ApplicationWithdrawIntegrationTest {
         String id = applyToNewJob(bearer(mvc, "alice_s"), "Employer attempt");
         mvc.perform(delete("/applications/" + id).header(AUTHORIZATION, bearer(mvc, "techcorp")))
                 .andExpect(status().isForbidden());
-        mvc.perform(delete("/applications/" + id)).andExpect(status().isForbidden());
+        mvc.perform(delete("/applications/" + id)).andExpect(status().isUnauthorized());
         assertEquals("APPLIED",
                 jdbc.queryForObject("select status from applications where id = ?", String.class, id));
     }

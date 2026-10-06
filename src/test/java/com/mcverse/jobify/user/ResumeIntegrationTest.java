@@ -26,7 +26,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -174,9 +173,8 @@ class ResumeIntegrationTest {
                 .header("Authorization", employer)).andExpect(status().isNotFound());
         mvc.perform(get("/users/seekers/me/resume").header("Authorization", employer)).andExpect(status().isNotFound());
         mvc.perform(multipart("/users/seekers/me/resume").file(file("cv.pdf", "application/pdf", PDF)))
-                .andExpect(status().isForbidden());
-        mvc.perform(get("/users/seekers/me/resume")).andExpect(status().isForbidden());
-        mvc.perform(delete("/users/seekers/me/resume")).andExpect(status().isForbidden());
-        mvc.perform(get("/users/seekers/me/resume")).andExpect(content().string(""));
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/users/seekers/me/resume")).andExpect(status().isUnauthorized());
+        mvc.perform(delete("/users/seekers/me/resume")).andExpect(status().isUnauthorized());
     }
 }

@@ -126,7 +126,7 @@ class ApplicationStatsIntegrationTest {
         mvc.perform(get("/applications/me/stats").header(AUTHORIZATION, bearer(mvc, "techcorp")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Only job seekers have applications."));
-        mvc.perform(get("/applications/me/stats")).andExpect(status().isForbidden());
+        mvc.perform(get("/applications/me/stats")).andExpect(status().isUnauthorized());
     }
 
     @Test

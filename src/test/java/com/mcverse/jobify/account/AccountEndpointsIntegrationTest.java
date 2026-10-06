@@ -100,7 +100,7 @@ class AccountEndpointsIntegrationTest {
     void anonymousCannotChangePassword() throws Exception {
         mvc.perform(put("/account/password").contentType(APPLICATION_JSON)
                         .content("{\"currentPassword\":\"a\",\"newPassword\":\"bbbbbbbbb\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     // ── deletion request: user side ───────────────────────────────────────────

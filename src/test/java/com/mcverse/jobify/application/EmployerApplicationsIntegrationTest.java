@@ -151,7 +151,7 @@ class EmployerApplicationsIntegrationTest {
                 .andExpect(jsonPath("$.message").value("You can only view applications for your own jobs."));
         mvc.perform(get("/jobs/" + jobId + "/applications").header(AUTHORIZATION, bearer(mvc, "alice_s")))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/jobs/" + jobId + "/applications")).andExpect(status().isForbidden());
+        mvc.perform(get("/jobs/" + jobId + "/applications")).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -248,7 +248,7 @@ class EmployerApplicationsIntegrationTest {
         move("alice_s", id, "IN_REVIEW", 403); // the applicant cannot promote themselves
         mvc.perform(put("/applications/" + id + "/status").contentType(APPLICATION_JSON)
                         .content("{\"status\":\"IN_REVIEW\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
         assertEquals("APPLIED", statusOf(id));
     }
 
