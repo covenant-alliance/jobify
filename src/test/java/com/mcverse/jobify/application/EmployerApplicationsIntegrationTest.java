@@ -47,7 +47,7 @@ class EmployerApplicationsIntegrationTest {
         String body = mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, employerUsername))
                         .contentType(APPLICATION_JSON)
                         .content("{\"jobTitle\":\"" + title + "\",\"jobDescription\":\"<p>x</p>\",\"rate\":50,"
-                                + "\"rateType\":\"HOURLY\"}"))
+                                + "\"rateType\":\"HOURLY\",\"location\":\"Berlin\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return JsonPath.read(body, "$.postId");
     }

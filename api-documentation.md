@@ -256,7 +256,7 @@ Public, no token. Response `200`: `{ "id": "...", "name": "TechCorp Ltd" }`. `40
 
 ### `POST /jobs`
 
-**EMPLOYER only.** Creates a job post owned by the caller. New posts are always open (`available: true`). The body is a dedicated request object, so fields such as `postId`, `employer` and `available` are ignored.
+**EMPLOYER only.** Creates a job post owned by the caller. `location`, `workMode` and `employmentType` are **required** (400 `location is required`, etc.). New posts are always open (`available: true`). The body is a dedicated request object, so fields such as `postId`, `employer` and `available` are ignored.
 
 **Request body** (`CreateJobRequest`)
 
@@ -970,9 +970,9 @@ interface CreateJobRequest {
   jobDescription: string;         // required, HTML, max 20,000 (sanitized server-side)
   rate: number;                   // > 0
   rateType: "HOURLY" | "MONTHLY" | "YEARLY" | "CONTRACT_TOTAL";
-  location?: string;              // max 255
-  workMode?: "ONSITE" | "REMOTE" | "HYBRID";
-  employmentType?: string;
+  location: string;               // required (not blank), max 255
+  workMode: "ONSITE" | "REMOTE" | "HYBRID";   // required
+  employmentType: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "TEMPORARY" | "INTERNSHIP" | "FREELANCE" | "B2B";   // required
   requiredSkills?: string[];      // skill names
 }
 ```

@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CompanyNameOnJobsIntegrationTest {
 
     private static final String JOB = "{\"jobTitle\":\"Company test\",\"jobDescription\":\"<p>x</p>\",\"rate\":50,"
-            + "\"rateType\":\"HOURLY\"}";
+            + "\"rateType\":\"HOURLY\",\"location\":\"Berlin\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\"}";
 
     @Autowired
     private WebApplicationContext context;

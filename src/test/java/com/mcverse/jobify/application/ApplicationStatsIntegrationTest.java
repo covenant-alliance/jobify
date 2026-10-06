@@ -51,7 +51,7 @@ class ApplicationStatsIntegrationTest {
         String job = mvc.perform(post("/jobs").header(AUTHORIZATION, bearer(mvc, "techcorp"))
                         .contentType(APPLICATION_JSON)
                         .content("{\"jobTitle\":\"" + title + "\",\"jobDescription\":\"<p>x</p>\",\"rate\":50,"
-                                + "\"rateType\":\"HOURLY\"}"))
+                                + "\"rateType\":\"HOURLY\",\"location\":\"Berlin\",\"workMode\":\"REMOTE\",\"employmentType\":\"FULL_TIME\"}"))
                 .andReturn().getResponse().getContentAsString();
         int jobId = JsonPath.read(job, "$.postId");
         String application = mvc.perform(post("/jobs/" + jobId + "/apply").header(AUTHORIZATION, seeker))
