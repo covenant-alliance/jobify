@@ -1,10 +1,10 @@
 package com.mcverse.jobify.config;
 
-import com.mcverse.jobify.job.repository.JobRepo;
-import com.mcverse.jobify.model.EmploymentType;
+import com.mcverse.jobify.common.model.EmploymentType;
+import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.job.model.RateType;
-import com.mcverse.jobify.model.JobPost;
-import com.mcverse.jobify.model.WorkMode;
+import com.mcverse.jobify.job.model.WorkMode;
+import com.mcverse.jobify.job.repository.JobRepo;
 import com.mcverse.jobify.user.model.Employer;
 import com.mcverse.jobify.user.repository.EmployerRepository;
 import org.springframework.beans.factory.annotation.Autowired;

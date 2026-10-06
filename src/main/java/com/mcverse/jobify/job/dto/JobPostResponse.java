@@ -1,8 +1,8 @@
 package com.mcverse.jobify.job.dto;
 
+import com.mcverse.jobify.common.model.EmploymentType;
 import com.mcverse.jobify.job.model.RateType;
-import com.mcverse.jobify.model.EmploymentType;
-import com.mcverse.jobify.model.WorkMode;
+import com.mcverse.jobify.job.model.WorkMode;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;

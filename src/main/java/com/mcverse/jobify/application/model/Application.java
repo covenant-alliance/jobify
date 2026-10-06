@@ -1,6 +1,6 @@
 package com.mcverse.jobify.application.model;
 
-import com.mcverse.jobify.model.JobPost;
+import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.user.model.Seeker;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;

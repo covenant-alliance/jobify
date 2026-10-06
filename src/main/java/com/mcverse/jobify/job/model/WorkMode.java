@@ -1,4 +1,4 @@
-package com.mcverse.jobify.model;
+package com.mcverse.jobify.job.model;
 
 public enum WorkMode {
     REMOTE("Remote"),

@@ -1,6 +1,6 @@
 package com.mcverse.jobify.user.dto;
 
-import com.mcverse.jobify.model.EmploymentType;
+import com.mcverse.jobify.common.model.EmploymentType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;

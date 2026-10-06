@@ -1,6 +1,6 @@
 package com.mcverse.jobify.job.repository;
 
-import com.mcverse.jobify.model.JobPost;
+import com.mcverse.jobify.job.model.JobPost;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;

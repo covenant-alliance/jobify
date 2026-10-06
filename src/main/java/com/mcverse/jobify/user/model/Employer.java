@@ -1,7 +1,7 @@
 package com.mcverse.jobify.user.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.mcverse.jobify.model.JobPost;
+import com.mcverse.jobify.job.model.JobPost;
 import jakarta.persistence.*;
 
 import java.util.ArrayList;

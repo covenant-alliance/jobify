@@ -1,7 +1,5 @@
 package com.mcverse.jobify.user.model;
 
-import com.mcverse.jobify.model.ProficiencyLevel;
-import com.mcverse.jobify.model.Skill;
 import jakarta.persistence.*;
 
 @Entity
