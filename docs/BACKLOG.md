@@ -48,7 +48,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P15. Location normalization (#37, icebox).** Clean facet values and `GET /jobs/locations`.
 
-**P16. Seeker application statistics (#38, sprint 4).** `GET /applications/me/stats` for the dashboard charts. Depends on P1.
+**P16. ✅ Seeker application statistics (#38, done in sprint 4).** `GET /applications/me/stats` for the dashboard charts. Depends on P1.
 
 **P17. Require location, workMode, employmentType on new jobs? (#39, decision).** Lets the front end drop its invented fallback values.
 

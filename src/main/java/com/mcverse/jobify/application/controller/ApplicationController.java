@@ -1,6 +1,7 @@
 package com.mcverse.jobify.application.controller;
 
 import com.mcverse.jobify.application.dto.ApplicationResponse;
+import com.mcverse.jobify.application.dto.ApplicationStatsResponse;
 import com.mcverse.jobify.application.dto.ApplyRequest;
 import com.mcverse.jobify.application.dto.ChangeApplicationStatusRequest;
 import com.mcverse.jobify.application.dto.JobApplicationResponse;
@@ -65,6 +66,21 @@ public class ApplicationController {
     @GetMapping("/applications/me")
     public List<ApplicationResponse> myApplications(@AuthenticationPrincipal UserDetails principal) {
         return applicationService.listMine(principal.getUsername());
+    }
+
+    @Operation(summary = "My application statistics",
+            description = "SEEKER only. Counts for every status (zero-filled), the total, how many are still active " +
+                    "(APPLIED, IN_REVIEW, INTERVIEW, OFFER) and the number of applications submitted in each of the " +
+                    "last 12 weeks (weeks start on Monday, oldest first, zero-filled).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The caller's statistics",
+                    content = @Content(schema = @Schema(implementation = ApplicationStatsResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Caller is not a seeker"),
+    })
+    @GetMapping("/applications/me/stats")
+    public ApplicationStatsResponse myStats(@AuthenticationPrincipal UserDetails principal) {
+        return applicationService.statsForSeeker(principal.getUsername());
     }
 
     @Operation(summary = "Withdraw an application",

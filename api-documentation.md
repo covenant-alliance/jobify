@@ -350,6 +350,28 @@ Applying again to a job whose application was `WITHDRAWN` re-opens that same app
 
 The caller's applications, newest first, including withdrawn ones and ones for jobs that have since closed (`job.available = false`). Response `200`: `ApplicationResponse[]`. Errors: `401`, `403` (not a seeker).
 
+### `GET /applications/me/stats`
+
+Seeker only. Numbers for the dashboard charts, computed from the caller's own applications.
+
+```json
+{
+  "total": 7,
+  "active": 4,
+  "byStatus": { "APPLIED": 1, "IN_REVIEW": 1, "INTERVIEW": 1, "OFFER": 1, "REJECTED": 1, "WITHDRAWN": 2 },
+  "weekly": [ { "weekStart": "2026-07-20", "count": 0 }, "... 12 entries ...", { "weekStart": "2026-10-05", "count": 3 } ]
+}
+```
+
+| Field | Notes |
+|---|---|
+| `total` | Every application ever made, including rejected and withdrawn |
+| `active` | `APPLIED` + `IN_REVIEW` + `INTERVIEW` + `OFFER`. `REJECTED` and `WITHDRAWN` are not active |
+| `byStatus` | All six statuses are always present, zero-filled |
+| `weekly` | Applications **submitted** in each of the last 12 weeks, oldest first, zero-filled; the last entry is the current week. A week runs Monday to Sunday and `weekStart` is its Monday. Older applications count in the totals but not here |
+
+Errors: `401`, `403` `Only job seekers have applications.`
+
 ### `DELETE /applications/{id}`
 
 The applicant withdraws their application. The row is **kept** with status `WITHDRAWN` (history is not lost) and `updatedAt` changes. Response `204 No Content`.
@@ -750,7 +772,7 @@ Adding a value to any of these is a contract change: tell the front-end session.
 | Jobs | `GET /jobs`, `GET /jobs/{id}`, `GET /companies/{id}` | public |
 | Jobs | `POST /jobs`, `PUT /jobs/{id}`, `PATCH /jobs/{id}/available`, `GET /jobs/mine` | employer (owner) |
 | Saved jobs | `PUT`/`DELETE /jobs/{id}/save`, `GET /jobs/saved` | seeker |
-| Applications | `POST /jobs/{id}/apply`, `GET /applications/me`, `DELETE /applications/{id}` | seeker |
+| Applications | `POST /jobs/{id}/apply`, `GET /applications/me`, `GET /applications/me/stats`, `DELETE /applications/{id}` | seeker |
 | Applications | `GET /jobs/{id}/applications`, `PUT /applications/{id}/status` | employer (owner of the job) |
 | Profiles | `/users/seekers/**`, `/users/employers/**`, `/users/companies/**` | authenticated (`/me` = own) |
 | Account | `/account/**` | authenticated |

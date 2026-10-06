@@ -1,6 +1,7 @@
 package com.mcverse.jobify.application.service;
 
 import com.mcverse.jobify.application.dto.ApplicationResponse;
+import com.mcverse.jobify.application.dto.ApplicationStatsResponse;
 import com.mcverse.jobify.application.dto.ApplyRequest;
 import com.mcverse.jobify.application.dto.JobApplicationResponse;
 import com.mcverse.jobify.application.model.Application;
@@ -19,6 +20,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -35,11 +39,14 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepo;
     private final JobRepo jobRepo;
     private final SeekerRepository seekerRepo;
+    private final Clock clock;
 
-    public ApplicationService(ApplicationRepository applicationRepo, JobRepo jobRepo, SeekerRepository seekerRepo) {
+    public ApplicationService(ApplicationRepository applicationRepo, JobRepo jobRepo, SeekerRepository seekerRepo,
+                              Clock clock) {
         this.applicationRepo = applicationRepo;
         this.jobRepo = jobRepo;
         this.seekerRepo = seekerRepo;
+        this.clock = clock;
     }
 
     @Transactional
@@ -142,6 +149,20 @@ public class ApplicationService {
                     owner == null ? "nobody" : owner.getUsername());
             throw new LicenseValidationException("You can only " + action + " your own jobs.");
         }
+    }
+
+    /** Counts and a 12-week time series of the seeker's own applications, for the dashboard charts. */
+    @Transactional(readOnly = true)
+    public ApplicationStatsResponse statsForSeeker(String username) {
+        if (seekerRepo.findByUsername(username).isEmpty()) {
+            throw new LicenseValidationException("Only job seekers have applications.");
+        }
+        List<ApplicationStatsCalculator.Entry> entries = applicationRepo
+                .findAllBySeekerUsernameOrderByCreatedAtDesc(username).stream()
+                .map(a -> new ApplicationStatsCalculator.Entry(a.getStatus(), a.getCreatedAt()))
+                .toList();
+        // Timestamps are stored in the server's local zone, so "today" must be read in the same zone.
+        return ApplicationStatsCalculator.calculate(entries, LocalDate.now(clock.withZone(ZoneId.systemDefault())));
     }
 
     private static String cleanNote(ApplyRequest request) {
