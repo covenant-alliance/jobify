@@ -5,6 +5,7 @@ import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.user.model.Company;
 import com.mcverse.jobify.user.model.Employer;
 import com.mcverse.jobify.user.model.Skill;
+import com.mcverse.jobify.user.service.CompanyLogos;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,6 +22,8 @@ public class JobResponseMapper {
                 job.getRate(), job.getRateType(), employer != null ? employer.getUsername() : null,
                 company != null ? company.getName() : null, company != null ? company.getId() : null,
                 job.isAvailable(), job.getLocation(), job.getWorkMode(), job.getEmploymentType(),
-                job.getCreatedAt(), requiredSkills);
+                job.getCreatedAt(), requiredSkills, List.copyOf(job.getBenefits()),
+                job.getImages().stream().map(i -> "/jobs/" + job.getPostId() + "/images/" + i.getId()).toList(),
+                CompanyLogos.urlOf(company));
     }
 }

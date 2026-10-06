@@ -118,8 +118,9 @@ class AdminUsersIntegrationTest {
     void roleFilterNarrowsTheResults() throws Exception {
         users("?role=EMPLOYER&size=100")
                 .andExpect(jsonPath("$.content[*].role", everyItem(equalTo("EMPLOYER"))))
-                .andExpect(jsonPath("$.content[*].username", hasItem("techcorp")))
                 .andExpect(jsonPath("$.content[*].username", not(hasItem("alice_s"))));
+        // other tests register many employers, so look for the seeded one by name instead of on page one
+        users("?role=EMPLOYER&q=techcorp").andExpect(jsonPath("$.content[*].username", hasItem("techcorp")));
         users("?role=SEEKER&q=bob").andExpect(jsonPath("$.content[*].username", hasItem("bob_s")));
         users("?role=EMPLOYER&q=bob").andExpect(jsonPath("$.totalElements").value(0));
     }

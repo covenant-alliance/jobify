@@ -56,5 +56,13 @@ public record CreateJobRequest(
         @Size(max = JobLimits.SKILLS_MAX, message = "must have at most " + JobLimits.SKILLS_MAX + " entries")
         List<@NotBlank(message = "must not be blank")
         @Size(max = JobLimits.SKILL_NAME_MAX,
-                message = "must be at most " + JobLimits.SKILL_NAME_MAX + " characters") String> requiredSkills
+                message = "must be at most " + JobLimits.SKILL_NAME_MAX + " characters") String> requiredSkills,
+
+        @Schema(description = "What the employer offers, one short phrase each, in display order. Omit to leave the "
+                + "current benefits unchanged on edit; send [] to remove them all.",
+                example = "[\"Remote budget\", \"30 days holiday\"]", nullable = true)
+        @Size(max = JobLimits.BENEFITS_MAX, message = "must have at most " + JobLimits.BENEFITS_MAX + " entries")
+        List<@NotBlank(message = "must not be blank")
+        @Size(max = JobLimits.BENEFIT_MAX,
+                message = "must be at most " + JobLimits.BENEFIT_MAX + " characters") String> benefits
 ) {}

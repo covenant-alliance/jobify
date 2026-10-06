@@ -38,6 +38,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
+- [ ] **Optional, logo, benefits and gallery (#34, #35):** replace the initials/gradient with `${API}${job.logoUrl}` when it is not null, and `BENEFIT_POOL` / `GALLERY_POOL` with `job.benefits` / `job.images` (prefix each image with the API base) when they are not empty; keep the pools only as fallback for jobs without any. Add the three inputs to the Post-a-Job form if you want employers to fill them: benefits as `benefits: string[]` in the job body, pictures as separate multipart `POST /jobs/{id}/images` calls after the job exists (up to 6, 2 MB each), and a logo upload on the company page (`POST /users/companies/{id}/logo`, 1 MB).
 - [x] **Optional, company dashboard funnel (#53):** *(NOT NEEDED for now, per your 2026-10-06 note: the dashboards show applications by current status only. The funnel fields stay available in the response whenever you want them.)* show `applications.funnel` (and `perJob[].funnel`) as a real conversion funnel and, if you like, "typical time in stage" from `medianDaysInStage`. Details and the `null` rule are in the 2026-10-06 entry "a true hiring funnel".
 - [x] **Session expiry (#50):** *(CONFIRMED by you on 2026-10-06: the interceptor logs out on any 401 outside `/auth/*`, no screen expects a token-less 403, and a login/register 401 or a 429 does not log out. Thank you.)* anonymous or expired-token calls to protected routes now answer `401` (they were `403`), so the interceptor's existing 401 handling will log the user out. Please check the three points in the 2026-10-06 entry "401 for no valid session" and tick this when done.
 - [ ] **Optional, error screens:** show the `X-Request-Id` response header in error toasts or a "report a problem" view (axios: `error.response?.headers['x-request-id']`), so support can find the request in the logs (issue #20).
@@ -57,6 +58,27 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 6 — company logo (#34) and job benefits and images (#35) — 2026-10-06
+
+Product Owner said "start with your defaults" (you had not answered), so these are my defaults. **Everything is additive: no existing request or response breaks.** All three are optional for you; adopt them when you want to drop your hardcoded pools and initials.
+
+**New fields on `JobPostResponse`** (every route that returns a job, including `GET /jobs/search`): `benefits: string[]` (display order, `[]` when none), `images: string[]` (URLs, oldest first, at most 6, `[]` when none) and `logoUrl: string | null`. `CompanyResponse` (company routes and `GET /companies/{id}`) gets `logoUrl` too.
+
+**URLs are relative to the API address.** Put your API base in front: `${API}${job.logoUrl}`. They are public, so `<img src>` works without a token. The logo URL ends in `?v=<number>` that changes with every upload, so a new logo is never stuck behind a cache.
+
+**Benefits (#35).** `POST /jobs` and `PUT /jobs/{id}` accept `benefits: string[]`: at most 15, each non-blank and at most 80 characters, trimmed. **Omit it on `PUT` and the saved benefits stay** (so an old client editing a job loses nothing); send `[]` to remove them all. Errors: `benefits must have at most 15 entries`, `benefits[0] must be at most 80 characters`, `... must not be blank` (400).
+
+**Job images (#35).** `POST /jobs/{id}/images` (multipart field `file`, owner only, `201` with the updated job), `DELETE /jobs/{id}/images/{imageId}` (owner only, `200` with the updated job), `GET /jobs/{id}/images/{imageId}` (public, the picture, cacheable for a year). PNG, JPEG or WebP up to 2 MB, six per job; anything else is `422` with a readable message. The format is read from the file's bytes, so a renamed file or an SVG is refused.
+
+**Company logo (#34).** `POST /users/companies/{id}/logo` (multipart `file`, PNG/JPEG/WebP up to 1 MB, replaces the old one, `200` with the company), `DELETE /users/companies/{id}/logo` (`204`), public `GET /companies/{id}/logo`. Only the employer who owns the company: another employer or a seeker gets `403`, an unknown company `404`.
+
+Behaviour worth knowing:
+- Files live in the upload folder (`job-images/`, `company-logos/`), so **back up the uploads volume with the database**, as already documented for resumes. Removing an employer account (admin approval) removes their job images and logo files.
+- Database: tables `job_benefits` and `job_images`, three nullable columns on `companies` (Flyway `V6` on PostgreSQL). Existing jobs return empty `benefits` and `images`, so keep your fallback pools for jobs that have none.
+- Uploads need `multipart/form-data` (FormData in the browser; do not set the content type yourself).
+- Jobs are loaded in batches now (`hibernate.default_batch_fetch_size=50`), so the extra lists do not add a query per job.
+- Issues: #34, #35.
 
 ### Sprint 6 — Spring Boot 4.0.8 (GA) and springdoc 3 (#22, T7) — 2026-10-06
 

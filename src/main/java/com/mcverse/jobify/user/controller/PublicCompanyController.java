@@ -3,6 +3,12 @@ package com.mcverse.jobify.user.controller;
 import com.mcverse.jobify.common.exception.ResourceNotFoundException;
 import com.mcverse.jobify.user.dto.CompanyResponse;
 import com.mcverse.jobify.user.repository.CompanyRepository;
+import com.mcverse.jobify.common.storage.ImageResponses;
+import com.mcverse.jobify.user.service.CompanyLogoService;
+import com.mcverse.jobify.user.service.CompanyLogos;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ResponseEntity;
+import java.time.Duration;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -23,8 +29,25 @@ public class PublicCompanyController {
 
     private final CompanyRepository companyRepository;
 
-    public PublicCompanyController(CompanyRepository companyRepository) {
+    private final CompanyLogoService logos;
+
+    public PublicCompanyController(CompanyRepository companyRepository, CompanyLogoService logos) {
         this.companyRepository = companyRepository;
+        this.logos = logos;
+    }
+
+    @Operation(summary = "Download a company's logo",
+            description = "Public. PNG, JPEG or WebP; cacheable for a day. `logoUrl` on the company and on jobs points here "
+                    + "and changes whenever the logo does.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The image"),
+            @ApiResponse(responseCode = "404", description = "No such company, or it has no logo"),
+    })
+    @SecurityRequirements
+    @GetMapping("/{id}/logo")
+    public ResponseEntity<Resource> getLogo(@Parameter(description = "Company id (UUID)") @PathVariable String id) {
+        var logo = logos.read(id);
+        return ImageResponses.of(logo.file(), logo.contentType(), Duration.ofDays(1));
     }
 
     @Operation(summary = "Get a company", description = "Public endpoint — no authentication required.")
@@ -37,7 +60,7 @@ public class PublicCompanyController {
     @GetMapping("/{id}")
     public CompanyResponse getCompany(@Parameter(description = "Company id (UUID)") @PathVariable String id) {
         return companyRepository.findById(id)
-                .map(c -> new CompanyResponse(c.getId(), c.getName()))
+                .map(c -> new CompanyResponse(c.getId(), c.getName(), CompanyLogos.urlOf(c)))
                 .orElseThrow(() -> new ResourceNotFoundException("Company", id));
     }
 }

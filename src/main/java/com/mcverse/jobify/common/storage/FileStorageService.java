@@ -61,6 +61,37 @@ public class FileStorageService {
         }
     }
 
+    /**
+     * Stores an image under {@code <upload.dir>/<folder>/<baseName>.<ext>} and returns where. The format is read from
+     * the file's bytes (PNG, JPEG or WebP); {@code label} names the thing in error messages ("Logo", "Image").
+     */
+    public StoredImage storeImage(String folder, String baseName, MultipartFile file, long maxBytes, String label) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessRuleException("Please choose an image to upload.");
+        }
+        if (file.getSize() > maxBytes) {
+            throw new BusinessRuleException(label + " must be " + (maxBytes / (1024 * 1024)) + " MB or smaller.");
+        }
+        ImageType type;
+        try (var in = file.getInputStream()) {
+            type = ImageType.detect(in.readNBytes(12))
+                    .orElseThrow(() -> new BusinessRuleException("Only PNG, JPEG and WebP images are supported."));
+        } catch (IOException e) {
+            throw new BusinessRuleException("Failed to read the uploaded file.");
+        }
+        Path dir = uploadRoot.resolve(folder).normalize();
+        if (!dir.startsWith(uploadRoot)) {
+            throw new BusinessRuleException("Invalid file path.");
+        }
+        try {
+            Files.createDirectories(dir);
+            file.transferTo(dir.resolve(baseName + "." + type.extension()));
+        } catch (IOException e) {
+            throw new BusinessRuleException("Failed to store the uploaded file.");
+        }
+        return new StoredImage(folder + "/" + baseName + "." + type.extension(), type.contentType());
+    }
+
     public Path resolveForRead(String relativePath) {
         Path target = uploadRoot.resolve(relativePath).normalize();
         if (!target.startsWith(uploadRoot)) {
@@ -106,6 +137,8 @@ public class FileStorageService {
         String base = Paths.get(name.replaceAll("[\\r\\n]", "")).getFileName().toString().trim();
         return base.length() > 150 ? base.substring(base.length() - 150) : base;
     }
+
+    public record StoredImage(String relativePath, String contentType) {}
 
     public record StoredFile(String relativePath, String contentType, String originalFileName) {}
 }

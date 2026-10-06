@@ -96,6 +96,9 @@ public class JobService {
         job.setWorkMode(request.workMode());
         job.setEmploymentType(request.employmentType());
         job.setRequiredSkills(resolveSkills(request.requiredSkills()));
+        if (request.benefits() != null) { // omitted on edit = unchanged, so clients that predate benefits lose nothing
+            job.setBenefits(request.benefits().stream().map(String::trim).toList());
+        }
     }
 
     private Employer requireEmployer(String username, String action) {
@@ -107,7 +110,7 @@ public class JobService {
     }
 
     /** Loads a job and checks that the caller is the employer who posted it. */
-    private JobPost findOwnedJob(Integer id, String username) {
+    public JobPost findOwnedJob(Integer id, String username) {
         JobPost job = repo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("JobPost", id.toString()));
         Employer owner = job.getEmployer();

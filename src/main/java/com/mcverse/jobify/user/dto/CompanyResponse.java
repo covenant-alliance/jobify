@@ -8,5 +8,9 @@ public record CompanyResponse(
         String id,
 
         @Schema(description = "Company name", example = "Acme Corporation")
-        String name
+        String name,
+
+        @Schema(description = "Logo URL relative to the API address (public, cacheable); null when none",
+                example = "/companies/7f3b.../logo?v=1760000000000", nullable = true)
+        String logoUrl
 ) {}
