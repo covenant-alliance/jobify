@@ -9,6 +9,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -73,6 +74,24 @@ class AuthRateLimitIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Too many requests. Please wait 1 minute and try again."))
                 .andExpect(jsonPath("$.data").doesNotExist())
                 .andExpect(jsonPath("$.status").value(429));
+    }
+
+    @Test
+    void aRateLimitedRequestIsAudited() throws Exception {
+        ch.qos.logback.classic.Logger audit = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger("AUDIT");
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        audit.addAppender(appender);
+        try {
+            for (int i = 1; i <= 6; i++) {
+                login("10.1.0.9", "audit" + i, null);
+            }
+            assertTrue(appender.list.stream().anyMatch(e -> e.getFormattedMessage()
+                    .contains("action=RATE_LIMITED path=/auth/login")), appender.list.toString());
+        } finally {
+            audit.detachAppender(appender);
+        }
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.mcverse.jobify.job.service;
 
+import com.mcverse.jobify.admin.AuditLog;
 import com.mcverse.jobify.common.exception.LicenseValidationException;
 import com.mcverse.jobify.common.exception.ResourceNotFoundException;
 import com.mcverse.jobify.job.dto.CreateJobRequest;
@@ -37,6 +38,9 @@ public class JobService {
 
     @Autowired
     private JobResponseMapper mapper;
+
+    @Autowired
+    private AuditLog auditLog;
 
     @Transactional(readOnly = true)
     public List<JobPostResponse> getJobs(Boolean available) {
@@ -97,6 +101,7 @@ public class JobService {
     private Employer requireEmployer(String username, String action) {
         return employerRepo.findByUsername(username).orElseThrow(() -> {
             log.warn("Denied: user '{}' tried to {} without the EMPLOYER role", username, action);
+            auditLog.event(username, "ACCESS_DENIED", "action='" + action + "' reason=not an employer");
             return new LicenseValidationException("Only employers can " + action + ".");
         });
     }
@@ -109,6 +114,8 @@ public class JobService {
         if (owner == null || !owner.getUsername().equals(username)) {
             log.warn("Denied: user '{}' tried to modify job {} owned by '{}'", username, id,
                     owner == null ? "nobody" : owner.getUsername());
+            auditLog.event(username, "ACCESS_DENIED", "action='modify job' job=" + id + " owner="
+                    + (owner == null ? "nobody" : owner.getUsername()));
             throw new LicenseValidationException("You can only change job postings that you created.");
         }
         return job;

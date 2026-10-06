@@ -1,5 +1,6 @@
 package com.mcverse.jobify.job.service;
 
+import com.mcverse.jobify.admin.AuditLog;
 import com.mcverse.jobify.common.exception.LicenseValidationException;
 import com.mcverse.jobify.common.exception.ResourceNotFoundException;
 import com.mcverse.jobify.job.dto.JobPostResponse;
@@ -26,9 +27,11 @@ public class SavedJobService {
     private final JobRepo jobRepo;
     private final SeekerRepository seekerRepo;
     private final JobResponseMapper mapper;
+    private final AuditLog auditLog;
 
     public SavedJobService(SavedJobRepository savedJobRepo, JobRepo jobRepo, SeekerRepository seekerRepo,
-                           JobResponseMapper mapper) {
+                           JobResponseMapper mapper, AuditLog auditLog) {
+        this.auditLog = auditLog;
         this.savedJobRepo = savedJobRepo;
         this.jobRepo = jobRepo;
         this.seekerRepo = seekerRepo;
@@ -70,6 +73,7 @@ public class SavedJobService {
     private Seeker requireSeeker(String username, String action) {
         return seekerRepo.findByUsername(username).orElseThrow(() -> {
             log.warn("Denied: user '{}' tried to {} without the SEEKER role", username, action);
+            auditLog.event(username, "ACCESS_DENIED", "action='" + action + "' reason=not a seeker");
             return new LicenseValidationException("Only job seekers can " + action + ".");
         });
     }

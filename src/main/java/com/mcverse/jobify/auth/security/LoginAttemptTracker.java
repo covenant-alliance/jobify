@@ -40,7 +40,8 @@ public class LoginAttemptTracker {
         }
     }
 
-    public void recordFailure(String username) {
+    /** @return true if this failure locked the account */
+    public boolean recordFailure(String username) {
         String key = key(username);
         failures.add(key);
         int count = failures.count(key);
@@ -48,6 +49,7 @@ public class LoginAttemptTracker {
         if (count == maxFailures) {
             log.warn("Account '{}' is now locked after {} failed logins", key, maxFailures);
         }
+        return count == maxFailures;
     }
 
     public void recordSuccess(String username) {
