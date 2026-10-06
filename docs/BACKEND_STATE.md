@@ -24,14 +24,16 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 | Location facet | #37, icebox. `location` stays free text. |
 | Seeker dashboard charts | #38 `GET /applications/me/stats`, sprint 4, after applications. |
 | Notifications | #14, sprint 4. |
-| Company dashboard stats | #17, sprint 4. **Open question for the Product Owner: "views" per job** (needs view tracking; may be dropped). |
-| Admin users with paging and search, and admin stats | #16, sprint 4. `GET /admin/users` already exists unpaged; you can wire it today. |
+| Company dashboard stats | #16, sprint 4. **Open question for the Product Owner: "views" per job** (needs view tracking; may be dropped). |
+| Admin users with paging and search, and admin stats | #15, sprint 4. `GET /admin/users` already exists unpaged; you can wire it today. |
 | Server-side search and paging | #13, sprint 3. The paging envelope needs agreeing with you before build. |
 | Dropping your random fallbacks for `location` / `workMode` / `employmentType` | #39, **Product Owner decision** pending: whether the API starts requiring all three on new jobs. Keep your fallbacks for now. |
 | Match %, recommended jobs, candidates | **Parked** as you asked (#12, icebox). Nothing will be built until it is scheduled. |
 | Employee role dashboard | #26 (P10), Product Owner decision pending. (Your note says "backlog P3"; the correct reference is P10 / #26.) |
 
-Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #15, #18, with #39 to be decided. **Sprint 3** = #13 search, #20 rate limit and password rules. **Sprint 4** = #14, #16, #17, #38.
+**Correction to issue numbers in your "Requests to the back end" list:** admin users and stats is issue **#15** (it says #16), and employer stats is **#16**. The other numbers in your list are right (#9 applications, #10 saved jobs, #12 match score, #13 search, #14 notifications).
+
+Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
 - [ ] Replace the in-memory `saveJob` / `unsaveJob` with `PUT` / `DELETE /jobs/{id}/save`, and load the saved list from `GET /jobs/saved` (issue #10).- [ ] Use `companyName` from the job response instead of the capitalised `employerUsername`; keep the "Jobify Partner" fallback only for `null` (issue #11).- [ ] Company dashboard: replace `MOCK_PIPELINE_CANDIDATES` with `GET /jobs/{id}/applications`, add stage actions with `PUT /applications/{id}/status` (show only the allowed next stages), and delete the fake `applicationStage.ts` (issues #32, #33).
@@ -40,11 +42,11 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 - [ ] Extend `SeekerResponse` with `educations/certifications/experiences/skills`, then build the profile-editing UI.
 - [ ] Replace `applyForJob` / `saveJob` in-memory state with API calls once the P1 and P2 endpoints ship (issues #9, #10).
 - [ ] Replace the fake `matchScore` in `jobEnrichment.ts` once the matching endpoint ships (issue #12).
-- [ ] Replace `MOCK_USERS` with `GET /admin/users` (issue #16).
+- [ ] Replace `MOCK_USERS` with `GET /admin/users` (issue #15).
 
 ## Change log (newest first)
 
-### Sprint 2 — validation audit and API documentation (#15 T2, #18 T6) — 2026-10-05
+### Sprint 2 — validation audit and API documentation (#17 T2, #21 T6) — 2026-10-05
 Mostly stricter validation and clearer errors. Nothing the current front end sends is rejected, except where noted.
 
 - **Every request body is now validated**, and a test fails the build if a new endpoint forgets `@Valid`. Newly covered: login, availability toggle, CMS update, deletion request and its resolution note.
@@ -76,7 +78,7 @@ Additive. Existing fields and shapes are unchanged.
 ### Sprint 2 — applications, stories P1.3 and P1.4: employer side (#32, #33, epic #9) — 2026-10-05
 Additive. **In review in the applications pull request (branch `feature-applications`); not on `master` until it is merged.** With these, the applications epic is complete on the back end.
 
-- **`GET /jobs/{id}/applications`** (the employer who owns the job). Newest first, withdrawn ones included. Optional `?status=`. Each item is a `JobApplicationResponse`: `id`, `status`, `coverNote`, `createdAt`, `updatedAt` and `applicant { seekerId, username, name, lastName, hasCv }`. Counting per stage is up to you for now (group the list); a stats endpoint comes with #17.
+- **`GET /jobs/{id}/applications`** (the employer who owns the job). Newest first, withdrawn ones included. Optional `?status=`. Each item is a `JobApplicationResponse`: `id`, `status`, `coverNote`, `createdAt`, `updatedAt` and `applicant { seekerId, username, name, lastName, hasCv }`. Counting per stage is up to you for now (group the list); a stats endpoint comes with #16.
   - `403` `You can only view applications for your own jobs.` (other employers, seekers), `404` unknown job, `400` for an unknown `status` (the message lists the allowed values).
 - **`PUT /applications/{id}/status`** (the job's owner). Body `{ "status": "IN_REVIEW" }`, response `200` with the updated `JobApplicationResponse`.
   - Allowed: `APPLIED` -> `IN_REVIEW` | `REJECTED`; `IN_REVIEW` -> `INTERVIEW` | `REJECTED`; `INTERVIEW` -> `OFFER` | `REJECTED`; `OFFER` -> `REJECTED`. `REJECTED` and `WITHDRAWN` are final. Employers cannot set `APPLIED` or `WITHDRAWN`.
