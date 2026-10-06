@@ -51,8 +51,8 @@ All error responses share the same envelope:
 | HTTP status | Trigger |
 |---|---|
 | `400` | Validation failure, malformed JSON body or illegal argument |
-| `401` | Missing / expired / invalid JWT |
-| `403` | Forbidden: wrong role or not the owner of the resource |
+| `401` | No valid session: no token, a malformed or expired token, a token for an account that no longer exists, or wrong login credentials |
+| `403` | Signed in but not allowed: wrong role or not the owner of the resource |
 | `404` | Resource not found, or no such route |
 | `405` | The route exists but not for that HTTP method |
 | `429` | Rate limited or temporarily locked out; see the `Retry-After` header |
@@ -62,6 +62,8 @@ All error responses share the same envelope:
 | `500` | Unexpected server error |
 
 `401` makes the front end log the user out, so it is only used for a missing, expired or invalid token and for wrong login credentials.
+
+**Authentication failures (since #50).** A protected route called without a valid token answers `401` in the envelope above with `message` = `Your session has expired or is not valid. Please sign in again.` and a `WWW-Authenticate: Bearer` header. A signed-in caller who is not allowed (for example a seeker calling `/admin/**`) gets `403` in the same envelope with `You do not have permission to do that.` Both carry the CORS headers, so the browser lets scripts read them. Public routes (`GET /jobs`, `GET /jobs/{id}`, `GET /content`, `GET /companies/{id}`, `/auth/**`) ignore a stale or invalid token instead of failing, so a visitor with an old token can still browse. Before #50 these cases answered `403` (with an empty body for a missing token), so an expired session never logged the user out.
 
 ---
 

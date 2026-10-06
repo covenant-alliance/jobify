@@ -211,6 +211,6 @@ class AdminUsersIntegrationTest {
             mvc.perform(get("/admin/users").header(AUTHORIZATION, bearer(mvc, user)))
                     .andExpect(status().isForbidden());
         }
-        mvc.perform(get("/admin/users")).andExpect(status().isForbidden());
+        mvc.perform(get("/admin/users")).andExpect(status().isUnauthorized());
     }
 }

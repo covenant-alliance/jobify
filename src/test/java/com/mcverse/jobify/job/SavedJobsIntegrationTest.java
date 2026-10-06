@@ -156,14 +156,14 @@ class SavedJobsIntegrationTest {
                 .andExpect(status().isForbidden());
         mvc.perform(get("/jobs/saved").header(AUTHORIZATION, employer)).andExpect(status().isForbidden());
 
-        mvc.perform(put("/jobs/" + jobId + "/save")).andExpect(status().isForbidden());
-        mvc.perform(get("/jobs/saved")).andExpect(status().isForbidden());
+        mvc.perform(put("/jobs/" + jobId + "/save")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/jobs/saved")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void theSavedRouteDoesNotShadowOrLeakThePublicJobRoutes() throws Exception {
         mvc.perform(get("/jobs")).andExpect(status().isOk());
-        mvc.perform(get("/jobs/saved")).andExpect(status().isForbidden()); // not the public GET /jobs/{id}
+        mvc.perform(get("/jobs/saved")).andExpect(status().isUnauthorized()); // not the public GET /jobs/{id}
     }
 
     // ── account deletion must not be blocked by bookmarks ─────────────────────

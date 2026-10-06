@@ -18,6 +18,8 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **B7. ✅ JWT secret and lifetime.** *(Done in sprint 1: `JWT_SECRET` env var, startup validation. Refresh tokens remain a follow-up spike.)* Secret is committed in `application.properties`. Move to `${JWT_SECRET}`, and fail startup if it's missing outside the `dev` profile. Consider refresh tokens. The front end just logs out on 401 or expiry.
 
+**B8. ✅ No valid token answered 403 instead of 401 (#50, found by the T1 tests).** Now 401 with the standard envelope (and `WWW-Authenticate: Bearer`); signed-in-but-not-allowed is 403 with a message instead of an empty body. Also fixed in the same change: a valid token for an account that no longer exists (for example after an approved deletion) caused a server error instead of 401.
+
 ## Product features the front end is waiting on (P1 is the big one)
 
 **P11. ✅ Job compensation model (#28).** `rate` + `rateType` (`HOURLY | MONTHLY | YEARLY | CONTRACT_TOTAL`) replace `hourlyRate` and `jobRating`; `EmploymentType.B2B` added. Requested by the front end. Done in sprint 2. Follow-up: `job_rating` dropped in T3 (migration V2); `hourly_rate` stays until no client reads `hourlyRate`.

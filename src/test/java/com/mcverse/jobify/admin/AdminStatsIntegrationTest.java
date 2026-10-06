@@ -120,6 +120,6 @@ class AdminStatsIntegrationTest {
     void onlyAdminsMaySeeTheStats() throws Exception {
         mvc.perform(get("/admin/stats").header(AUTHORIZATION, bearer(mvc, "alice_s"))).andExpect(status().isForbidden());
         mvc.perform(get("/admin/stats").header(AUTHORIZATION, bearer(mvc, "techcorp"))).andExpect(status().isForbidden());
-        mvc.perform(get("/admin/stats")).andExpect(status().isForbidden());
+        mvc.perform(get("/admin/stats")).andExpect(status().isUnauthorized());
     }
 }

@@ -2,6 +2,7 @@ package com.mcverse.jobify.config;
 
 import com.mcverse.jobify.auth.security.AuthRateLimitFilter;
 import com.mcverse.jobify.auth.security.JwtAuthFilter;
+import com.mcverse.jobify.auth.security.SecurityErrorHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -29,6 +30,9 @@ public class SecurityConfig {
 
     @Autowired
     private AuthenticationProvider authenticationProvider;
+
+    @Autowired
+    private SecurityErrorHandler securityErrorHandler;
 
     @Autowired
     private AuthRateLimitFilter authRateLimitFilter;
@@ -60,6 +64,9 @@ public class SecurityConfig {
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint(securityErrorHandler)
+                        .accessDeniedHandler(securityErrorHandler))
                 .headers(headers -> headers.frameOptions(
                         frameOptions -> frameOptions.sameOrigin()
                 ))

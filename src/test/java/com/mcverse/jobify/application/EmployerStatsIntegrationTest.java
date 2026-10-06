@@ -176,7 +176,7 @@ class EmployerStatsIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Only employers have job statistics."));
         mvc.perform(get("/employers/me/stats").header(AUTHORIZATION, bearer(mvc, "admin")))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/employers/me/stats")).andExpect(status().isForbidden());
+        mvc.perform(get("/employers/me/stats")).andExpect(status().isUnauthorized());
     }
 
     @Test

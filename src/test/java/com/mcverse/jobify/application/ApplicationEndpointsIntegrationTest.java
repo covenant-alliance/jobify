@@ -142,7 +142,7 @@ class ApplicationEndpointsIntegrationTest {
         mvc.perform(post("/jobs/" + jobId + "/apply").header(AUTHORIZATION, bearer(mvc, "startupxyz")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Only job seekers can apply for jobs."));
-        mvc.perform(post("/jobs/" + jobId + "/apply")).andExpect(status().isForbidden());
+        mvc.perform(post("/jobs/" + jobId + "/apply")).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -210,7 +210,7 @@ class ApplicationEndpointsIntegrationTest {
     void employersAndAnonymousUsersCannotListApplications() throws Exception {
         mvc.perform(get("/applications/me").header(AUTHORIZATION, bearer(mvc, "techcorp")))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/applications/me")).andExpect(status().isForbidden());
+        mvc.perform(get("/applications/me")).andExpect(status().isUnauthorized());
     }
 
     // ── account deletion must not be blocked by applications ──────────────────

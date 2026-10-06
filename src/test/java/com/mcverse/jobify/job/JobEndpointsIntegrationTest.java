@@ -66,7 +66,7 @@ class JobEndpointsIntegrationTest {
     @Test
     void anonymousCannotWrite() throws Exception {
         mvc.perform(post("/jobs").contentType(APPLICATION_JSON).content(VALID_JOB))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     // ── B2: /jobs/mine ────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ class JobEndpointsIntegrationTest {
 
     @Test
     void anonymousCannotUseMine() throws Exception {
-        mvc.perform(get("/jobs/mine")).andExpect(status().isForbidden());
+        mvc.perform(get("/jobs/mine")).andExpect(status().isUnauthorized());
     }
 
     // ── B3 / B5: create ───────────────────────────────────────────────────────

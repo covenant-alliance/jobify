@@ -35,13 +35,14 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
  *   <li>the public list really is public (not accidentally locked);</li>
  *   <li>{@code /admin/**} refuses seekers and employers and lets an admin in.</li>
  * </ul>
- * "Refused" is 403 today; issue #50 proposes 401 for callers without a valid token, then {@link #REFUSED} changes.
+ * A caller without a valid token gets 401 (so the front end logs the user out); a signed-in caller of the wrong role
+ * gets 403.
  */
 @SpringBootTest
 class RouteSecurityMatrixTest {
 
-    /** Status for a caller without a valid token. Becomes 401 if issue #50 is done. */
-    private static final int REFUSED = 403;
+    /** Status for a caller without a valid token. */
+    private static final int REFUSED = 401;
 
     /** Every public route, as "METHOD pattern". Adding to this list is a deliberate, reviewable decision. */
     private static final Set<String> PUBLIC = Set.of(

@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -51,8 +52,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     MDC.put(CorrelationFilter.USER, userDetails.getUsername());
                 }
             }
-        } catch (JwtException | IllegalArgumentException ignored) {
-            // Invalid token — proceed without authentication; Spring Security returns 401
+        } catch (JwtException | IllegalArgumentException | UsernameNotFoundException ignored) {
+            // Invalid or expired token, or a token for an account that no longer exists (for example after an approved
+            // deletion): proceed without authentication; protected routes then answer 401, public ones still work.
         }
 
         chain.doFilter(request, response);

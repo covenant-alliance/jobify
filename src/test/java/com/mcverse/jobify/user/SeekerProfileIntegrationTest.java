@@ -92,18 +92,15 @@ class SeekerProfileIntegrationTest {
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.success").value(false));
     }
 
-    /**
-     * Pins today's behaviour: no valid token is answered 403, not 401 (issue #50 proposes 401, which is what the front
-     * end uses to log the user out). When #50 is done, change these expectations.
-     */
+    /** No valid token is answered 401 (the front end logs the user out on 401), never 403. */
     @Test
-    void profileRoutesRefuseCallersWithoutAValidToken() throws Exception {
-        mvc.perform(get("/users/seekers/me")).andExpect(status().isForbidden());
-        mvc.perform(get("/users/seekers/me/educations")).andExpect(status().isForbidden());
+    void profileRoutesAnswer401ToCallersWithoutAValidToken() throws Exception {
+        mvc.perform(get("/users/seekers/me")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/users/seekers/me/educations")).andExpect(status().isUnauthorized());
         mvc.perform(post("/users/seekers/me/skills").contentType(APPLICATION_JSON).content("{}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
         mvc.perform(get("/users/seekers/me").header("Authorization", "Bearer not.a.real-token"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

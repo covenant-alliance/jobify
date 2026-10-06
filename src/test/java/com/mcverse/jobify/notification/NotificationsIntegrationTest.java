@@ -272,10 +272,10 @@ class NotificationsIntegrationTest {
 
     @Test
     void anonymousUsersAreRefusedEverywhere() throws Exception {
-        mvc.perform(get("/notifications")).andExpect(status().isForbidden());
-        mvc.perform(get("/notifications/unread-count")).andExpect(status().isForbidden());
-        mvc.perform(post("/notifications/read-all")).andExpect(status().isForbidden());
-        mvc.perform(post("/notifications/x/read")).andExpect(status().isForbidden());
+        mvc.perform(get("/notifications")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/notifications/unread-count")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/notifications/read-all")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/notifications/x/read")).andExpect(status().isUnauthorized());
     }
 
     // ── account events ────────────────────────────────────────────────────────

@@ -120,15 +120,15 @@ class AuthEndpointsIntegrationTest {
 
     @Test
     void protectedRoutesRejectAnonymousUsers() throws Exception {
-        mvc.perform(get("/users/seekers/me")).andExpect(status().isForbidden());
-        mvc.perform(get("/account/deletion-request")).andExpect(status().isForbidden());
-        mvc.perform(get("/admin/deletion-requests")).andExpect(status().isForbidden());
+        mvc.perform(get("/users/seekers/me")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/account/deletion-request")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/admin/deletion-requests")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void invalidTokenIsRejected() throws Exception {
         mvc.perform(get("/users/seekers/me").header(AUTHORIZATION, "Bearer not.a.token"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
