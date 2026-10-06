@@ -27,7 +27,7 @@ Related: [`DEPLOYMENT.md`](DEPLOYMENT.md) (running the app), `src/main/resources
 
 Three things make up "the data", and a migration has to move all three:
 
-1. **The database rows.** Users, jobs, applications, CMS text, and so on (20 tables).
+1. **The database rows.** Users, jobs, applications and their status history, CMS text, and so on (21 tables).
 2. **The upload folder** (`UPLOAD_DIR`, `/data/uploads` in Docker, `./data/uploads` in dev). Resumes live there as
    files. The database stores only a relative path such as `alice_s_resume/cv.pdf`, so copying the folder
    as-is keeps the links working.
@@ -90,7 +90,7 @@ Replace the paths and URLs with yours. `$JAR` is the packaged jar (`mvn -DskipTe
 Old dev databases were created by older builds. Starting the **new** build on them once runs two small
 helpers that are restricted to H2: `LegacySchemaPatch` (turns old enum columns into `VARCHAR`) and
 `JobCompensationBackfill` (fills `rate`/`rateType` on old jobs). This is what makes the old file match the
-current entities, so the copy has nothing odd to trip over.
+current entities, so the copy has nothing odd to trip over. It also gives applications made before status history existed a minimal history (`ApplicationHistoryBackfill`), so the copy carries history rows for every application and the employer funnel works after the move.
 
 ```bash
 # stop any app that uses the H2 file first, then:

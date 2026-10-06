@@ -54,6 +54,8 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P17. Require location, workMode, employmentType on new jobs? (#39, decision).** Lets the front end drop its invented fallback values.
 
+**P18. ✅ Application status history and a true funnel (#53, done in sprint 6).** Every status change is recorded (`application_status_changes`, Flyway V3, cascades on delete); `GET /employers/me/stats` gains `applications.funnel` and `perJob[].funnel` (`reached` per stage, cumulative; `medianDaysInStage`), additive. Older applications get a minimal history at startup (stages between and the stage rejected/withdrawn applications left from are unknown). Not done: a history endpoint per application (a timeline for seeker or employer), time-to-hire, per-stage conversion percentages (the front end can compute them from `reached`).
+
 **P10. EMPLOYEE role.** The front end has an "Employee Preview" dashboard, all mock. There is no such role in the API. **Needs a product decision** (drop it, or define it) before any work. Don't build it speculatively.
 
 ## Tech debt and platform

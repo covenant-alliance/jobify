@@ -75,5 +75,6 @@ Validate all input with Bean Validation (`@Valid`). Never expose JPA entities in
 
 ## Hazards
 - `data/` holds the dev H2 DB and uploaded resumes, is git-ignored, and contains the only copy of dev data. Don't delete it casually. With `ddl-auto=update`, entity changes mutate the schema in place. Never run the app or the copy tool against someone's real PostgreSQL by accident: `DB_URL` decides, and `scripts/test-postgres.sh` writes demo data into whatever database it is given.
+- **Tests share one database and run in any order** (CI's order differs from a laptop's). Register users with unique names, and never assume Java's `String` order for names the database sorted: PostgreSQL's `en_US` collation ignores punctuation (`s_f1` sorts among `sf_…`), H2 and the `C` locale do not. To mimic CI locally: `create database x template template0 locale_provider icu icu_locale 'en-US-u-ka-shifted'` and run `scripts/test-postgres.sh -Dsurefire.runOrder=reversealphabetical`.
 - Spring Boot 4.0.0-M3 is a milestone. Check compatibility before upgrading any dependency.
 - Stray untracked files `Class diagram with UML notation.pdf` and `Link to jobify-backend-review.md` are not yours. Leave them.
