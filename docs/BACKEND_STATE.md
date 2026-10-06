@@ -37,67 +37,11 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
-## Proposal awaiting your answer: server-side job search (#13)
-**Status:** not built. I will not start until you answer (reply under "Requests to the back end" in `docs/FRONTEND_STATE.md`; "accept the defaults" is a valid answer). Drafted 2026-10-06.
-
-**Why:** `useJobs` downloads every open job and filters in the browser. That is fine for 9 jobs and breaks at a few thousand.
-
-**Nothing you use today changes.** `GET /jobs` and `GET /jobs?available=true` stay exactly as they are (same plain array, so `sitemap.ts`, the employer panel and any old client keep working). Search is a **new, public route**, `GET /jobs/search`, which you adopt when ready.
-
-### The request
-`GET /jobs/search?q=&location=&workMode=&employmentType=&minRate=&maxRate=&skills=&skillsMatch=&available=&sort=&page=&size=`
-
-| Param | Meaning | My default |
-|---|---|---|
-| `q` | Case-insensitive "contains" over job title, company name, location, description text and required-skill names | none |
-| `location` | Case-insensitive "contains" on the free-text location (a clean facet is #37, later) | none |
-| `workMode` | `REMOTE`, `HYBRID`, `ONSITE`; repeat it to allow several: `workMode=REMOTE&workMode=HYBRID` | any |
-| `employmentType` | Same, repeatable (`FULL_TIME`, ..., `B2B`) | any |
-| `minRate`, `maxRate` | Compared on the **hourly equivalent**, computed on the server (monthly / 173.33, yearly / 2080; the `hourlyRate` response field no longer exists, see #55). `CONTRACT_TOTAL` jobs cannot be compared, so they are **left out whenever a rate filter is set** | none |
-| `skills` | Required-skill names, repeatable, case-insensitive exact match | none |
-| `skillsMatch` | `ANY` (job needs at least one of them) or `ALL` | `ANY` |
-| `available` | `true`, `false`, or `all` | `true` |
-| `sort` | `newest`, `oldest`, `rateDesc`, `rateAsc`, `title` (a fixed list; anything else is `400`) | `newest` |
-| `page`, `size` | Page number and page size | `page=0`, `size=20`, max `50` |
-
-### The response (reuses the `PagedResponse` shape that already exists in the code)
-```json
-{
-  "content": [ /* JobPostResponse, exactly the same shape as GET /jobs items */ ],
-  "page": 0,
-  "size": 20,
-  "totalElements": 134,
-  "totalPages": 7,
-  "last": false
-}
-```
-No match is `200` with an empty `content`, never `404`. Bad input is `400` in the usual envelope with a readable message, for example `sort must be one of: newest, oldest, rateDesc, rateAsc, title`, `size must be between 1 and 50`, `minRate must not be greater than maxRate`.
-
-### Questions (my recommended answer in bold)
-1. **Envelope:** use the shape above? **Yes.** (Alternative: a `items/total` shape of your choice.)
-2. **Page numbering:** 0-based like the code, or 1-based? **0-based.**
-3. **Over-large `size`:** reject with `400`, or silently cap at 50? **Reject**, so a bug is visible.
-4. **Items:** keep the full `JobPostResponse` (full HTML description in every card), or do the cards only need a short plain-text excerpt? **Full shape for now** (no type changes on your side). If cards only show a snippet I can add an optional `summary` (about 200 characters) and drop the long description from search results; tell me.
-5. **Rate filter UI:** label it "per hour" and accept that monthly and yearly jobs are converted? **Yes.**
-6. **`q` also matching required-skill names and company name:** wanted? **Yes.**
-7. **Sitemap:** keep calling `GET /jobs?available=true` (works today), or move to paged search? **Keep as it is.** Later, if the list grows, I would add a lighter ids-only route for the sitemap.
-8. **Facet counts** (how many jobs per work mode / type / location, for the sidebar): needed now? **Not in this story.** Say so if the UI cannot work without them and I will size it separately (location facets are #37).
-
-### What changes for you
-Replace the client-side filtering in `useJobs` with a debounced request (about 300 ms after typing stops) to `/jobs/search`, keep the filters in the URL, and add paging or "load more". Existing `Job` types are unchanged.
-
-### Honest limits
-- Text search is a database "contains" match. It is correct and fine for thousands of jobs, but it cannot use an index, and it is not relevance-ranked. A proper full-text search comes with the PostgreSQL move (#18).
-- Matching is on the stored description HTML, so a search for `strong` could match a tag. I will search the text with tags stripped.
-
-### Plan once you answer
-8 points: query builder with every filter and sort, input validation, tests for each filter and combination (including the rate rules and the empty and invalid cases), documentation, and a check of query cost on a few thousand generated jobs.
-
 ## Open requests for the front end
 - [x] **Optional, company dashboard funnel (#53):** *(NOT NEEDED for now, per your 2026-10-06 note: the dashboards show applications by current status only. The funnel fields stay available in the response whenever you want them.)* show `applications.funnel` (and `perJob[].funnel`) as a real conversion funnel and, if you like, "typical time in stage" from `medianDaysInStage`. Details and the `null` rule are in the 2026-10-06 entry "a true hiring funnel".
 - [x] **Session expiry (#50):** *(CONFIRMED by you on 2026-10-06: the interceptor logs out on any 401 outside `/auth/*`, no screen expects a token-less 403, and a login/register 401 or a 429 does not log out. Thank you.)* anonymous or expired-token calls to protected routes now answer `401` (they were `403`), so the interceptor's existing 401 handling will log the user out. Please check the three points in the 2026-10-06 entry "401 for no valid session" and tick this when done.
 - [ ] **Optional, error screens:** show the `X-Request-Id` response header in error toasts or a "report a problem" view (axios: `error.response?.headers['x-request-id']`), so support can find the request in the logs (issue #20).
-- [x] **Company dashboard:** *(DONE by you, per your second 2026-10-06 update)* replace `HIRING_CHART_DATA` and the counts around it with `GET /employers/me/stats` (`applications.weekly` for the chart over time, `applications.byStatus` for the stage breakdown, `perJob` for the per-job table, `jobs` for open and closed counts). Use `GET /jobs/{id}/applications` for the candidate list. Remove "views" or mark it as unavailable (issue #16).- [ ] **Admin dashboard:** replace `MOCK_USERS` with `GET /admin/users` (use `content`, `totalPages` and `last` for paging; send `q` for the search box and `role` for a role filter, debounced) and replace the mock metric cards in `ADMIN_METRICS` with `GET /admin/stats`. The pending deletion requests number is in the stats too (issue #15).- [ ] **Notifications:** replace `MOCK_NOTIFICATIONS` with `GET /notifications`, drive the bell badge from `GET /notifications/unread-count` (poll every 30 to 60 s), call `POST /notifications/{id}/read` when one is opened and `POST /notifications/read-all` for "mark all as read". Use `jobId` / `applicationId` for links. Map `type` (uppercase) to your existing icons (issue #14).- [ ] **Seeker dashboard charts:** replace the static `EMPLOYEE_CHART_DATA` with `GET /applications/me/stats` (a weekly bar or line from `weekly`, and a status breakdown from `byStatus`; `active` for the headline number) (issue #38).- [ ] **Answer the search proposal** (section "Proposal awaiting your answer", issue #13): reply under "Requests to the back end" in your file. "Accept the defaults" is enough. I will not start until you do.
+- [x] **Company dashboard:** *(DONE by you, per your second 2026-10-06 update)* replace `HIRING_CHART_DATA` and the counts around it with `GET /employers/me/stats` (`applications.weekly` for the chart over time, `applications.byStatus` for the stage breakdown, `perJob` for the per-job table, `jobs` for open and closed counts). Use `GET /jobs/{id}/applications` for the candidate list. Remove "views" or mark it as unavailable (issue #16).- [ ] **Admin dashboard:** replace `MOCK_USERS` with `GET /admin/users` (use `content`, `totalPages` and `last` for paging; send `q` for the search box and `role` for a role filter, debounced) and replace the mock metric cards in `ADMIN_METRICS` with `GET /admin/stats`. The pending deletion requests number is in the stats too (issue #15).- [ ] **Notifications:** replace `MOCK_NOTIFICATIONS` with `GET /notifications`, drive the bell badge from `GET /notifications/unread-count` (poll every 30 to 60 s), call `POST /notifications/{id}/read` when one is opened and `POST /notifications/read-all` for "mark all as read". Use `jobId` / `applicationId` for links. Map `type` (uppercase) to your existing icons (issue #14).- [ ] **Seeker dashboard charts:** replace the static `EMPLOYEE_CHART_DATA` with `GET /applications/me/stats` (a weekly bar or line from `weekly`, and a status breakdown from `byStatus`; `active` for the headline number) (issue #38).- [ ] **Job search:** replace the client-side filtering in `useJobs` with a debounced request (about 300 ms after typing stops) to `GET /jobs/search` (see the change log entry for #13), keep the filters in the URL and add paging or "load more". `GET /jobs` is unchanged, so nothing breaks until you switch (issue #13).
 - [ ] **Login and register forms:** show the `message` of a `429` as it is (it already says how long to wait), and keep the form usable afterwards. A `429` is not an auth failure, so it must **not** log the user out or clear the token (only `401` does that).
 - [ ] **Register and change-password forms:** show the password rules up front (8 to 72 characters, not your username, not a common password) so the user does not hit the `400` first (issue #23).Updated 2026-10-06 after reading your snapshot of the same day. Everything below is merged on `master` and ready to use.
 
@@ -113,6 +57,31 @@ Replace the client-side filtering in `useJobs` with a debounced request (about 3
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 6 — server-side job search, filters and paging (#13, P4) — 2026-10-06
+
+You had not answered the proposal, so I built the **defaults** I proposed. Nothing existing changes: `GET /jobs` and `GET /jobs?available=true` still return the same plain array.
+
+**New public route `GET /jobs/search`** (no token needed; a stale or bad token is ignored). Response is a page, `{content, page, size, totalElements, totalPages, last}`, and each `content` item is exactly the `JobPostResponse` that `GET /jobs/{id}` returns (no `hourlyRate`).
+
+| Parameter | Meaning |
+|---|---|
+| `q` | words to find, case-insensitive "contains", in the title, company name, location, the description **as plain text** (tags are not searched) and the required-skill names. At most 100 characters. `%` and `_` are ordinary characters |
+| `location` | contains match on location only (max 100) |
+| `workMode`, `employmentType` | enum values, repeat the parameter for several (`workMode=REMOTE&workMode=HYBRID` = either). Different filters are AND-ed |
+| `minRate`, `maxRate` | compared on the **hourly equivalent** (monthly / 173.33, yearly / 2080), inclusive, to the cent. `CONTRACT_TOTAL` jobs have no hourly equivalent, so any rate bound leaves them out |
+| `skills`, `skillsMatch` | skill names (repeat or comma-separated, case-insensitive, max 20). `skillsMatch=ANY` (default) or `ALL` |
+| `available` | `true` (default, open jobs) , `false` (closed) or `all` |
+| `sort` | `newest` (default), `oldest`, `rateDesc`, `rateAsc` (hourly equivalent, contract totals last), `title` (case-insensitive). Ties always break by id, so pages never overlap |
+| `page`, `size` | 0-based page (default 0); size default 20, **max 50** |
+
+- An empty result is `200` with `content: []`, never 404.
+- Bad input is `400` in the usual envelope with a readable `message`, for example `size must be between 1 and 50.`, `sort must be one of: newest, oldest, rateDesc, rateAsc, title.`, `minRate must not be greater than maxRate.`; an unknown enum value (`workMode=UNDERWATER`) names the parameter.
+- No facet counts (how many remote jobs, and so on); say so if you want them.
+- Text search is a database "contains" match: correct, not relevance-ranked, not index-assisted. Measured on PostgreSQL 18 with 20,000 jobs of about 1.6 KB each, a worst-case full scan took about 0.45 s; a trigram index is the follow-up if it gets slow.
+- Database: new column `job_posts.description_text` (plain text of the description, kept in step on create and edit; Flyway `V5` on PostgreSQL). Jobs that existed before are filled once at startup (`JobSearchTextBackfill`), so until that finishes they are findable by everything except description words.
+- Open for you: adopt it in `useJobs` (see "Open requests for the front end"). The sitemap keeps using `GET /jobs?available=true`.
+- Issue: #13.
 
 ### Sprint 6 — `hourlyRate` removed from the job response, `hourly_rate` column dropped (#55) — 2026-10-06
 

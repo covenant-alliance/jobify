@@ -211,6 +211,26 @@ Returns job postings. By default returns **all** posts regardless of status, fro
 
 ---
 
+### `GET /jobs/search`
+
+Public. Server-side search, filters, sorting and paging; `GET /jobs` is unchanged. Returns a page of `JobPostResponse`:
+`{content, page, size, totalElements, totalPages, last}`.
+
+| Query parameter | Notes |
+|---|---|
+| `q` | case-insensitive contains over title, company name, location, description plain text and required-skill names; max 100 chars; `%`/`_` literal |
+| `location` | contains match on location; max 100 |
+| `workMode`, `employmentType` | repeatable enum values (OR within, AND between filters) |
+| `minRate`, `maxRate` | inclusive, on the hourly equivalent (monthly/173.33, yearly/2080); `CONTRACT_TOTAL` excluded when either is set; min must not exceed max |
+| `skills`, `skillsMatch` | repeat or comma-separated, case-insensitive, max 20; `ANY` (default) or `ALL` |
+| `available` | `true` (default), `false`, `all` |
+| `sort` | `newest` (default), `oldest`, `rateDesc`, `rateAsc` (contract totals last), `title`; ties by id |
+| `page`, `size` | 0-based; size default 20, max 50 |
+
+Errors: `400` with the standard envelope (for example `size must be between 1 and 50.`). No match is `200` with empty `content`.
+
+---
+
 ### `GET /jobs/mine`
 
 **EMPLOYER only.** Every post owned by the caller, open and closed. Response `200`: array of `JobPostResponse`.
@@ -893,7 +913,7 @@ Adding a value to any of these is a contract change: tell the front-end session.
 | Area | Routes | Access |
 |---|---|---|
 | Auth | `POST /auth/register`, `POST /auth/login` | public |
-| Jobs | `GET /jobs`, `GET /jobs/{id}`, `GET /companies/{id}` | public |
+| Jobs | `GET /jobs`, `GET /jobs/search`, `GET /jobs/{id}`, `GET /companies/{id}` | public |
 | Jobs | `POST /jobs`, `PUT /jobs/{id}`, `PATCH /jobs/{id}/available`, `GET /jobs/mine` | employer (owner) |
 | Saved jobs | `PUT`/`DELETE /jobs/{id}/save`, `GET /jobs/saved` | seeker |
 | Applications | `POST /jobs/{id}/apply`, `GET /applications/me`, `GET /applications/me/stats`, `DELETE /applications/{id}` | seeker |

@@ -9,8 +9,8 @@ public enum RateType {
     CONTRACT_TOTAL;
 
     /** Working hours per month/year used to compare rates, matching the front end's conversion. */
-    private static final double HOURS_PER_MONTH = 173.33;
-    private static final double HOURS_PER_YEAR = 2080.0;
+    public static final double HOURS_PER_MONTH = 173.33;
+    public static final double HOURS_PER_YEAR = 2080.0;
 
     /**
      * The rate expressed per hour, rounded to cents, or {@code 0} when it cannot be compared
