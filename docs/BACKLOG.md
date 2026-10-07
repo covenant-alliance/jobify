@@ -48,7 +48,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P14. Responsibilities and requirements (#36).** *(DONE 2026-10-06: Product Owner chose structured fields; see `docs/BACKEND_STATE.md`.)* Keep the front end's sentence-splitting heuristic, or add structured fields.
 
-**P15. Location normalization (#37, icebox).** Clean facet values and `GET /jobs/locations`.
+**P15. Location normalization (#37).** *(DONE 2026-10-06: a `locations` catalogue behind the free text, `GET /jobs/locations`, `locationId` filter; see `docs/BACKEND_STATE.md`. Follow-up if wanted: a country-level facet, and a gazetteer so unknown cities and misspellings can be recognised.)*
 
 **P16. ✅ Seeker application statistics (#38, done in sprint 4).** `GET /applications/me/stats` for the dashboard charts. Depends on P1.
 

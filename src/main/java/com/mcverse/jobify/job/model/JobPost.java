@@ -50,6 +50,11 @@ public class JobPost {
 
     private String location;
 
+    /** The place behind {@link #location}, resolved from the text; null when the text names no place. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id")
+    private Location locationRef;
+
     // VARCHAR, not a database enum type: with ddl-auto=update a database enum's value list is never widened,
     // so adding an enum constant would break every existing database.
     @Enumerated(EnumType.STRING)
@@ -118,6 +123,9 @@ public class JobPost {
         this.jobDescription = jobDescription;
         this.descriptionText = PlainText.fromHtml(jobDescription);
     }
+    public Location getLocationRef()                     { return locationRef; }
+    public void setLocationRef(Location locationRef)     { this.locationRef = locationRef; }
+
     public List<String> getBenefits()                    { return benefits; }
     public List<JobImage> getImages()                    { return images; }
 

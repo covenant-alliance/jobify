@@ -42,6 +42,9 @@ public class JobService {
     @Autowired
     private AuditLog auditLog;
 
+    @Autowired
+    private LocationService locations;
+
     @Transactional(readOnly = true)
     public List<JobPostResponse> getJobs(Boolean available) {
         List<JobPost> posts = (available != null)
@@ -93,6 +96,7 @@ public class JobService {
 
     private void applyEditableFields(JobPost job, CreateJobRequest request) {
         job.setLocation(request.location());
+        job.setLocationRef(locations.resolve(request.location()));
         job.setWorkMode(request.workMode());
         job.setEmploymentType(request.employmentType());
         job.setRequiredSkills(resolveSkills(request.requiredSkills()));
