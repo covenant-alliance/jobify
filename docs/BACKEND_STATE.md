@@ -38,6 +38,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
+- [ ] **Optional, preferences (#25):** load `GET /users/me/preferences` after sign-in and use it instead of `localStorage` for the notification toggles and the accent colour; on a toggle change send `PUT /users/me/preferences` with only that toggle (`{"notifications":{"APPLICATION":false}}`); show `ACCOUNT` as always on. Migrate: on first load, if the server has the defaults and `localStorage` has values, PUT them once. Nothing breaks until you switch.
 - [ ] **Optional, location facet (#37):** replace the facet built from the free-text `location` strings with `GET /jobs/locations` (show `name` and `jobs`; for a type-ahead send `q`), and filter jobs with `GET /jobs/search?locationId=<id>` (repeat for several). Keep showing `job.location` as written on a job's own page. Nothing breaks until you switch.
 - [ ] **Responsibilities and requirements (#36):** add two list inputs to the Post-a-Job form (and the edit form) and send `responsibilities: string[]` and `requirements: string[]` in `POST /jobs` / `PUT /jobs/{id}` (max 20 items of 300 characters each). On the job page render `job.responsibilities` / `job.requirements` when they are not empty and keep the sentence-splitting heuristic only for jobs where both are empty. Until you send them nothing changes: an edit that omits the fields keeps what is saved.
 - [ ] **Optional, logo, benefits and gallery (#34, #35):** replace the initials/gradient with `${API}${job.logoUrl}` when it is not null, and `BENEFIT_POOL` / `GALLERY_POOL` with `job.benefits` / `job.images` (prefix each image with the API base) when they are not empty; keep the pools only as fallback for jobs without any. Add the three inputs to the Post-a-Job form if you want employers to fill them: benefits as `benefits: string[]` in the job body, pictures as separate multipart `POST /jobs/{id}/images` calls after the job exists (up to 6, 2 MB each), and a logo upload on the company page (`POST /users/companies/{id}/logo`, 1 MB).
@@ -60,6 +61,18 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 6 — user preferences: notification toggles and accent colour (#25, P9) — 2026-10-07
+
+**New routes, additive: nothing existing changes.** Any signed-in user (seeker, employer or admin), own settings only.
+
+- `GET /users/me/preferences` -> `{ "notifications": { "INTERVIEW": true, "APPLICATION": true, "SYSTEM": true, "HIRING": true, "ACCOUNT": true }, "accentColor": null }`. A user who never saved anything gets all `true` and `null`.
+- `PUT /users/me/preferences` with any of `{ "notifications": { "APPLICATION": false }, "accentColor": "#1a73e8" }`. **Only what is sent changes**, so send just the toggle the user touched. Names are the notification `type` values you already map to icons. `accentColor` is `#rrggbb` (stored lower case); `""` clears it; leaving it out keeps it. Returns the full settings.
+- `400` (nothing changed) with a readable `message`: unknown type name (lists the valid ones), a non-boolean value, a bad colour, a missing body. **`ACCOUNT` cannot be switched off** (`ACCOUNT notifications cannot be turned off: they tell you about your password and account.`): show that toggle as on and disabled.
+- **The toggles have an effect on the server**: a switched-off type is not stored for that user, so it does not appear in `GET /notifications`, is not counted in `unread-count`, and is not brought back by switching it on again. (In-app messages only; there is no email or push yet.)
+- Database: tables `user_preferences` and `user_disabled_notifications` (Flyway `V9`); rows are removed when an account is deleted.
+- **Answer to your RabbitMQ question: not necessary, and not better yet.** Notifications are written in the same transaction as the event that caused them, so they can never disagree with the data; a broker would add a second system and the need for an outbox anyway. It starts to pay off when email/push, several instances or other consumers appear, and even then the outbox in the database comes first. Reasoning and the upgrade path: `docs/NOTIFICATIONS.md`.
+- Issue: #25.
 
 ### Sprint 6 — places: clean location values, facet list and search filter (#37, P15) — 2026-10-06
 

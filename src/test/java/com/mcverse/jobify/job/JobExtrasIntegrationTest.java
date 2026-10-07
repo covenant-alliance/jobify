@@ -115,6 +115,16 @@ class JobExtrasIntegrationTest {
                 .header(AUTHORIZATION, token)).andReturn();
     }
 
+    /** Files from an earlier test run can sit under the same job id (ids restart with a fresh database). */
+    private void forgetFiles(String folder) throws Exception {
+        Path dir = Paths.get(uploadDir).toAbsolutePath().resolve(folder);
+        if (Files.isDirectory(dir)) {
+            try (Stream<Path> s = Files.list(dir)) {
+                for (Path p : s.toList()) Files.deleteIfExists(p);
+            }
+        }
+    }
+
     private long filesIn(String folder) throws Exception {
         Path dir = Paths.get(uploadDir).toAbsolutePath().resolve(folder);
         if (!Files.isDirectory(dir)) return 0;
@@ -258,6 +268,7 @@ class JobExtrasIntegrationTest {
     @Test
     void removingAnImageDeletesItsFileAndItsAddressStopsWorking() throws Exception {
         int id = createJob(null);
+        forgetFiles("job-images/" + id);
         String body = addImage(id, owner, PNG).getResponse().getContentAsString();
         String url = ((java.util.List<String>) JsonPath.read(body, "$.images")).get(0);
         assertEquals(1, filesIn("job-images/" + id));
@@ -299,6 +310,7 @@ class JobExtrasIntegrationTest {
     @Test
     void approvingAnEmployersDeletionRemovesTheirImageAndLogoFiles() throws Exception {
         int id = createJob(null);
+        forgetFiles("job-images/" + id);
         addImage(id, owner, PNG);
         assertEquals(200, uploadLogo(companyId, owner, "logo.png", PNG).getResponse().getStatus());
         assertEquals(1, filesIn("job-images/" + id));

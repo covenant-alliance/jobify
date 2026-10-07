@@ -40,7 +40,7 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **P8. ✅ Employer stats (#16, done in sprint 4: `GET /employers/me/stats`; counts are current-status snapshots, not a stage history; no job views).** *(Open question for the Product Owner on job "views", see #16.)* Per-job application counts, funnel counts by status, and applications over time (`GET /employers/me/stats`) for the company dashboard.
 
-**P9. User preferences.** Optional `GET/PUT /users/me/preferences` (notification toggles) to replace the front end's `localStorage` copy. Low priority.
+**P9. User preferences.** *(DONE 2026-10-07, issue #25; see `docs/BACKEND_STATE.md` and `docs/NOTIFICATIONS.md`.)* Optional `GET/PUT /users/me/preferences` (notification toggles) to replace the front end's `localStorage` copy. Low priority.
 
 **P12. Company logo (#34).** *(DONE 2026-10-06, see `docs/BACKEND_STATE.md`.)* Upload plus `logoUrl` on jobs and companies. The front end derives initials and a colour until it exists.
 
