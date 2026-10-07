@@ -427,6 +427,28 @@ Job **views** are not tracked, so they are not included (open question in issue 
 
 ---
 
+## Preferences endpoints `/users/me/preferences`
+
+> Any signed-in user, own settings only. Requires `Authorization: Bearer <token>`.
+
+```ts
+interface PreferencesResponse {
+  notifications: { INTERVIEW: boolean; APPLICATION: boolean; SYSTEM: boolean; HIRING: boolean; ACCOUNT: boolean };
+  accentColor: string | null;     // "#rrggbb", lower case
+}
+interface UpdatePreferencesRequest {   // every field optional; only what is sent changes
+  notifications?: { [type: string]: boolean };   // type names are case-insensitive
+  accentColor?: string;                          // "#rrggbb" to set, "" to clear
+}
+```
+
+- `GET` returns the defaults for a user who never saved anything: every type `true`, `accentColor` `null`.
+- `PUT` returns the full settings after the change. Errors `400` (nothing is changed): `Unknown notification type 'X'. Use one of: INTERVIEW, APPLICATION, SYSTEM, HIRING, ACCOUNT.`, `ACCOUNT notifications cannot be turned off: ...`, `notifications.X must be true or false.`, `accentColor must look like #1a73e8, or be empty to clear it.`, a missing or malformed body. `401` without a valid token.
+- **Effect:** a type switched off is no longer delivered to that user: no row is stored, the bell badge does not count it, and switching it back on does not bring back what was dropped. `ACCOUNT` (password changed, deletion decisions) always arrives.
+- Design notes and the RabbitMQ question: `docs/NOTIFICATIONS.md`.
+
+---
+
 ## Notifications endpoints `/notifications/**`
 
 > Any signed-in user; each user only ever sees their own. All require `Authorization: Bearer <token>`. There is no push channel yet, so poll `GET /notifications/unread-count` (every 30 to 60 seconds is plenty) for the bell badge.
@@ -954,6 +976,7 @@ Adding a value to any of these is a contract change: tell the front-end session.
 | Applications | `GET /jobs/{id}/applications`, `PUT /applications/{id}/status` | employer (owner of the job) |
 | Employer stats | `GET /employers/me/stats` | employer |
 | Profiles | `/users/seekers/**`, `/users/employers/**`, `/users/companies/**` | authenticated (`/me` = own) |
+| Preferences | `GET /users/me/preferences`, `PUT /users/me/preferences` | authenticated (own only) |
 | Notifications | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/{id}/read`, `POST /notifications/read-all` | authenticated (own only) |
 | Account | `/account/**` | authenticated |
 | Admin | `/admin/users`, `/admin/stats`, `/admin/deletion-requests/**`, `/admin/content` | admin |

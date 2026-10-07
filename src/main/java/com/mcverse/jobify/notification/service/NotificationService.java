@@ -7,6 +7,7 @@ import com.mcverse.jobify.notification.dto.UnreadCountResponse;
 import com.mcverse.jobify.notification.model.Notification;
 import com.mcverse.jobify.notification.model.NotificationType;
 import com.mcverse.jobify.notification.repository.NotificationRepository;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,18 +21,24 @@ public class NotificationService {
     public static final int MAX_LIMIT = 100;
 
     private final NotificationRepository repository;
+    private final ObjectProvider<NotificationGate> gates;
 
-    public NotificationService(NotificationRepository repository) {
+    public NotificationService(NotificationRepository repository, ObjectProvider<NotificationGate> gates) {
         this.repository = repository;
+        this.gates = gates;
     }
 
     /**
      * Creates a notification. It joins the caller's transaction, so a message is never sent for a change that was
-     * rolled back, and a failure to store it rolls the change back too.
+     * rolled back, and a failure to store it rolls the change back too. A notification the recipient has switched
+     * off (see {@link NotificationGate}) is dropped without a trace.
      */
     @Transactional
     public void notify(String recipientUsername, NotificationType type, String title, String body,
                        Integer jobId, String applicationId) {
+        if (!gates.orderedStream().allMatch(gate -> gate.allows(recipientUsername, type))) {
+            return;
+        }
         repository.save(new Notification(recipientUsername, type, title, truncate(body), jobId, applicationId));
     }
 
