@@ -12,6 +12,22 @@ tick them off; write the results into the table at the end.
 Nothing here changes the project: no `pom.xml` edit, no commit. The plugin is called by its full name on the command
 line. (Wiring it into CI is a separate, later story: see "After the manual run" at the end.)
 
+## Stories this guide belongs to
+
+Epic #77 (T9). The manual steps below are the acceptance tests of #78 to #81:
+
+| Story | Issue | Guide steps | Owner |
+|---|---|---|---|
+| T9.1 NVD key and database | #78 | 0, 2, 3 | Product Owner |
+| T9.2 Canary | #79 | 4 | Product Owner |
+| T9.3 Baseline scan | #80 | 1, 5, 6, 10 | Product Owner |
+| T9.4 Triage with decisions | #81 | 7 | Product Owner decides, back end implements |
+| T9.5 Suppression file | #82 | 8 | back end |
+| T9.6 Maven profile `security-scan` | #83 | 9 | back end |
+| T9.7 Weekly CI scan | #84 | (after the manual run) | back end |
+| T9.8 Response policy | #85 | (decision) | Product Owner |
+| T9.9 Alert issue on failure | #86 | (optional) | back end |
+
 ## What it does and does not tell you
 
 - It lists the libraries in the build (names and versions, including the ones pulled in indirectly) and matches them
