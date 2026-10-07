@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,6 +17,9 @@ public class Employer extends User {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id")
     private Company company;
+
+    /** When the person connected to their company; null for rows from before this was recorded. */
+    private LocalDateTime companyJoinedAt;
 
     // VARCHAR, not a database enum, so a new role never needs a schema change
     @Enumerated(EnumType.STRING)
@@ -47,6 +51,25 @@ public class Employer extends User {
     }
 
     public void setCompanyRole(CompanyRole companyRole) { this.companyRole = companyRole; }
+
+    /** When the person connected to their company: the recorded time, else when their account was created. */
+    public LocalDateTime getCompanyJoinedAt() {
+        return companyJoinedAt != null ? companyJoinedAt : getCreationDate();
+    }
+
+    /** Connects the person to a company with a role. */
+    public void joinCompany(Company company, CompanyRole role) {
+        this.company = company;
+        this.companyRole = role;
+        this.companyJoinedAt = LocalDateTime.now();
+    }
+
+    /** Disconnects the person from their company (the company and its jobs stay). */
+    public void leaveCompany() {
+        this.company = null;
+        this.companyRole = null;
+        this.companyJoinedAt = null;
+    }
 
     public void setCompany(Company company) { this.company = company; }
 

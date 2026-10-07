@@ -439,7 +439,46 @@ An `EMPLOYER` account can belong to a company; `companyRole` on `GET /users/empl
 - A job can be managed by the person who posted it and by everyone in the same company. An employer without a company is a company of one: nothing changes for them. Someone outside the company still gets the usual `403`.
 - `GET /jobs/mine` and `GET /employers/me/stats` cover the whole company's jobs. `employerUsername` on a job is still the person who posted it.
 - When a person's account is deleted (admin approves) and colleagues remain, **their jobs, applications and the logo stay with the company**: the jobs pass to an owner (or, if none is left, to the longest-serving colleague, who becomes owner). A person alone in their company takes their jobs with them, as before.
-- There is no way yet to put a second person in a company: invitations are #72.
+- People join through invitations, see below.
+
+---
+
+### Joining, leaving and running the team (since #72)
+
+All routes need a token and an `EMPLOYER` account. Errors use the usual envelope.
+
+| Route | Who | What |
+|---|---|---|
+| `POST /companies/{id}/invitations` `{ "username": "jane" }` | owner | Invite an existing employer account. `201` + `InvitationResponse`. Valid 14 days. The invitee is notified (type `SYSTEM`). |
+| `GET /companies/{id}/invitations` | owner | Pending, unexpired invitations, newest first. |
+| `DELETE /companies/{id}/invitations/{invitationId}` | owner | Cancel a pending one. `204`. |
+| `GET /invitations/me` | the invited person | My pending, unexpired invitations. Seekers/admins: `403` `Only employers can have company invitations.` |
+| `POST /invitations/{id}/accept` | the invited person | Join as `MANAGER`; my other pending invitations are cancelled. |
+| `POST /invitations/{id}/decline` | the invited person | The inviter is notified. |
+| `GET /companies/{id}/members` | any member | `[{ username, name, lastName, role, joinedAt }]`, oldest first. |
+| `DELETE /companies/{id}/members/{username}` | owner | Remove a member (`204`). Their jobs stay and pass to the owner who removed them. |
+| `PUT /companies/{id}/members/{username}/role` `{ "role": "OWNER" }` | owner | Promote or demote. A company always keeps an owner. |
+| `DELETE /companies/me/membership` | any member | Leave. The jobs I posted stay with the company. |
+
+```ts
+interface InvitationResponse {
+  id: string; companyId: string; companyName: string;
+  inviteeUsername: string; invitedBy: string;
+  status: "PENDING" | "ACCEPTED" | "DECLINED" | "CANCELLED" | "EXPIRED";
+  createdAt: string; expiresAt: string; respondedAt: string | null;
+}
+```
+
+Status codes and messages: `403` `Only the company owner can do that.` (a manager, or any of the owner routes), `403` `You are not part of this company.` (an outsider), `403` `This invitation is not addressed to you.`; `404` unknown company, invitation or member; `422` `You cannot invite yourself.`, `No employer account is named 'x'.` (unknown name, or not an employer), `x already belongs to a company.`, `x is already a member of your company.`, `x already has a pending invitation.`, `This invitation was already accepted.` (or declined / cancelled), `This invitation has expired. Ask for a new one.`, `You already belong to a company. Leave it before joining another.`, `To leave your own company use "leave" instead of removing yourself.`, `A company needs at least one owner.`, `You are the only owner. Make a colleague an owner first, then leave.`, `You are the only person in this company, so you cannot leave it.`, `You are not part of a company.`
+
+### Company dashboard and activity feed (since #73)
+
+- `GET /companies/{id}/stats`: any member. The same `EmployerStatsResponse` as `GET /employers/me/stats`, across every job of the company.
+- `GET /companies/{id}/activity?limit=`: any member, newest first, `limit` 1 to 100 (default 50; `400` `limit must be between 1 and 100.`). `ActivityResponse`: `{ id, type, actor, summary, jobId, applicationId, createdAt }`. `type`: `JOB_POSTED`, `JOB_EDITED`, `JOB_CLOSED`, `JOB_REOPENED`, `APPLICATION_MOVED`, `INVITATION_SENT`, `MEMBER_JOINED`, `MEMBER_LEFT`, `MEMBER_REMOVED`, `ROLE_CHANGED`. `summary` is a plain sentence (show it as text, never HTML); `actor` is a username. Only people who belong to a company produce entries. `403` for outsiders, `404` for an unknown company.
+
+### Team notifications (since #74)
+
+A new or withdrawn application notifies **every member of the job's company** (type `APPLICATION`), each through their own notification settings (`/users/me/preferences`). Invitation, join, decline, leave, removal and role changes notify the people concerned with type `SYSTEM`. A person without a company is the only one notified, as before.
 
 ---
 
@@ -992,6 +1031,7 @@ Adding a value to any of these is a contract change: tell the front-end session.
 | Applications | `GET /jobs/{id}/applications`, `PUT /applications/{id}/status` | employer (owner of the job) |
 | Employer stats | `GET /employers/me/stats` | employer |
 | Profiles | `/users/seekers/**`, `/users/employers/**`, `/users/companies/**` | authenticated (`/me` = own) |
+| Company team | `/companies/{id}/invitations`, `/invitations/me`, `/invitations/{id}/accept`, `/invitations/{id}/decline`, `/companies/{id}/members`, `/companies/{id}/members/{username}`, `/companies/{id}/members/{username}/role`, `/companies/me/membership`, `/companies/{id}/stats`, `/companies/{id}/activity` | employers; members / owners as listed |
 | Preferences | `GET /users/me/preferences`, `PUT /users/me/preferences` | authenticated (own only) |
 | Notifications | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/{id}/read`, `POST /notifications/read-all` | authenticated (own only) |
 | Account | `/account/**` | authenticated |

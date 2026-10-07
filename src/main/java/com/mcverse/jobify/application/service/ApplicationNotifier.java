@@ -7,16 +7,33 @@ import com.mcverse.jobify.notification.model.NotificationType;
 import com.mcverse.jobify.notification.service.NotificationService;
 import com.mcverse.jobify.user.model.Employer;
 import com.mcverse.jobify.user.model.Seeker;
+import com.mcverse.jobify.user.repository.EmployerRepository;
 import org.springframework.stereotype.Component;
 
-/** Turns application events into notifications: employers hear about new and withdrawn applications, seekers about stages. */
+import java.util.List;
+
+/**
+ * Turns application events into notifications: the employer team hears about new and withdrawn applications (every
+ * person in the job's company, each through their own notification settings), seekers about stages.
+ */
 @Component
 public class ApplicationNotifier {
 
     private final NotificationService notifications;
+    private final EmployerRepository employers;
 
-    public ApplicationNotifier(NotificationService notifications) {
+    public ApplicationNotifier(NotificationService notifications, EmployerRepository employers) {
         this.notifications = notifications;
+        this.employers = employers;
+    }
+
+    /** Everyone who works on the job: its poster and the poster's colleagues in the same company. */
+    private List<String> teamOf(Employer poster) {
+        if (poster.getCompany() == null) {
+            return List.of(poster.getUsername());
+        }
+        return employers.findAllByCompanyIdOrderByCreationDateAscIdAsc(poster.getCompany().getId()).stream()
+                .map(Employer::getUsername).toList();
     }
 
     /** A seeker applied (or applied again): tell the employer who owns the job. */
@@ -26,9 +43,11 @@ public class ApplicationNotifier {
         if (employer == null) {
             return;
         }
-        notifications.notify(employer.getUsername(), NotificationType.APPLICATION, "New application",
-                applicantName(application) + " applied for " + job.getJobTitle() + ".",
-                job.getPostId(), application.getId());
+        for (String member : teamOf(employer)) {
+            notifications.notify(member, NotificationType.APPLICATION, "New application",
+                    applicantName(application) + " applied for " + job.getJobTitle() + ".",
+                    job.getPostId(), application.getId());
+        }
     }
 
     /** The status changed: a withdrawal goes to the employer, every other change to the seeker. */
@@ -37,9 +56,11 @@ public class ApplicationNotifier {
         if (newStatus == ApplicationStatus.WITHDRAWN) {
             Employer employer = job.getEmployer();
             if (employer != null) {
-                notifications.notify(employer.getUsername(), NotificationType.APPLICATION, "Application withdrawn",
-                        applicantName(application) + " withdrew their application for " + job.getJobTitle() + ".",
-                        job.getPostId(), application.getId());
+                for (String member : teamOf(employer)) {
+                    notifications.notify(member, NotificationType.APPLICATION, "Application withdrawn",
+                            applicantName(application) + " withdrew their application for " + job.getJobTitle() + ".",
+                            job.getPostId(), application.getId());
+                }
             }
             return;
         }

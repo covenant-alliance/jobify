@@ -16,7 +16,9 @@ import com.mcverse.jobify.common.exception.ResourceNotFoundException;
 import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.job.repository.JobRepo;
 import com.mcverse.jobify.user.model.Employer;
+import com.mcverse.jobify.user.model.ActivityType;
 import com.mcverse.jobify.user.service.CompanyAccess;
+import com.mcverse.jobify.user.service.CompanyActivityService;
 import com.mcverse.jobify.user.model.Seeker;
 import com.mcverse.jobify.user.repository.SeekerRepository;
 import org.slf4j.Logger;
@@ -48,11 +50,14 @@ public class ApplicationService {
     private final AuditLog auditLog;
     private final ApplicationStatusChangeRepository historyRepo;
     private final CompanyAccess access;
+    private final CompanyActivityService activity;
 
     public ApplicationService(ApplicationRepository applicationRepo, JobRepo jobRepo, SeekerRepository seekerRepo,
                               Clock clock, ApplicationNotifier notifier, AuditLog auditLog,
-                              ApplicationStatusChangeRepository historyRepo, CompanyAccess access) {
+                              ApplicationStatusChangeRepository historyRepo, CompanyAccess access,
+                              CompanyActivityService activity) {
         this.access = access;
+        this.activity = activity;
         this.auditLog = auditLog;
         this.historyRepo = historyRepo;
         this.applicationRepo = applicationRepo;
@@ -152,6 +157,10 @@ public class ApplicationService {
                     "An application in " + current + " cannot move to " + target + ".");
         }
         updateStatus(application, target, username);
+        JobPost job = application.getJob();
+        activity.record(job.getEmployer() == null ? null : job.getEmployer().getCompany(), username,
+                ActivityType.APPLICATION_MOVED, username + " moved an application for \"" + job.getJobTitle()
+                        + "\" from " + current + " to " + target, job.getPostId(), application.getId());
         return toJobApplicationResponse(application);
     }
 

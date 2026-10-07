@@ -155,8 +155,7 @@ public class UserService {
             throw new BusinessRuleException("Employer already has a company. Update it instead.");
         }
         Company company = companyRepo.save(new Company(request.name()));
-        employer.setCompany(company);
-        employer.setCompanyRole(CompanyRole.OWNER);
+        employer.joinCompany(company, CompanyRole.OWNER);
         employerRepo.save(employer);
         return toCompanyResponse(company);
     }

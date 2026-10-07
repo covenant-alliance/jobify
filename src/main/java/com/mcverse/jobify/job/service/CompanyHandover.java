@@ -27,6 +27,15 @@ public class CompanyHandover {
     }
 
     /**
+     * Passes every job of {@code from} to {@code to}. A bulk update that detaches everything loaded so far, so call
+     * it last in a transaction and read what you still need beforehand.
+     */
+    @Transactional
+    public int passJobs(Employer from, Employer to) {
+        return jobs.reassign(from, to);
+    }
+
+    /**
      * If the person belongs to a company that other people also belong to, passes their jobs to one of those
      * colleagues (an owner if there is one) and makes sure the company still has an owner. Returns true when it did;
      * false means they are on their own and their jobs go with them.
