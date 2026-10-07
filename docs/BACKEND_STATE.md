@@ -31,7 +31,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 | Server-side search and paging | #13, sprint 3. **Proposal written, waiting for your answers** (section below). |
 | Dropping your random fallbacks for `location` / `workMode` / `employmentType` | #39, **Product Owner decision** pending: whether the API starts requiring all three on new jobs. Keep your fallbacks for now. |
 | Match %, recommended jobs, candidates | **Parked** as you asked (#12, icebox). Nothing will be built until it is scheduled. |
-| Employee role dashboard | #26 (P10), Product Owner decision pending. (Your note says "backlog P3"; the correct reference is P10 / #26.) |
+| Employee role dashboard | #26 (P10). **Decided 2026-10-07: the role is kept**: a person who connects to a company and manages its jobs and activity (company teams, stories #71 to #74). Not built yet; keep the mock until it ships. |
 
 **Correction to issue numbers in your "Requests to the back end" list:** admin users and stats is issue **#15** (it says #16), and employer stats is **#16**. The other numbers in your list are right (#9 applications, #10 saved jobs, #12 match score, #13 search, #14 notifications).
 
