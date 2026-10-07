@@ -72,6 +72,6 @@ Ordered by priority. **B** = bug or security, **P** = product feature, **T** = t
 
 **T6. ✅ API docs (#21, done in sprint 2: all routes documented; OpenAPI JSON checked by a test).** Bring `api-documentation.md` up to date (account, CMS, seeker profile, job fields, admin) or generate it from `/v3/api-docs`. Point the front-end session at the OpenAPI JSON.
 
-**T7. Dependencies.** *(DONE 2026-10-06, issue #22: Spring Boot 4.0.8 GA, springdoc 3.0.3, Dependabot added. Not done: an OWASP dependency-check job; Boot 4.1 is a separate upgrade.)*
+**T7. Dependencies.** *(DONE 2026-10-06, issue #22: Spring Boot 4.0.8 GA, springdoc 3.0.3, Dependabot added. Not done: an OWASP dependency-check job (epic T9 #77, stories #78 to #86; manual local run guide: `docs/DEPENDENCY_SCAN.md`, then CI); Boot 4.1 is a separate upgrade.)*
 
 **T8. ✅ Cleanup (#23, done in sprint 3: login/register rate limit, failed-login lock, password policy, security event logging).** Also consider a rate limit on `/auth/**` and password rules (front end currently enforces none beyond non-empty).
