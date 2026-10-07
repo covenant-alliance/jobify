@@ -38,6 +38,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
+- [ ] **Company teams (#26, stories #72 to #74):** replace the mock "Employee Preview" with the real thing. (1) Company page for owners: members list (`GET /companies/{id}/members`), invite form (`POST /companies/{id}/invitations` with a username), pending invitations with cancel, remove member, change role. (2) For any employer: `GET /invitations/me` (show a badge or banner when not empty, with accept and decline), "Leave company" (`DELETE /companies/me/membership`), and show the role from `GET /users/employers/me` (`companyRole`); hide owner-only controls from managers. (3) Dashboard: use `GET /companies/{id}/stats` (or `/employers/me/stats`, same numbers) and render the activity feed from `GET /companies/{id}/activity` (summaries are plain text). (4) Notifications: team events arrive with type `SYSTEM`.
 - [ ] **Optional, preferences (#25):** load `GET /users/me/preferences` after sign-in and use it instead of `localStorage` for the notification toggles and the accent colour; on a toggle change send `PUT /users/me/preferences` with only that toggle (`{"notifications":{"APPLICATION":false}}`); show `ACCOUNT` as always on. Migrate: on first load, if the server has the defaults and `localStorage` has values, PUT them once. Nothing breaks until you switch.
 - [ ] **Optional, location facet (#37):** replace the facet built from the free-text `location` strings with `GET /jobs/locations` (show `name` and `jobs`; for a type-ahead send `q`), and filter jobs with `GET /jobs/search?locationId=<id>` (repeat for several). Keep showing `job.location` as written on a job's own page. Nothing breaks until you switch.
 - [ ] **Responsibilities and requirements (#36):** add two list inputs to the Post-a-Job form (and the edit form) and send `responsibilities: string[]` and `requirements: string[]` in `POST /jobs` / `PUT /jobs/{id}` (max 20 items of 300 characters each). On the job page render `job.responsibilities` / `job.requirements` when they are not empty and keep the sentence-splitting heuristic only for jobs where both are empty. Until you send them nothing changes: an edit that omits the fields keeps what is saved.
@@ -61,6 +62,29 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 6 — company teams, part 2: invitations, members, dashboard, activity feed, team notifications (#72, #73, #74, epic #26) — 2026-10-07
+
+**All additive; nothing existing breaks.** With these, the "employee" the Product Owner described works end to end: an employer account connects to a company and manages its jobs and activity. Full route list, bodies and messages are in `api-documentation.md` ("Company teams").
+
+**Connecting (#72).**
+- The owner invites an existing employer account by username (`POST /companies/{id}/invitations`, 14 days). The invited person sees it in `GET /invitations/me` and answers with `POST /invitations/{id}/accept` or `/decline`. Accepting makes them a `MANAGER` and cancels their other pending invitations. The owner can list and cancel pending ones.
+- `GET /companies/{id}/members` (any member), `DELETE /companies/{id}/members/{username}` (owner removes), `DELETE /companies/me/membership` (leave), and **`PUT /companies/{id}/members/{username}/role`** (owner promotes or demotes: not in the issue, but without it a sole owner could never leave). A company always keeps an owner; the only owner cannot leave (`422`, with the message telling them what to do).
+- A person belongs to one company at a time. Seekers cannot be invited; an unknown name and a seeker's name give the same `422` (`No employer account is named 'x'.`).
+- Removed or leaving people: the jobs they posted stay with the company.
+- Employer profile: the front end can now also read when someone joined (`joinedAt` on members).
+
+**Dashboard and feed (#73).**
+- `GET /companies/{id}/stats`: the same shape as `GET /employers/me/stats`, across all the company's jobs (members only). `GET /employers/me/stats` already covered the whole company since #71 and still works.
+- `GET /companies/{id}/activity?limit=`: who did what, newest first (jobs posted, edited, closed, reopened; applications moved with from and to; people invited, joined, left, removed; roles changed). `actor` is a username, `summary` a plain sentence.
+
+**Notifications (#74).**
+- A new or withdrawn application notifies **every member of the company**, each respecting their own toggles (#25). Team events (invited, joined, declined, left, removed, role changed) notify the people concerned, with type **`SYSTEM`** (no new notification type, so your icon mapping needs no change). Because users can switch `SYSTEM` off in preferences, invitations are also listed at `GET /invitations/me`: show that list somewhere permanent (for example the company page) and not only through the bell.
+
+**Database:** `employers.company_joined_at`, tables `company_invitations` and `company_activity` (Flyway `V11`). Accounts that are deleted lose their invitations.
+
+**What the front end now needs for the "Employee" experience** (all optional, nothing breaks until then): see "Open requests for the front end". The "Employee Preview" mock can be replaced by the real company dashboard.
+- Issues: #72, #73, #74 (epic #26).
 
 ### Sprint 6 — company teams, part 1: roles in a company and one access check (#71, epic #26) — 2026-10-07
 

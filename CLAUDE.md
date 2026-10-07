@@ -12,8 +12,8 @@ You are the **back-end session** for Jobify, a job-marketplace platform. The Nex
 ## Layout
 - This directory (`jobify/jobify/`) is the git root and Maven project. Branch `master`, remote `origin`. The parent dir is not a repo.
 - Front end: `../frontjobfy/` (separate git repo, branch `master`). Read it freely. **Do not edit it** from this session; put required front-end changes in `docs/BACKEND_STATE.md` under "Open requests for the front end".
-- Base package `com.mcverse.jobify`, feature-sliced: `auth/ job/ user/ account/ admin/ cms/ common/ config/`. Inside a slice: `controller service repository dto model`.
-- Every entity and enum lives in its feature slice (there is no top-level `model/` any more): `job/model` (`JobPost`, `WorkMode`, `RateType`, `SavedJob`), `user/model` (`Skill`, `ProficiencyLevel`, profile entities), `common/model` for what both `job` and `user` use (`EmploymentType`). Dependencies point `application -> job -> user -> common`; put a type in `common/model` only if putting it in either slice would create a cycle.
+- Base package `com.mcverse.jobify`, feature-sliced: `auth/ job/ user/ account/ admin/ cms/ common/ config/ application/ notification/ preference/ company/`. Inside a slice: `controller service repository dto model`.
+- Every entity and enum lives in its feature slice (there is no top-level `model/` any more): `job/model` (`JobPost`, `WorkMode`, `RateType`, `SavedJob`), `user/model` (`Skill`, `ProficiencyLevel`, profile entities), `common/model` for what both `job` and `user` use (`EmploymentType`). Dependencies point `company -> application -> job -> user -> common` (`notification` asks `NotificationGate` implemented by `preference`, so it depends on neither); put a type in `common/model` only if putting it in either slice would create a cycle.
 
 ## Stack (actual, not aspirational)
 Spring Boot **4.0.8** (GA), Java 21, Spring Security with hand-rolled **JWT HS256** (jjwt 0.12.6, `auth/security`), Spring Data JPA, springdoc 3.0.3. Port **9080**. Swagger: `/swagger-ui/index.html`.

@@ -8,7 +8,9 @@ import com.mcverse.jobify.job.dto.JobPostResponse;
 import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.job.repository.JobRepo;
 import com.mcverse.jobify.user.model.Employer;
+import com.mcverse.jobify.user.model.ActivityType;
 import com.mcverse.jobify.user.service.CompanyAccess;
+import com.mcverse.jobify.user.service.CompanyActivityService;
 import com.mcverse.jobify.user.model.Skill;
 import com.mcverse.jobify.user.repository.EmployerRepository;
 import com.mcverse.jobify.user.repository.SkillRepository;
@@ -49,6 +51,9 @@ public class JobService {
     @Autowired
     private CompanyAccess access;
 
+    @Autowired
+    private CompanyActivityService activity;
+
     @Transactional(readOnly = true)
     public List<JobPostResponse> getJobs(Boolean available) {
         List<JobPost> posts = (available != null)
@@ -78,7 +83,10 @@ public class JobService {
                 request.rate(), request.rateType());
         job.setEmployer(employer);
         applyEditableFields(job, request);
-        return mapper.toResponse(repo.save(job));
+        JobPost saved = repo.save(job);
+        activity.record(employer.getCompany(), employerUsername, ActivityType.JOB_POSTED,
+                employerUsername + " posted \"" + saved.getJobTitle() + "\"", saved.getPostId(), null);
+        return mapper.toResponse(saved);
     }
 
     @Transactional
@@ -88,13 +96,22 @@ public class JobService {
         job.setJobDescription(htmlSanitizer.sanitize(request.jobDescription()));
         job.setCompensation(request.rate(), request.rateType());
         applyEditableFields(job, request);
+        activity.record(job.getEmployer().getCompany(), username, ActivityType.JOB_EDITED,
+                username + " edited \"" + job.getJobTitle() + "\"", job.getPostId(), null);
         return mapper.toResponse(repo.save(job));
     }
 
     @Transactional
     public JobPostResponse updateAvailability(Integer id, boolean available, String username) {
         JobPost job = findOwnedJob(id, username);
+        boolean changed = job.isAvailable() != available;
         job.setAvailable(available);
+        if (changed) {
+            activity.record(job.getEmployer().getCompany(), username,
+                    available ? ActivityType.JOB_REOPENED : ActivityType.JOB_CLOSED,
+                    username + (available ? " reopened \"" : " closed \"") + job.getJobTitle() + "\"",
+                    job.getPostId(), null);
+        }
         return mapper.toResponse(repo.save(job));
     }
 
