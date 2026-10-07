@@ -33,6 +33,7 @@ public class AdminAccountService {
     @Autowired private SavedJobRepository savedJobRepo;
     @Autowired private NotificationService notifications;
     @Autowired private AuditLog auditLog;
+    @Autowired private com.mcverse.jobify.job.service.CompanyHandover companyHandover;
     @Autowired private com.mcverse.jobify.preference.service.PreferenceService preferences;
     @Autowired private com.mcverse.jobify.job.service.JobImageService jobImages;
     @Autowired private com.mcverse.jobify.user.service.CompanyLogoService companyLogos;
@@ -54,10 +55,13 @@ public class AdminAccountService {
                 seekerRepo.findByUsername(request.getUsername()).ifPresent(seekerRepo::delete);
             }
             case EMPLOYER -> {
-                applicationRepo.deleteByJobEmployerUsername(request.getUsername());
-                savedJobRepo.deleteByJobEmployerUsername(request.getUsername());
-                jobImages.deleteFilesOfEmployer(request.getUsername());
-                companyLogos.dropLogoOfEmployer(request.getUsername());
+                // a company with other people keeps its jobs, applications and logo: they pass to a colleague
+                if (!companyHandover.handOverToColleague(request.getUsername())) {
+                    applicationRepo.deleteByJobEmployerUsername(request.getUsername());
+                    savedJobRepo.deleteByJobEmployerUsername(request.getUsername());
+                    jobImages.deleteFilesOfEmployer(request.getUsername());
+                    companyLogos.dropLogoOfEmployer(request.getUsername());
+                }
                 employerRepo.findByUsername(request.getUsername()).ifPresent(employerRepo::delete);
             }
             case ADMIN -> { /* no domain profile to remove */ }

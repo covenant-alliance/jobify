@@ -16,6 +16,7 @@ import com.mcverse.jobify.common.exception.ResourceNotFoundException;
 import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.job.repository.JobRepo;
 import com.mcverse.jobify.user.model.Employer;
+import com.mcverse.jobify.user.service.CompanyAccess;
 import com.mcverse.jobify.user.model.Seeker;
 import com.mcverse.jobify.user.repository.SeekerRepository;
 import org.slf4j.Logger;
@@ -46,10 +47,12 @@ public class ApplicationService {
     private final ApplicationNotifier notifier;
     private final AuditLog auditLog;
     private final ApplicationStatusChangeRepository historyRepo;
+    private final CompanyAccess access;
 
     public ApplicationService(ApplicationRepository applicationRepo, JobRepo jobRepo, SeekerRepository seekerRepo,
                               Clock clock, ApplicationNotifier notifier, AuditLog auditLog,
-                              ApplicationStatusChangeRepository historyRepo) {
+                              ApplicationStatusChangeRepository historyRepo, CompanyAccess access) {
+        this.access = access;
         this.auditLog = auditLog;
         this.historyRepo = historyRepo;
         this.applicationRepo = applicationRepo;
@@ -171,7 +174,7 @@ public class ApplicationService {
 
     private void requireJobOwner(JobPost job, String username, String action, Integer jobId) {
         Employer owner = job.getEmployer();
-        if (owner == null || !owner.getUsername().equals(username)) {
+        if (!access.canManageDataOf(username, owner)) {
             log.warn("Denied: user '{}' tried to {} job {} owned by '{}'", username, action, jobId,
                     owner == null ? "nobody" : owner.getUsername());
             auditLog.event(username, "ACCESS_DENIED", "action='" + action + "' job=" + jobId + " owner="

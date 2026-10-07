@@ -62,6 +62,18 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 
 ## Change log (newest first)
 
+### Sprint 6 — company teams, part 1: roles in a company and one access check (#71, epic #26) — 2026-10-07
+
+**Additive; nothing changes for a company of one.** The groundwork for several people per company. You cannot put a second person into a company yet (invitations are #72), so this is not visible in the app until then.
+
+- **New field `companyRole: "OWNER" | "MANAGER" | null` on `EmployerResponse`** (`GET /users/employers/me`, `GET /users/employers/{id}`). `null` when the employer has no company. Everyone who already has a company is `OWNER`; whoever creates one becomes its owner.
+- **Permissions:** a job (and its images, applicants, status moves and statistics) can be managed by the person who posted it **and by everyone in the same company**. `GET /jobs/mine` and `GET /employers/me/stats` now cover the whole company. Someone outside the company gets the same `403` messages as before.
+- **`MANAGER` cannot change the company**: name (`PUT /users/companies/{id}`), logo upload and removal answer `403` with `Only the company owner can do that.` Show those controls to owners only.
+- **Leaving:** when an account is deleted and colleagues remain, the person's jobs, their applications and the logo **stay with the company** (the jobs pass to an owner; if no owner is left, to the longest-serving colleague, who becomes owner). A person alone in their company takes their jobs with them, as before.
+- Database: `employers.company_role` (Flyway `V10`; existing employers with a company are set to `OWNER`, also by a harmless startup backfill). Deviation from the issue text: no separate `company_members` table. A user belongs to one company at a time, so the role lives on the existing employer-to-company link; a table can come with #72 if multiple companies per user is ever wanted.
+- Not done here: `GET /companies/me` (the role is on `/users/employers/me`), the activity feed (#73), team notifications (#74): new-application notices still go to the poster only.
+- Issue: #71.
+
 ### Sprint 6 — user preferences: notification toggles and accent colour (#25, P9) — 2026-10-07
 
 **New routes, additive: nothing existing changes.** Any signed-in user (seeker, employer or admin), own settings only.

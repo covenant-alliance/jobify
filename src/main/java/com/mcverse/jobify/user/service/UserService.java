@@ -7,6 +7,7 @@ import com.mcverse.jobify.common.storage.FileStorageService;
 import com.mcverse.jobify.user.dto.*;
 import com.mcverse.jobify.user.model.Certification;
 import com.mcverse.jobify.user.model.Company;
+import com.mcverse.jobify.user.model.CompanyRole;
 import com.mcverse.jobify.user.model.Cv;
 import com.mcverse.jobify.user.model.Education;
 import com.mcverse.jobify.user.model.Employer;
@@ -38,6 +39,7 @@ public class UserService {
 
     @Autowired private SeekerRepository seekerRepo;
     @Autowired private EmployerRepository employerRepo;
+    @Autowired private CompanyAccess access;
     @Autowired private CompanyRepository companyRepo;
     @Autowired private FileStorageService fileStorageService;
     @Autowired private EducationRepository educationRepo;
@@ -154,6 +156,7 @@ public class UserService {
         }
         Company company = companyRepo.save(new Company(request.name()));
         employer.setCompany(company);
+        employer.setCompanyRole(CompanyRole.OWNER);
         employerRepo.save(employer);
         return toCompanyResponse(company);
     }
@@ -166,6 +169,7 @@ public class UserService {
         if (company == null || !company.getId().equals(companyId)) {
             throw new BusinessRuleException("You do not own this company.");
         }
+        access.requireOwner(username, employer);
         company.setName(request.name());
         return toCompanyResponse(companyRepo.save(company));
     }
@@ -356,7 +360,7 @@ public class UserService {
     private EmployerResponse toEmployerResponse(Employer e) {
         CompanyResponse company = e.getCompany() != null ? toCompanyResponse(e.getCompany()) : null;
         return new EmployerResponse(e.getId(), e.getUsername(), e.getName(), e.getLastName(),
-                e.getCreationDate(), company);
+                e.getCreationDate(), company, e.getCompanyRole());
     }
 
     private CompanyResponse toCompanyResponse(Company c) {
