@@ -8,6 +8,7 @@ import com.mcverse.jobify.job.dto.JobPostResponse;
 import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.job.repository.JobRepo;
 import com.mcverse.jobify.user.model.Employer;
+import com.mcverse.jobify.user.service.CompanyAccess;
 import com.mcverse.jobify.user.model.Skill;
 import com.mcverse.jobify.user.repository.EmployerRepository;
 import com.mcverse.jobify.user.repository.SkillRepository;
@@ -45,6 +46,9 @@ public class JobService {
     @Autowired
     private LocationService locations;
 
+    @Autowired
+    private CompanyAccess access;
+
     @Transactional(readOnly = true)
     public List<JobPostResponse> getJobs(Boolean available) {
         List<JobPost> posts = (available != null)
@@ -57,7 +61,7 @@ public class JobService {
     @Transactional(readOnly = true)
     public List<JobPostResponse> getJobsOwnedBy(String employerUsername) {
         requireEmployer(employerUsername, "view your job postings");
-        return repo.findAllByEmployerUsername(employerUsername).stream().map(mapper::toResponse).toList();
+        return repo.findAllManagedBy(employerUsername).stream().map(mapper::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -124,7 +128,7 @@ public class JobService {
         JobPost job = repo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("JobPost", id.toString()));
         Employer owner = job.getEmployer();
-        if (owner == null || !owner.getUsername().equals(username)) {
+        if (!access.canManageDataOf(username, owner)) {
             log.warn("Denied: user '{}' tried to modify job {} owned by '{}'", username, id,
                     owner == null ? "nobody" : owner.getUsername());
             auditLog.event(username, "ACCESS_DENIED", "action='modify job' job=" + id + " owner="

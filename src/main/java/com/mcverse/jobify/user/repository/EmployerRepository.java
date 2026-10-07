@@ -13,5 +13,11 @@ public interface EmployerRepository extends JpaRepository<Employer, String> {
 
     List<Employer> findAllByUsernameIn(Collection<String> usernames);
 
+    /** Everyone connected to a company, oldest account first. */
+    List<Employer> findAllByCompanyIdOrderByCreationDateAscIdAsc(String companyId);
+
+    /** Employers whose role was never written down (they predate company roles). */
+    List<Employer> findAllByCompanyIsNotNullAndCompanyRoleIsNull();
+
     long countByCreationDateGreaterThanEqual(LocalDateTime since);
 }

@@ -26,9 +26,11 @@ public class CompanyLogoService {
     private final EmployerRepository employers;
     private final FileStorageService storage;
     private final AuditLog auditLog;
+    private final CompanyAccess access;
 
     public CompanyLogoService(CompanyRepository companies, EmployerRepository employers, FileStorageService storage,
-                              AuditLog auditLog) {
+                              AuditLog auditLog, CompanyAccess access) {
+        this.access = access;
         this.companies = companies;
         this.employers = employers;
         this.storage = storage;
@@ -92,6 +94,7 @@ public class CompanyLogoService {
             auditLog.event(username, "ACCESS_DENIED", "action='change company logo' company=" + companyId);
             throw new LicenseValidationException("You can only change the logo of your own company.");
         }
+        access.requireOwner(username, employer);
         return company;
     }
 

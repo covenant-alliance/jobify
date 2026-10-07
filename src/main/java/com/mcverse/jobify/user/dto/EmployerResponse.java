@@ -1,5 +1,6 @@
 package com.mcverse.jobify.user.dto;
 
+import com.mcverse.jobify.user.model.CompanyRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
@@ -22,5 +23,10 @@ public record EmployerResponse(
         LocalDateTime creationDate,
 
         @Schema(description = "Linked company — null if no company has been created yet", nullable = true)
-        CompanyResponse company
+        CompanyResponse company,
+
+        @Schema(description = "This person's role in the company: OWNER (also edits the company, its logo and team) "
+                + "or MANAGER (manages its jobs, applications and statistics); null when there is no company",
+                nullable = true)
+        CompanyRole companyRole
 ) {}

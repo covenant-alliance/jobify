@@ -255,7 +255,7 @@ Errors: `400` with the standard envelope (for example `size must be between 1 an
 
 ### `GET /jobs/mine`
 
-**EMPLOYER only.** Every post owned by the caller, open and closed. Response `200`: array of `JobPostResponse`.
+**EMPLOYER only.** Every post the caller posted **and every post of the other people in their company**, open and closed. Response `200`: array of `JobPostResponse`.
 
 | Status | When |
 |---|---|
@@ -388,7 +388,7 @@ Deleting an account (admin-approved) also deletes its saved jobs, and bookmarks 
 
 ### `GET /employers/me/stats`
 
-Employer only, own jobs only (a seeker or admin gets `403` `Only employers have job statistics.`). For the company dashboard.
+Employer only; covers the caller's jobs **and those of everyone in their company** (a seeker or admin gets `403` `Only employers have job statistics.`). For the company dashboard.
 
 ```json
 {
@@ -424,6 +424,22 @@ Employer only, own jobs only (a seeker or admin gets `403` `Only employers have 
 **History and older data.** Every status change (apply, employer stage move, withdraw, re-apply) is recorded from #53 on. Applications that existed before that were given a minimal history at startup: created as `APPLIED`, and, if they had moved on, one step from `APPLIED` to their current status. For those, the stages in between and the stage a rejected or withdrawn application left from are unknown, so they count only for what is known (a rejected one counts for `APPLIED`) and contribute durations only for the time from creation to their last update. Applications from now on are exact.
 
 Job **views** are not tracked, so they are not included (open question in issue #16).
+
+---
+
+## Company teams (roles inside a company, since #71)
+
+An `EMPLOYER` account can belong to a company; `companyRole` on `GET /users/employers/me` says how:
+
+| Role | May do |
+|---|---|
+| `OWNER` | everything a manager can, plus change the company's name (`PUT /users/companies/{id}`) and logo, and (with #72) its team. Whoever creates a company is its owner. |
+| `MANAGER` | create, edit, close and add pictures to the company's jobs; list applicants, move applications; read statistics. Not the company name, logo or team: `403` `Only the company owner can do that.` |
+
+- A job can be managed by the person who posted it and by everyone in the same company. An employer without a company is a company of one: nothing changes for them. Someone outside the company still gets the usual `403`.
+- `GET /jobs/mine` and `GET /employers/me/stats` cover the whole company's jobs. `employerUsername` on a job is still the person who posted it.
+- When a person's account is deleted (admin approves) and colleagues remain, **their jobs, applications and the logo stay with the company**: the jobs pass to an owner (or, if none is left, to the longest-serving colleague, who becomes owner). A person alone in their company takes their jobs with them, as before.
+- There is no way yet to put a second person in a company: invitations are #72.
 
 ---
 
@@ -1079,6 +1095,7 @@ interface EmployerResponse {
   lastName: string;
   creationDate: string;     // ISO-8601
   company: CompanyResponse | null;
+  companyRole: "OWNER" | "MANAGER" | null;   // null without a company (since #71)
 }
 ```
 

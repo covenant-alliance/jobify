@@ -23,6 +23,18 @@ public interface ApplicationStatusChangeRepository extends JpaRepository<Applica
             """)
     List<Row> findRowsByEmployer(String employerUsername);
 
+    /** Same, for every job the person or anyone in their company posted. */
+    @Query("""
+            select new com.mcverse.jobify.application.repository.ApplicationStatusChangeRepository$Row(
+                       c.application.id, c.fromStatus, c.toStatus, c.changedAt)
+            from ApplicationStatusChange c
+            where c.application.job.employer.username = :username
+               or exists (select 1 from Employer me where me.username = :username
+                          and me.company is not null and me.company = c.application.job.employer.company)
+            order by c.changedAt, c.id
+            """)
+    List<Row> findRowsManagedBy(@org.springframework.data.repository.query.Param("username") String username);
+
     long countByApplicationId(String applicationId);
 
     List<ApplicationStatusChange> findAllByApplicationIdOrderByChangedAtAscIdAsc(String applicationId);

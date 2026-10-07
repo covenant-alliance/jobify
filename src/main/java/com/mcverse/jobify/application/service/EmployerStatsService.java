@@ -40,14 +40,14 @@ public class EmployerStatsService {
         this.clock = clock;
     }
 
-    /** Numbers for the employer's own jobs only: per job, per status and per week. */
+    /** Numbers for the employer's jobs and those of their company's other members: per job, per status and per week. */
     @Transactional(readOnly = true)
     public EmployerStatsResponse statsFor(String username) {
         if (employerRepo.findByUsername(username).isEmpty()) {
             throw new LicenseValidationException("Only employers have job statistics.");
         }
-        List<JobPost> jobs = jobRepo.findAllByEmployerUsername(username);
-        List<Application> applications = applicationRepo.findAllByJobEmployerUsername(username);
+        List<JobPost> jobs = jobRepo.findAllManagedBy(username);
+        List<Application> applications = applicationRepo.findAllManagedBy(username);
         // Timestamps are stored in the server's local zone, so "today" must be read in the same zone.
         LocalDate today = LocalDate.now(clock.withZone(ZoneId.systemDefault()));
 
@@ -62,7 +62,7 @@ public class EmployerStatsService {
 
         // every application's recorded history, grouped by application, then assembled per job and overall
         Map<String, List<ApplicationFunnelCalculator.Change>> changesByApplication = new HashMap<>();
-        for (ApplicationStatusChangeRepository.Row row : historyRepo.findRowsByEmployer(username)) {
+        for (ApplicationStatusChangeRepository.Row row : historyRepo.findRowsManagedBy(username)) {
             changesByApplication.computeIfAbsent(row.applicationId(), id -> new ArrayList<>())
                     .add(new ApplicationFunnelCalculator.Change(row.from(), row.to(), row.at()));
         }
