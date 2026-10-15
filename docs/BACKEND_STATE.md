@@ -38,6 +38,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
+- [ ] **Refresh tokens (#95):** store `refreshToken` from login/register, and add the refresh step to the axios interceptor as described in the 2026-10-15 refresh-token entry (one shared refresh call, store both new tokens, repeat the failed request, sign out if refresh answers 401); call `/auth/logout` when the user signs out. Tell me when it is live and I switch the access token to 15 minutes. Nothing breaks until then.
 - [ ] **Optional, new in 2026-10-15:** experience level on the Post-a-Job form and in search (`experienceLevel`), a country facet (`/jobs/locations/countries`, `countryCode`), and on the admin users table an `enabled` badge with disable, enable and delete actions (`/admin/users/{username}/disable|enable`, `DELETE /admin/users/{username}?reason=`). Plain 404 wording: if you match on the old message text, update it. Nothing breaks until then.
 - [x] *(DONE by you, per your 2026-10-07 update; invitations between two accounts and image/logo uploads not yet clicked through in a browser)* **Company teams (#26, stories #72 to #74):** replace the mock "Employee Preview" with the real thing. (1) Company page for owners: members list (`GET /companies/{id}/members`), invite form (`POST /companies/{id}/invitations` with a username), pending invitations with cancel, remove member, change role. (2) For any employer: `GET /invitations/me` (show a badge or banner when not empty, with accept and decline), "Leave company" (`DELETE /companies/me/membership`), and show the role from `GET /users/employers/me` (`companyRole`); hide owner-only controls from managers. (3) Dashboard: use `GET /companies/{id}/stats` (or `/employers/me/stats`, same numbers) and render the activity feed from `GET /companies/{id}/activity` (summaries are plain text). (4) Notifications: team events arrive with type `SYSTEM`.
 - [x] *(DONE by you, per your 2026-10-07 update; invitations between two accounts and image/logo uploads not yet clicked through in a browser)* **Optional, preferences (#25):** load `GET /users/me/preferences` after sign-in and use it instead of `localStorage` for the notification toggles and the accent colour; on a toggle change send `PUT /users/me/preferences` with only that toggle (`{"notifications":{"APPLICATION":false}}`); show `ACCOUNT` as always on. Migrate: on first load, if the server has the defaults and `localStorage` has values, PUT them once. Nothing breaks until you switch.
@@ -63,6 +64,19 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 7 — refresh tokens (#95, B7b) — 2026-10-15
+
+**Additive: nothing you call today changes.** The access token works exactly as before and still lasts 24 hours for now.
+
+- `POST /auth/login` and `POST /auth/register` now also return **`refreshToken`** and **`refreshExpiresIn`** (30 days, milliseconds). Store the refresh token next to the access token (it is as sensitive as a password).
+- **`POST /auth/refresh`** `{ "refreshToken": "..." }` returns a `TokenResponse` with a **new access token and a new refresh token**; the old refresh token stops working, so always store the new one. `401` `Your session has expired or is not valid. Please sign in again.` means sign in again (clear everything). `/auth/*` 401s do not log the user out in your interceptor, so you handle this one yourself.
+- **`POST /auth/logout`** `{ "refreshToken" }` ends that sign-in (`204` always). **`POST /auth/logout-all`** (Bearer) ends every sign-in of the person.
+- **Reuse protection:** using the same refresh token a second time within 10 seconds is accepted (two tabs, a double click). Later reuse is treated as theft and ends the whole sign-in. So with several tabs, refresh in one place (for example under a lock in `localStorage`) and share the result.
+- **Ends refresh tokens:** sign out, sign out everywhere, password change (all sign-ins), an administrator disabling the account, deleting the account, 30 days unused.
+- **Shortening the access token (a later switch, together):** once you refresh, the back end sets `JWT_EXPIRATION=900000` (15 minutes). Until you tell me you are ready, it stays at 24 hours, so nothing signs your users out early. When ready, your interceptor should: on a `401` from a normal route, call `/auth/refresh` once (all requests that fail meanwhile wait for the same call), store both new tokens, repeat the original request, and if refresh itself answers `401`, clear the session and show the sign-in screen. Also refresh shortly before `expiresIn` runs out so users rarely see a `401` at all.
+- Database: table `refresh_tokens` (Flyway `V13`, hashes only). Settings: `JWT_REFRESH_EXPIRATION_DAYS`, `JWT_REFRESH_GRACE_SECONDS` (docs/DEPLOYMENT.md). `/auth/refresh` shares the per-address rate limit of login.
+- Issue: #95.
 
 ### Sprint 7 — the rest of the backlog: experience level, countries, admin moderation, notification clean-up, friendlier 404s — 2026-10-15
 

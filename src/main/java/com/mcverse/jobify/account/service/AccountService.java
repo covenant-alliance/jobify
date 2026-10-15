@@ -34,6 +34,7 @@ public class AccountService {
     @Autowired private PasswordPolicy passwordPolicy;
     @Autowired private NotificationService notifications;
     @Autowired private AuditLog auditLog;
+    @Autowired private com.mcverse.jobify.auth.service.RefreshTokenService refreshTokens;
 
     @Transactional
     public void changePassword(String username, ChangePasswordRequest request) {
@@ -47,6 +48,7 @@ public class AccountService {
         passwordPolicy.validateChange(username, request.currentPassword(), request.newPassword());
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         authUserRepository.save(user);
+        refreshTokens.revokeAll(username); // every other sign-in must use the new password
         log.info("Password changed for '{}'", username);
         auditLog.event(username, "PASSWORD_CHANGED", "");
         notifications.notify(username, NotificationType.ACCOUNT, "Your password was changed",

@@ -145,6 +145,12 @@ public class GlobalExceptionHandler {
         return ApiResponse.error("File is too large.", HttpStatus.UNPROCESSABLE_ENTITY.value());
     }
 
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Void> handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
+        return ApiResponse.error(ex.getMessage(), HttpStatus.UNAUTHORIZED.value());
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ApiResponse<Void> handleBadCredentials(BadCredentialsException ex) {

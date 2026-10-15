@@ -58,6 +58,9 @@ logger (`action=BOOTSTRAP_ADMIN_CREATED`). Change the password from the app afte
 | `TRUST_FORWARDED_FOR` | `false` | `true` only behind a proxy you control that overwrites `X-Forwarded-For` |
 | `APP_DOCS_ENABLED` | `false` | `true` makes Swagger UI and `/v3/api-docs` public |
 | `LOG_FORMAT` | `logstash` | JSON log format on stdout: `logstash`, `ecs` or `gelf` (profile `postgres` only; `dev` logs plain text) |
+| `JWT_EXPIRATION` | `86400000` (24 h) | access token lifetime in milliseconds. Set `900000` (15 minutes) **once the front end refreshes tokens** |
+| `JWT_REFRESH_EXPIRATION_DAYS` | `30` | how long a refresh token lives without being used (it is replaced on every use) |
+| `JWT_REFRESH_GRACE_SECONDS` | `10` | a used refresh token presented again within this many seconds is a double click, not theft |
 | `BOOTSTRAP_ADMIN_USERNAME` / `_PASSWORD` | empty | first admin, see above |
 | `APP_NOTIFICATIONS_READ_RETENTION_DAYS` | `90` | read notifications older than this are deleted every night (0 = never) |
 | `APP_NOTIFICATIONS_RETENTION_DAYS` | `365` | any notification older than this is deleted (0 = never) |
@@ -206,7 +209,7 @@ Locally: `TEST_DB_URL=jdbc:postgresql://localhost:5432/jobify_test TEST_DB_USER=
 - [ ] `curl localhost:9080/actuator/health` returns `UP`; `curl -i localhost:9080/swagger-ui/index.html` is **not** 200.
 - [ ] Log in with the bootstrap admin; the demo accounts (`alice_s` ...) do **not** exist.
 - [ ] Upload a resume as a seeker, then `docker compose down && docker compose up -d`: the resume and the data survive.
-- [ ] `docker compose exec db psql -U jobify -d jobify -c '\dt'` lists 31 tables (30 + `flyway_schema_history`).
+- [ ] `docker compose exec db psql -U jobify -d jobify -c '\dt'` lists 32 tables (31 + `flyway_schema_history`).
 - [ ] If the `postgres:18` volume layout differs from what the compose file assumes (the cluster must be under
       `/var/lib/postgresql/18/...` inside the volume), adjust the mount; the PostgreSQL image's own documentation
       for version 18 is the reference.

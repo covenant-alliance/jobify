@@ -33,6 +33,7 @@ public class AdminAccountService {
     @Autowired private SavedJobRepository savedJobRepo;
     @Autowired private NotificationService notifications;
     @Autowired private AuditLog auditLog;
+    @Autowired private com.mcverse.jobify.auth.service.RefreshTokenService refreshTokens;
     @Autowired private com.mcverse.jobify.company.repository.CompanyInvitationRepository invitations;
     @Autowired private com.mcverse.jobify.job.service.CompanyHandover companyHandover;
     @Autowired private com.mcverse.jobify.preference.service.PreferenceService preferences;
@@ -85,6 +86,7 @@ public class AdminAccountService {
         notifications.deleteAllFor(username);
         invitations.deleteByInviteeUsername(username);
         preferences.deleteFor(username);
+        refreshTokens.deleteAll(username);
         authUserRepository.findByUsername(username).ifPresent(authUserRepository::delete);
     }
 

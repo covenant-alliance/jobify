@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/jobs/*/images/*", "/jobs/locations/countries").permitAll()
                         .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/content").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/logout-all").authenticated()
                         .requestMatchers("/auth/**", "/actuator/health").permitAll()
                         .requestMatchers(optionalPublicPaths()).permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")

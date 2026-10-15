@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 
-/** Limits how often one client address may call login and register, whatever the credentials are. */
+/** Limits how often one client address may call login, register and refresh, whatever the credentials are. */
 @Component
 public class AuthRateLimitFilter extends OncePerRequestFilter {
 
@@ -41,7 +41,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
         return !"POST".equals(request.getMethod())
-                || !("/auth/login".equals(path) || "/auth/register".equals(path));
+                || !("/auth/login".equals(path) || "/auth/register".equals(path) || "/auth/refresh".equals(path));
     }
 
     @Override

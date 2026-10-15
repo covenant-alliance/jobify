@@ -6,6 +6,7 @@ import com.mcverse.jobify.application.repository.ApplicationRepository;
 import com.mcverse.jobify.auth.model.AppUser;
 import com.mcverse.jobify.auth.model.Role;
 import com.mcverse.jobify.auth.repository.AuthUserRepository;
+import com.mcverse.jobify.auth.service.RefreshTokenService;
 import com.mcverse.jobify.common.exception.BusinessRuleException;
 import com.mcverse.jobify.common.exception.ResourceNotFoundException;
 import com.mcverse.jobify.job.model.JobPost;
@@ -39,11 +40,14 @@ public class AdminModerationService {
     private final EmployerRepository employers;
     private final NotificationService notifications;
     private final AuditLog auditLog;
+    private final RefreshTokenService refreshTokens;
 
     public AdminModerationService(AuthUserRepository users, AdminAccountService accounts, JobRepo jobs,
                                   ApplicationRepository applications, SavedJobRepository savedJobs,
                                   JobImageService images, EmployerRepository employers,
-                                  NotificationService notifications, AuditLog auditLog) {
+                                  NotificationService notifications, AuditLog auditLog,
+                                  RefreshTokenService refreshTokens) {
+        this.refreshTokens = refreshTokens;
         this.users = users;
         this.accounts = accounts;
         this.jobs = jobs;
@@ -65,6 +69,9 @@ public class AdminModerationService {
         }
         user.setEnabled(enabled);
         users.save(user);
+        if (!enabled) {
+            refreshTokens.revokeAll(username); // no new access tokens for a disabled account
+        }
         auditLog.record(admin, enabled ? "USER_ENABLED" : "USER_DISABLED",
                 "account=" + username + (reason == null || reason.isBlank() ? "" : " reason='" + reason.trim() + "'"));
         return user.isEnabled();
