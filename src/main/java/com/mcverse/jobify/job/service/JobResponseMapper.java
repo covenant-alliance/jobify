@@ -26,6 +26,7 @@ public class JobResponseMapper {
                 List.copyOf(job.getResponsibilities()), List.copyOf(job.getRequirements()),
                 job.getImages().stream().map(i -> "/jobs/" + job.getPostId() + "/images/" + i.getId()).toList(),
                 CompanyLogos.urlOf(company),
-                job.getLocationRef() != null ? job.getLocationRef().getId() : null);
+                job.getLocationRef() != null ? job.getLocationRef().getId() : null,
+                job.getExperienceLevel());
     }
 }

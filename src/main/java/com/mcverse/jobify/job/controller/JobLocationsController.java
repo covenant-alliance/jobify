@@ -1,5 +1,6 @@
 package com.mcverse.jobify.job.controller;
 
+import com.mcverse.jobify.job.dto.CountryFacet;
 import com.mcverse.jobify.job.dto.LocationFacet;
 import com.mcverse.jobify.job.search.JobSearchCriteria;
 import com.mcverse.jobify.job.service.LocationService;
@@ -63,5 +64,32 @@ public class JobLocationsController {
             case ALL -> null;
         };
         return locations.facets(open, contains, size);
+    }
+
+    @Operation(summary = "Countries to filter jobs by, with job counts",
+            description = "Public. One entry per country that has jobs (a remote job tied to a country counts there), "
+                    + "most jobs first. Filter jobs with `GET /jobs/search?countryCode=DE`.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The countries (possibly empty)"),
+            @ApiResponse(responseCode = "400", description = "Invalid parameter, with a readable message"),
+    })
+    @SecurityRequirements
+    @GetMapping("/locations/countries")
+    public List<CountryFacet> countries(
+            @Parameter(description = "true (default) = count open jobs, false = closed jobs, all = both")
+            @RequestParam(required = false) String available,
+            @Parameter(description = "How many countries, 1 to 500 (default 100)")
+            @RequestParam(required = false) Integer limit) {
+        var availability = JobSearchCriteria.parseAvailability(available);
+        int size = limit == null ? DEFAULT_LIMIT : limit;
+        if (size < 1 || size > MAX_LIMIT) {
+            throw new IllegalArgumentException("limit must be between 1 and " + MAX_LIMIT + ".");
+        }
+        Boolean open = switch (availability) {
+            case OPEN -> Boolean.TRUE;
+            case CLOSED -> Boolean.FALSE;
+            case ALL -> null;
+        };
+        return locations.countryFacets(open, size);
     }
 }

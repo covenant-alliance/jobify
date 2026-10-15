@@ -88,7 +88,7 @@ public class AdminUserService {
                     profile == null ? null : profile.getName(),
                     profile == null ? null : profile.getLastName(),
                     profile == null ? null : profile.getId(),
-                    profile == null ? null : profile.getCreationDate());
+                    profile == null ? null : profile.getCreationDate(), u.isEnabled());
         }).collect(Collectors.toList());
     }
 

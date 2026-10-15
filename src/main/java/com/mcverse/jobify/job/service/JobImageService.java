@@ -74,5 +74,13 @@ public class JobImageService {
         AfterCommit.run(() -> paths.forEach(storage::delete));
     }
 
+    /** Called before an administrator deletes one job: its picture files go once the deletion is committed. */
+    @Transactional(readOnly = true)
+    public void deleteFilesOfJob(Integer jobId) {
+        List<String> paths = jobRepo.findById(jobId).map(j -> j.getImages().stream().map(JobImage::getFilePath).toList())
+                .orElse(List.of());
+        AfterCommit.run(() -> paths.forEach(storage::delete));
+    }
+
     public record Image(Path file, String contentType) {}
 }

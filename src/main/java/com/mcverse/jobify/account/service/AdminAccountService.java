@@ -48,34 +48,44 @@ public class AdminAccountService {
     public DeletionRequestResponse approve(String requestId, String adminUsername) {
         DeletionRequest request = pendingRequest(requestId);
 
-        // Applications and saved jobs reference the seeker and the employer's jobs: remove them first, or the foreign key blocks the delete.
-        switch (request.getRequesterRole()) {
-            case SEEKER -> {
-                applicationRepo.deleteBySeekerUsername(request.getUsername());
-                savedJobRepo.deleteBySeekerUsername(request.getUsername());
-                seekerRepo.findByUsername(request.getUsername()).ifPresent(seekerRepo::delete);
-            }
-            case EMPLOYER -> {
-                // a company with other people keeps its jobs, applications and logo: they pass to a colleague
-                if (!companyHandover.handOverToColleague(request.getUsername())) {
-                    applicationRepo.deleteByJobEmployerUsername(request.getUsername());
-                    savedJobRepo.deleteByJobEmployerUsername(request.getUsername());
-                    jobImages.deleteFilesOfEmployer(request.getUsername());
-                    companyLogos.dropLogoOfEmployer(request.getUsername());
-                }
-                employerRepo.findByUsername(request.getUsername()).ifPresent(employerRepo::delete);
-            }
-            case ADMIN -> { /* no domain profile to remove */ }
-        }
-        notifications.deleteAllFor(request.getUsername());
-        invitations.deleteByInviteeUsername(request.getUsername());
-        preferences.deleteFor(request.getUsername());
-        authUserRepository.findByUsername(request.getUsername()).ifPresent(authUserRepository::delete);
+        removeAccount(request.getUsername(), request.getRequesterRole());
 
         request.resolve(DeletionRequestStatus.APPROVED, null);
         auditLog.record(adminUsername, "APPROVE_DELETION", "request=" + requestId + " account=" + request.getUsername()
                 + " role=" + request.getRequesterRole());
         return accountService.toResponse(deletionRequestRepository.save(request));
+    }
+
+
+    /**
+     * Removes an account and everything that hangs off it (also used when an administrator deletes an account
+     * directly). The caller records the audit entry.
+     */
+    @Transactional
+    public void removeAccount(String username, com.mcverse.jobify.auth.model.Role role) {
+        // Applications and saved jobs reference the seeker and the employer's jobs: remove them first, or the foreign key blocks the delete.
+        switch (role) {
+            case SEEKER -> {
+                applicationRepo.deleteBySeekerUsername(username);
+                savedJobRepo.deleteBySeekerUsername(username);
+                seekerRepo.findByUsername(username).ifPresent(seekerRepo::delete);
+            }
+            case EMPLOYER -> {
+                // a company with other people keeps its jobs, applications and logo: they pass to a colleague
+                if (!companyHandover.handOverToColleague(username)) {
+                    applicationRepo.deleteByJobEmployerUsername(username);
+                    savedJobRepo.deleteByJobEmployerUsername(username);
+                    jobImages.deleteFilesOfEmployer(username);
+                    companyLogos.dropLogoOfEmployer(username);
+                }
+                employerRepo.findByUsername(username).ifPresent(employerRepo::delete);
+            }
+            case ADMIN -> { /* no domain profile to remove */ }
+        }
+        notifications.deleteAllFor(username);
+        invitations.deleteByInviteeUsername(username);
+        preferences.deleteFor(username);
+        authUserRepository.findByUsername(username).ifPresent(authUserRepository::delete);
     }
 
     @Transactional

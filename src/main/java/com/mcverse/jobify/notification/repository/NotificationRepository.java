@@ -28,4 +28,14 @@ public interface NotificationRepository extends JpaRepository<Notification, Stri
     @Modifying
     @Query("delete from Notification n where n.recipientUsername = :username")
     int deleteByRecipientUsername(String username);
+
+    /** Read notifications older than the cut-off: the bell never shows them again. */
+    @Modifying
+    @Query("delete from Notification n where n.isRead = true and n.createdAt < :before")
+    int deleteReadBefore(java.time.LocalDateTime before);
+
+    /** Anything, read or not, older than the cut-off. */
+    @Modifying
+    @Query("delete from Notification n where n.createdAt < :before")
+    int deleteBefore(java.time.LocalDateTime before);
 }

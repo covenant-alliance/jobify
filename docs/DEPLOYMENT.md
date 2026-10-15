@@ -59,6 +59,9 @@ logger (`action=BOOTSTRAP_ADMIN_CREATED`). Change the password from the app afte
 | `APP_DOCS_ENABLED` | `false` | `true` makes Swagger UI and `/v3/api-docs` public |
 | `LOG_FORMAT` | `logstash` | JSON log format on stdout: `logstash`, `ecs` or `gelf` (profile `postgres` only; `dev` logs plain text) |
 | `BOOTSTRAP_ADMIN_USERNAME` / `_PASSWORD` | empty | first admin, see above |
+| `APP_NOTIFICATIONS_READ_RETENTION_DAYS` | `90` | read notifications older than this are deleted every night (0 = never) |
+| `APP_NOTIFICATIONS_RETENTION_DAYS` | `365` | any notification older than this is deleted (0 = never) |
+| `APP_SCHEDULING_ENABLED` | `true` | `false` switches off all scheduled jobs (the notification clean-up) |
 
 Compose-only: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `APP_PORT`.
 

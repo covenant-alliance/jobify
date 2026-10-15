@@ -124,6 +124,9 @@ public class JobService {
         if (request.benefits() != null) { // omitted on edit = unchanged, so clients that predate benefits lose nothing
             job.setBenefits(request.benefits().stream().map(String::trim).toList());
         }
+        if (request.experienceLevel() != null) {
+            job.setExperienceLevel(request.experienceLevel());
+        }
         if (request.responsibilities() != null) {
             job.setResponsibilities(request.responsibilities().stream().map(String::trim).toList());
         }

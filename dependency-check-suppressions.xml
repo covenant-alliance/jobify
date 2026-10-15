@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Findings of the OWASP dependency-check scan (mvn -Psecurity-scan verify) that were judged and are knowingly left.
+  RULES (docs/DEPENDENCY_SCAN.md, "Response policy"):
+    * every <suppress> has an `until` date at most 12 months ahead, so it is looked at again (an expired entry makes the finding reappear)
+    * every <suppress> has <notes>: the reason, who decided, the date, and a link to the discussion
+    * a change to this file needs the Product Owner's review
+  An empty file is correct: it means nothing has been suppressed.
+
+  Template:
+  <suppress until="2027-01-01Z">
+    <notes>REASON. Decided by NAME on YYYY-MM-DD, see #ISSUE.</notes>
+    <packageUrl regex="true">^pkg:maven/GROUP/ARTIFACT@.*$</packageUrl>
+    <cve>CVE-XXXX-NNNN</cve>
+  </suppress>
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+</suppressions>

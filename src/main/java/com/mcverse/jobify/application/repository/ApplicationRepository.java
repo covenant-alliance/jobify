@@ -55,4 +55,9 @@ public interface ApplicationRepository extends JpaRepository<Application, String
     @Modifying
     @Query("delete from Application a where a.job in (select j from JobPost j where j.employer.username = :username)")
     int deleteByJobEmployerUsername(String username);
+
+    /** Needed before a single job is removed by an administrator. */
+    @Modifying
+    @Query("delete from Application a where a.job.postId = :postId")
+    int deleteByJobPostId(Integer postId);
 }

@@ -241,6 +241,20 @@ mvn org.owasp:dependency-check-maven:13.0.0:check -DnvdApiKey=$NVD_API_KEY \
 - something still open: `BUILD FAILURE`, `... CVSS score greater than or equal to '7.0'`, and the open items listed.
   That is not a tool problem: go back to step 7 for those.
 
+### The same gate as one short command (since story T9.6, #83)
+
+The `pom.xml` now has a profile `security-scan` with the plugin version pinned in one place, the 7.0 gate, the suppression
+file and the unused analyzers (OSS Index, RetireJS, Node) already switched off:
+
+```bash
+export NVD_API_KEY=...            # the same key
+mvn -B -Psecurity-scan verify -DskipTests
+```
+
+**You should see** the same results as the long command in step 9. **Without the key** it stops immediately with
+`NVD_API_KEY is not set. Request a free key at ...` instead of starting a throttled download. **Without
+`-Psecurity-scan`** nothing changes: `mvn verify` does not scan.
+
 ## 10. A fast second run
 
 ```bash
@@ -269,6 +283,31 @@ Fill this in and send it (or paste it into the issue):
 | Final gate (step 9) | success / failure |
 | Time of the first scan and of the repeat scan | |
 
+## Response policy (story T9.8, #85)
+
+> **Status: proposed.** These are my recommended answers; the Product Owner confirms or changes them on issue #85.
+> Until then they are the working rule.
+
+| CVSS score | Meaning | Decide within | Fix or suppress within | Who |
+|---|---|---|---|---|
+| 9.0 to 10 | critical | 2 working days | **7 days** | Product Owner decides, back end implements |
+| 7.0 to 8.9 | high | 5 working days | **30 days** | same |
+| 4.0 to 6.9 | medium | at the next planned upgrade | next planned upgrade | back end |
+| below 4.0 | low | not tracked individually | with the next upgrade | back end |
+
+"Decide" means one of the three outcomes in step 7: upgrade, suppress (with reason and expiry), accept (with a date).
+The clock starts when the weekly scan (or a manual one) first reports the finding and someone confirms it is real.
+
+1. **Who triages:** the Product Owner decides; the back-end session does the upgrade or writes the suppression.
+2. **Suppressing:** only with a reason and an `until` date at most 12 months ahead in `dependency-check-suppressions.xml`;
+   every change to that file is reviewed by the Product Owner. Nothing is suppressed "because it is noisy".
+3. **What blocks a release:** an unsuppressed finding of 7.0 or above in a library we ship. Test-scope libraries are
+   ignored (they are not scanned).
+4. **Emergency path:** a flaw that is being exploited in the wild (for example in Spring, Tomcat or the JWT library),
+   whatever its score: patch the same day, release out of cycle, and tell the front-end session if the API is affected.
+5. **The weekly alert:** a failing weekly scan opens (or comments on) an issue labelled `dependency-scan`; the policy
+   above applies from the day it is opened. A later clean scan comments "clean as of ..." and a human closes it.
+
 ## Done when
 
 - [ ] Step 4 (canary) failed the build and named CVE-2021-44228.
@@ -280,8 +319,18 @@ Fill this in and send it (or paste it into the issue):
 
 ## After the manual run (not part of this guide)
 
-Once you trust the result, the follow-up is to run the same scan automatically: a **weekly scheduled GitHub Actions
-workflow** (plus manual trigger) with `NVD_API_KEY` stored as a repository secret, the data directory cached between
-runs, `failBuildOnCVSS=7`, and the HTML report uploaded as an artifact. It should **not** run on every pull request
-(too slow, and a new CVE in an old library would block unrelated work). Dependabot (already enabled) opens upgrade
-pull requests in the meantime. Tell me when you want that built.
+**Built (stories T9.6, T9.7, T9.9):** the Maven profile above, and `.github/workflows/dependency-scan.yml`: weekly
+(Mondays 04:17 UTC) and on manual trigger (`Actions`, `Dependency scan`, `Run workflow`), never on pull requests. It
+needs the repository secret **`NVD_API_KEY`** (Settings, Secrets and variables, Actions): without it the job stops at
+once with a clear message. It caches the vulnerability database between runs, uploads the HTML and JSON report as an
+artifact for 90 days, writes the findings table into the run summary, fails (red) on any unsuppressed finding of 7.0 or
+above, and opens or comments on a `dependency-scan` issue. Dependabot (already enabled) opens upgrade pull requests.
+
+**To prove the workflow works** (not yet done: it has never run on GitHub), after adding the secret:
+1. Run it once from `master` via `Run workflow`. **Expected:** green, summary "0 finding(s) of 7.0 or above" (or your
+   known findings), artifact `dependency-check-report` attached. The first run takes long (database download).
+2. On a scratch branch add `org.apache.logging.log4j:log4j-core:2.14.1` to `pom.xml`, run the workflow on that branch.
+   **Expected:** red, summary table lists `CVE-2021-44228 | CRITICAL | 10.0`, and an issue
+   `Dependency scan: N findings of 7.0 or above (week YYYY-WW)` labelled `dependency-scan` appears. Run it again:
+   **Expected:** a comment on that issue, no second issue. Delete the branch and close the issue.
+3. Run it on `master` again. **Expected:** green, and a "Clean as of ..." comment on any still-open scan issue.

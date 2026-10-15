@@ -56,6 +56,12 @@ public final class JobSearchSpecifications {
             if (!criteria.locationIds().isEmpty()) {
                 where.add(root.get("locationRef").get("id").in(criteria.locationIds()));
             }
+            if (!criteria.countryCodes().isEmpty()) {
+                where.add(root.get("locationRef").get("countryCode").in(criteria.countryCodes()));
+            }
+            if (!criteria.experienceLevels().isEmpty()) {
+                where.add(root.get("experienceLevel").in(criteria.experienceLevels()));
+            }
             if (!criteria.workModes().isEmpty()) {
                 where.add(root.get("workMode").in(criteria.workModes()));
             }
