@@ -167,4 +167,77 @@
 		</plugins>
 	</build>
 
+	<profiles>
+		<!--
+			OWASP dependency-check against the NVD. Off by default, so `mvn verify` and CI are unaffected.
+			Run:  export NVD_API_KEY=...   then   mvn -B -Psecurity-scan verify -DskipTests
+			Fails the build when a library we ship has an unsuppressed finding of CVSS 7.0 or more.
+			Guide and policy: docs/DEPENDENCY_SCAN.md. Suppressions (each with a reason and an expiry): dependency-check-suppressions.xml.
+		-->
+		<profile>
+			<id>security-scan</id>
+			<properties>
+				<dependency-check.version>13.0.0</dependency-check.version>
+				<!-- stays the literal "${env.NVD_API_KEY}" when the variable is not set; the enforcer rule below catches that -->
+				<nvd.api.key>${env.NVD_API_KEY}</nvd.api.key>
+			</properties>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-enforcer-plugin</artifactId>
+						<version>3.6.3</version>
+						<executions>
+							<execution>
+								<id>require-nvd-api-key</id>
+								<phase>validate</phase>
+								<goals><goal>enforce</goal></goals>
+								<configuration>
+									<rules>
+										<requireProperty>
+											<property>nvd.api.key</property>
+											<message>NVD_API_KEY is not set. Request a free key at https://nvd.nist.gov/developers/request-an-api-key and run: export NVD_API_KEY=... (without a key the NVD download is throttled to hours). See docs/DEPENDENCY_SCAN.md.</message>
+											<regex>^(?!\$\{).+</regex>
+											<regexMessage>NVD_API_KEY is not set. Request a free key at https://nvd.nist.gov/developers/request-an-api-key and run: export NVD_API_KEY=... (without a key the NVD download is throttled to hours). See docs/DEPENDENCY_SCAN.md.</regexMessage>
+										</requireProperty>
+									</rules>
+									<fail>true</fail>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+					<plugin>
+						<groupId>org.owasp</groupId>
+						<artifactId>dependency-check-maven</artifactId>
+						<version>${dependency-check.version}</version>
+						<executions>
+							<execution>
+								<id>scan</id>
+								<phase>verify</phase>
+								<goals><goal>check</goal></goals>
+							</execution>
+						</executions>
+						<configuration>
+							<nvdApiKey>${nvd.api.key}</nvdApiKey>
+							<failBuildOnCVSS>7</failBuildOnCVSS>
+							<formats>
+								<format>HTML</format>
+								<format>JSON</format>
+							</formats>
+							<suppressionFiles>
+								<suppressionFile>${project.basedir}/dependency-check-suppressions.xml</suppressionFile>
+							</suppressionFiles>
+							<!-- libraries that do not ship are not scanned (default); no JavaScript or Node in this project -->
+							<skipTestScope>true</skipTestScope>
+							<ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
+							<retireJsAnalyzerEnabled>false</retireJsAnalyzerEnabled>
+							<nodeAnalyzerEnabled>false</nodeAnalyzerEnabled>
+							<nodeAuditAnalyzerEnabled>false</nodeAuditAnalyzerEnabled>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
 </project>
