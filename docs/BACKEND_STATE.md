@@ -65,6 +65,14 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 
 ## Change log (newest first)
 
+### Security patch from the baseline scan (#80, #81) — 2026-10-15
+
+**No API change; nothing for the front end to do.** The first real dependency scan (OWASP dependency-check 13.0.0, 76 libraries) found 18 findings in 6 components. Fixed by upgrading, not suppressing:
+- **Tomcat 11.0.24 -> 11.0.27** (`tomcat.version` override in `pom.xml`): 12 CVEs in `tomcat-embed-core`, 4 CRITICAL (9.8 / 9.8 / 9.1 / 9.1). All fixed in 11.0.25. Remove the override once Spring Boot manages 11.0.25 or later.
+- **OWASP Java HTML Sanitizer 20240325.1 -> 20261011.1**: CVE-2025-66021 (HIGH 8.6 on CVSS 4, XSS when a policy allows `style`/`noscript`). Our policy does not allow those tags, but the upgrade removes the question.
+- **Swagger UI bundled DOMPurify** (CVE-2026-109344 / -109345, severity low, RetireJS): only served on the `dev` profile (Swagger is off on `postgres`); candidate for a time-limited suppression, see triage in #81.
+- Verified: `mvn verify` 555 tests green, coverage floor met.
+
 ### Sprint 7 — refresh tokens (#95, B7b) — 2026-10-15
 
 **Additive: nothing you call today changes.** The access token works exactly as before and still lasts 24 hours for now.
