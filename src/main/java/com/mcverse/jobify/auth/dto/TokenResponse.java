@@ -18,9 +18,22 @@ public record TokenResponse(
 
         @Schema(description = "Role of the authenticated user", example = "SEEKER",
                 allowableValues = {"SEEKER", "EMPLOYER"})
-        String role
+        String role,
+
+        @Schema(description = "Opaque refresh token. Keep it safe (it is as good as a password until it expires). Send it "
+                + "to POST /auth/refresh before the access token expires or after a 401; every use returns a NEW refresh "
+                + "token, and the old one stops working. Null only in older tests.", nullable = true)
+        String refreshToken,
+
+        @Schema(description = "Refresh token lifetime in milliseconds from now", example = "2592000000", nullable = true)
+        Long refreshExpiresIn
 ) {
     public TokenResponse(String token, long expiresIn, String username, String role) {
-        this(token, "Bearer", expiresIn, username, role);
+        this(token, "Bearer", expiresIn, username, role, null, null);
+    }
+
+    public TokenResponse(String token, long expiresIn, String username, String role, String refreshToken,
+                         long refreshExpiresIn) {
+        this(token, "Bearer", expiresIn, username, role, refreshToken, refreshExpiresIn);
     }
 }

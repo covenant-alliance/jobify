@@ -1,6 +1,7 @@
 package com.mcverse.jobify.auth.controller;
 
 import com.mcverse.jobify.auth.dto.LoginRequest;
+import com.mcverse.jobify.auth.dto.RefreshRequest;
 import com.mcverse.jobify.auth.dto.RegisterRequest;
 import com.mcverse.jobify.auth.dto.TokenResponse;
 import com.mcverse.jobify.auth.service.AuthService;
@@ -54,5 +55,48 @@ public class AuthController {
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @Operation(
+            summary = "Trade a refresh token for a new access token",
+            description = "Send the refresh token from login, register or the last refresh. Returns a new access token and a "
+                    + "NEW refresh token; the one you sent stops working (store the new one). A token used a second time "
+                    + "(other than within seconds, as with two tabs) is treated as stolen and ends that whole sign-in. "
+                    + "Call it shortly before the access token expires, or after a 401 on a normal route."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "New tokens",
+                    content = @Content(schema = @Schema(implementation = TokenResponse.class))),
+            @ApiResponse(responseCode = "400", description = "refreshToken missing"),
+            @ApiResponse(responseCode = "401", description = "Unknown, expired, revoked or reused refresh token, or the "
+                    + "account is deleted or disabled: sign in again"),
+            @ApiResponse(responseCode = "429", description = "Too many requests"),
+    })
+    @PostMapping("/refresh")
+    public TokenResponse refresh(@Valid @RequestBody RefreshRequest request) {
+        return authService.refresh(request);
+    }
+
+    @Operation(
+            summary = "Sign out: end the sign-in a refresh token belongs to",
+            description = "Always 204, whether or not the token was known. The access token stays valid until it expires "
+                    + "(its lifetime is short)."
+    )
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@Valid @RequestBody RefreshRequest request) {
+        authService.logout(request);
+    }
+
+    @Operation(
+            summary = "Sign out everywhere",
+            description = "Needs a valid access token. Ends every sign-in (every refresh token) of the caller, on every device.",
+            security = @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")
+    )
+    @PostMapping("/logout-all")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logoutAll(@org.springframework.security.core.annotation.AuthenticationPrincipal
+                          org.springframework.security.core.userdetails.UserDetails principal) {
+        authService.logoutEverywhere(principal.getUsername());
     }
 }

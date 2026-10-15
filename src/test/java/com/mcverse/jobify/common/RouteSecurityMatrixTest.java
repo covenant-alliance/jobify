@@ -56,7 +56,9 @@ class RouteSecurityMatrixTest {
             "GET /companies/{id}/logo",
             "GET /jobs/{jobId}/images/{imageId}",
             "POST /auth/login",
-            "POST /auth/register");
+            "POST /auth/register",
+            "POST /auth/refresh",
+            "POST /auth/logout");
 
     @Autowired
     private WebApplicationContext context;

@@ -31,7 +31,7 @@ Jobify uses **JWT Bearer tokens**.
 Authorization: Bearer <token>
 ```
 
-Tokens expire after `expiresIn` milliseconds (default 24 h = `86400000`).
+Tokens expire after `expiresIn` milliseconds (default 24 h = `86400000`; the plan is 15 minutes once the front end refreshes, see "Refresh tokens" below).
 
 ---
 
@@ -105,7 +105,9 @@ Creates an account and immediately returns a token. A domain profile (Seeker **o
   "type": "Bearer",
   "expiresIn": 86400000,
   "username": "jane_doe",
-  "role": "SEEKER"
+  "role": "SEEKER",
+  "refreshToken": "q1w2e3...43 characters...",
+  "refreshExpiresIn": 2592000000
 }
 ```
 
@@ -142,6 +144,20 @@ Authenticates an existing account.
 
 ---
 
+### Refresh tokens (since #95)
+
+Login and register also return `refreshToken` (opaque, 43 URL-safe characters) and `refreshExpiresIn` (30 days in milliseconds). Everything that worked before still works: the access `token` is used as before.
+
+| Route | Body | Answer |
+|---|---|---|
+| `POST /auth/refresh` | `{ "refreshToken": "..." }` | `200` `TokenResponse` with a **new access token and a new refresh token**; the one you sent stops working, so store the new one. `401` `Your session has expired or is not valid. Please sign in again.` for an unknown, expired, revoked or reused token, or when the account is deleted or disabled. `400` if missing. `429` like login. |
+| `POST /auth/logout` | `{ "refreshToken": "..." }` | `204` always (also for an unknown or already used token). Ends that sign-in; the access token lives until it expires. |
+| `POST /auth/logout-all` | none, Bearer token | `204`. Ends every sign-in of the caller on every device. |
+
+How it is meant to be used: keep the refresh token next to the access token; call `/auth/refresh` shortly before `expiresIn` runs out, or once after a `401` on a normal route and then repeat the original request; if `/auth/refresh` answers `401`, clear everything and show the sign-in screen. Do not call it from several tabs at once without care: a token used a second time **within 10 seconds** is accepted (another new token is issued), but later reuse is treated as theft and **ends the whole sign-in**.
+
+What ends refresh tokens: sign out, sign out everywhere, a password change (all sign-ins), an administrator disabling the account (and enabling it does not bring them back), deleting the account, 30 days without use, and reuse of an old token. Refresh tokens are stored only as SHA-256 hashes. `/auth/refresh` is covered by the same per-address rate limit as login. Access tokens already issued keep working until they expire, which is why they should be short once refreshing is in place (`JWT_EXPIRATION=900000` for 15 minutes; the default is still 24 h so the current front end is not signed out early).
+
 ### Password policy
 
 Applies to `POST /auth/register` and `PUT /account/password`. Failures are `400` with one of these messages:
@@ -156,7 +172,7 @@ When changing a password, the new one must also differ from the current one (`42
 
 ### Brute-force protection (`429`)
 
-Two limits protect `POST /auth/login` and `POST /auth/register`. Both answer `429 Too Many Requests` in the usual error envelope with a `Retry-After` header (seconds).
+Two limits protect `POST /auth/login`, `POST /auth/register` and `POST /auth/refresh`. Both answer `429 Too Many Requests` in the usual error envelope with a `Retry-After` header (seconds).
 
 | Limit | Default | Message |
 |---|---|---|
@@ -1068,6 +1084,8 @@ interface TokenResponse {
   expiresIn: number;    // milliseconds (default 86400000 = 24 h)
   username: string;
   role: "SEEKER" | "EMPLOYER";
+  refreshToken: string;       // opaque, replaced on every use (since #95)
+  refreshExpiresIn: number;   // milliseconds (30 days)
 }
 ```
 

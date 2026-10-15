@@ -21,6 +21,10 @@ public class JwtConfig {
 
     private String secret;
     private long expiration = 86400000L;
+    /** How long a refresh token stays valid without being used (it is replaced on every use). */
+    private int refreshExpirationDays = 30;
+    /** A refresh token presented again this soon after its first use is a double click or a second tab, not theft. */
+    private int refreshGraceSeconds = 10;
 
     public JwtConfig(Environment environment) {
         this.environment = environment;
@@ -28,9 +32,13 @@ public class JwtConfig {
 
     public String getSecret()             { return secret; }
     public long getExpiration()           { return expiration; }
+    public int getRefreshExpirationDays() { return refreshExpirationDays; }
+    public int getRefreshGraceSeconds()   { return refreshGraceSeconds; }
 
     public void setSecret(String secret)           { this.secret = secret; }
     public void setExpiration(long expiration)     { this.expiration = expiration; }
+    public void setRefreshExpirationDays(int days) { this.refreshExpirationDays = days; }
+    public void setRefreshGraceSeconds(int seconds) { this.refreshGraceSeconds = seconds; }
 
     /** Fails startup on a missing, malformed, too short or (outside the dev profile) placeholder secret. */
     @PostConstruct
