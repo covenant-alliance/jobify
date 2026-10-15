@@ -63,6 +63,13 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 
 ## Change log (newest first)
 
+### Sprint 7 — dependency upgrades: Spring Boot 4.1.1, jjwt 0.13.0, springdoc 3.1.1 (#22 follow-up) — 2026-10-15
+
+No API change: routes, shapes, status codes and error messages are the same, and all 525 tests pass unchanged on H2 and on PostgreSQL 18 (reverse order, CI-style collation). The packaged jar was started and answered health, login, `/jobs/mine`, `/jobs/search`, Swagger and `/v3/api-docs`. Tokens issued before the upgrade stay valid (same HS256 secret and claims). Nothing for the front end to do.
+- Spring Boot 4.0.8 to **4.1.1** (Hibernate 7.4, Tomcat 11.0.24, Spring Security 7.1.1, Flyway 12.4.0, all Boot-managed). The `flyway.version` pin is removed: Boot now manages a newer Flyway than the one we pinned.
+- jjwt 0.12.6 to **0.13.0** (the three artifacts must move together), springdoc 3.0.3 to **3.1.1**.
+- These replace Dependabot's pull requests for the same bumps (jjwt #64 to #66, springdoc #63); close them when this is merged.
+
 ### Sprint 6 — company teams, part 2: invitations, members, dashboard, activity feed, team notifications (#72, #73, #74, epic #26) — 2026-10-07
 
 **All additive; nothing existing breaks.** With these, the "employee" the Product Owner described works end to end: an employer account connects to a company and manages its jobs and activity. Full route list, bodies and messages are in `api-documentation.md` ("Company teams").
