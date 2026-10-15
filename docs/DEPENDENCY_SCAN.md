@@ -105,8 +105,10 @@ that climbs for many minutes, then `BUILD SUCCESS`. The data is stored in
      the email is gone, request the key again and use only the newest one.
   4. *Test the key without Maven:*
      `curl -s -D - -o /dev/null -H "apiKey: $NVD_API_KEY" "https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=1" | head -5`
-     **You should see** `HTTP/2 200`. Any other status (and often a `message:` header saying the key is invalid) means the
-     key itself is the problem; fix it before running Maven again.
+     **You should see** `HTTP/2 200`. **`HTTP/2 404` with `message: Invalid apiKey.`** is how the NVD answers for a key it
+     does not know: a 36-character value of the right shape that is not (yet) a valid key. Typical reasons: the key was
+     never activated (click the link in the NVD email; the page you reach shows the real key), the UUID copied was the
+     activation link's own id and not the key, or a newer request replaced it. Fix that before running Maven again.
   Do **not** work around it by running without a key: that works but takes hours and often fails.
 - `403` from the NVD on its own: same checks as above; if the key is fine, wait and retry (the NVD sometimes blocks a burst).
 - `429`/rate-limit messages that keep repeating: wait and run again; it resumes.
