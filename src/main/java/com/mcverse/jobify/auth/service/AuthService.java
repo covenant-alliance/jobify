@@ -5,6 +5,7 @@ import com.mcverse.jobify.auth.dto.LoginRequest;
 import com.mcverse.jobify.auth.dto.RegisterRequest;
 import com.mcverse.jobify.auth.dto.TokenResponse;
 import com.mcverse.jobify.auth.model.AppUser;
+import com.mcverse.jobify.common.exception.LicenseValidationException;
 import com.mcverse.jobify.auth.model.Role;
 import com.mcverse.jobify.auth.repository.AuthUserRepository;
 import com.mcverse.jobify.auth.security.JwtService;
@@ -18,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -68,6 +70,16 @@ public class AuthService {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password())
             );
+        } catch (DisabledException e) {
+            // only someone who knows the password is told the account is disabled; anyone else sees a plain failure
+            AppUser disabled = authUserRepository.findByUsername(request.username()).orElse(null);
+            if (disabled != null && passwordEncoder.matches(request.password(), disabled.getPassword())) {
+                auditLog.event(request.username(), "LOGIN_REFUSED_DISABLED", "");
+                throw new LicenseValidationException("This account has been disabled. Please contact support.");
+            }
+            boolean nowLocked = loginAttempts.recordFailure(request.username());
+            auditLog.event(request.username(), nowLocked ? "LOGIN_FAILURE_LOCKED" : "LOGIN_FAILURE", "bad credentials");
+            throw new BadCredentialsException("Invalid username or password");
         } catch (BadCredentialsException e) {
             boolean nowLocked = loginAttempts.recordFailure(request.username());
             auditLog.event(request.username(), nowLocked ? "LOGIN_FAILURE_LOCKED" : "LOGIN_FAILURE", "bad credentials");

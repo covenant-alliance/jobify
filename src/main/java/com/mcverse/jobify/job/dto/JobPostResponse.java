@@ -1,6 +1,7 @@
 package com.mcverse.jobify.job.dto;
 
 import com.mcverse.jobify.common.model.EmploymentType;
+import com.mcverse.jobify.job.model.ExperienceLevel;
 import com.mcverse.jobify.job.model.RateType;
 import com.mcverse.jobify.job.model.WorkMode;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -78,5 +79,9 @@ public record JobPostResponse(
 
         @Schema(description = "Id of the place behind `location` (for GET /jobs/locations and the locationId search "
                 + "filter); null when the text names no place", nullable = true)
-        String locationId
+        String locationId,
+
+        @Schema(description = "INTERN, JUNIOR, MID, SENIOR or LEAD; null when the employer did not say",
+                nullable = true)
+        ExperienceLevel experienceLevel
 ) {}

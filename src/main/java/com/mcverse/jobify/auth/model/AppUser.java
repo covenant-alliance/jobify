@@ -20,6 +20,10 @@ public class AppUser {
     @Column(nullable = false)
     private Role role;
 
+    /** False when an administrator disabled the account: no login, and existing tokens stop working. */
+    @Column(nullable = false, columnDefinition = "boolean default true not null")
+    private boolean enabled = true;
+
     protected AppUser() {}
 
     public AppUser(String username, String password, Role role) {
@@ -33,5 +37,8 @@ public class AppUser {
     public String getPassword() { return password; }
     public Role getRole()     { return role; }
 
+    public boolean isEnabled() { return enabled; }
+
     public void setPassword(String password) { this.password = password; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 }

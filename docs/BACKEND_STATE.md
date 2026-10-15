@@ -38,6 +38,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
+- [ ] **Optional, new in 2026-10-15:** experience level on the Post-a-Job form and in search (`experienceLevel`), a country facet (`/jobs/locations/countries`, `countryCode`), and on the admin users table an `enabled` badge with disable, enable and delete actions (`/admin/users/{username}/disable|enable`, `DELETE /admin/users/{username}?reason=`). Plain 404 wording: if you match on the old message text, update it. Nothing breaks until then.
 - [x] *(DONE by you, per your 2026-10-07 update; invitations between two accounts and image/logo uploads not yet clicked through in a browser)* **Company teams (#26, stories #72 to #74):** replace the mock "Employee Preview" with the real thing. (1) Company page for owners: members list (`GET /companies/{id}/members`), invite form (`POST /companies/{id}/invitations` with a username), pending invitations with cancel, remove member, change role. (2) For any employer: `GET /invitations/me` (show a badge or banner when not empty, with accept and decline), "Leave company" (`DELETE /companies/me/membership`), and show the role from `GET /users/employers/me` (`companyRole`); hide owner-only controls from managers. (3) Dashboard: use `GET /companies/{id}/stats` (or `/employers/me/stats`, same numbers) and render the activity feed from `GET /companies/{id}/activity` (summaries are plain text). (4) Notifications: team events arrive with type `SYSTEM`.
 - [x] *(DONE by you, per your 2026-10-07 update; invitations between two accounts and image/logo uploads not yet clicked through in a browser)* **Optional, preferences (#25):** load `GET /users/me/preferences` after sign-in and use it instead of `localStorage` for the notification toggles and the accent colour; on a toggle change send `PUT /users/me/preferences` with only that toggle (`{"notifications":{"APPLICATION":false}}`); show `ACCOUNT` as always on. Migrate: on first load, if the server has the defaults and `localStorage` has values, PUT them once. Nothing breaks until you switch.
 - [x] *(DONE by you, per your 2026-10-07 update; invitations between two accounts and image/logo uploads not yet clicked through in a browser)* **Optional, location facet (#37):** replace the facet built from the free-text `location` strings with `GET /jobs/locations` (show `name` and `jobs`; for a type-ahead send `q`), and filter jobs with `GET /jobs/search?locationId=<id>` (repeat for several). Keep showing `job.location` as written on a job's own page. Nothing breaks until you switch.
@@ -62,6 +63,24 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Sprint 7 — the rest of the backlog: experience level, countries, admin moderation, notification clean-up, friendlier 404s — 2026-10-15
+
+**Everything below is additive except the 404 wording.** The matching engine stays parked. Flyway `V12`.
+
+**Experience level (new field).** `experienceLevel` on jobs: `INTERN | JUNIOR | MID | SENIOR | LEAD`, `null` when not stated. Optional on `POST /jobs` and `PUT /jobs/{id}` (**omit on edit = unchanged; it cannot be cleared once set**). New **enum values for your TypeScript union**. `GET /jobs/search?experienceLevel=SENIOR&experienceLevel=LEAD` filters (OR within, jobs without a level are not matched). You can replace the keyword heuristic with this and keep the heuristic only as a fallback for jobs where it is `null`. An unknown value is `400`.
+
+**Countries.** `GET /jobs/locations/countries` (public): `[{countryCode, country, jobs}]`, most jobs first, `?available=`, `?limit=`. `GET /jobs/search?countryCode=DE` (repeatable, any case, max 20; `400` `countryCode must be a two-letter ISO code such as DE.`).
+
+**Admin moderation** (all `ADMIN` only, audit-logged): `POST /admin/users/{username}/disable` and `/enable`; `DELETE /admin/users/{username}?reason=`; `PATCH /admin/jobs/{id}/available` (close needs a `reason`, owners get a `SYSTEM` notification) and `DELETE /admin/jobs/{id}?reason=`. A **disabled** account: sign-in answers `403` `This account has been disabled. Please contact support.` (only when the password is right; otherwise the normal `401`) and its token stops working, so the existing `401` handling logs that person out. `GET /admin/users` rows gain `enabled: boolean`. Not built: a job-moderation list or reports queue (use `GET /jobs`).
+
+**Notification clean-up.** Every night read notifications older than 90 days and any older than 365 days are deleted (settings in `docs/DEPLOYMENT.md`). Nothing to do for you, except that a very old notification no longer comes back from `GET /notifications`.
+
+**404 wording changed.** Messages are now plain sentences without the internal id, for example `We could not find that job.`, `We could not find that company.`. Status codes are unchanged. If you matched on the old text `X not found with id: Y` anywhere, that no longer matches.
+
+- For you (all optional): add the experience-level select to the Post-a-Job form and the search filters, a country facet from `/jobs/locations/countries`, and the `enabled` badge plus disable/enable and delete controls on the admin users table.
+- Database: `app_users.enabled` (default true), `job_posts.experience_level`.
+- Not done on purpose: refresh tokens (needs a product decision, see the backlog), a trigram index (needs the PostgreSQL `pg_trgm` extension on every database; add only if text search gets slow).
 
 ### Sprint 7 — dependency upgrades: Spring Boot 4.1.1, jjwt 0.13.0, springdoc 3.1.1 (#22 follow-up) — 2026-10-15
 

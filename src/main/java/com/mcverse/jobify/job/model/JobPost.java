@@ -65,6 +65,11 @@ public class JobPost {
     @JdbcTypeCode(SqlTypes.VARCHAR)
     private EmploymentType employmentType;
 
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 20)
+    private ExperienceLevel experienceLevel;
+
     @Column(nullable = false)
     private boolean available = true;
 
@@ -123,6 +128,9 @@ public class JobPost {
         this.jobDescription = jobDescription;
         this.descriptionText = PlainText.fromHtml(jobDescription);
     }
+    public ExperienceLevel getExperienceLevel()          { return experienceLevel; }
+    public void setExperienceLevel(ExperienceLevel level) { this.experienceLevel = level; }
+
     public Location getLocationRef()                     { return locationRef; }
     public void setLocationRef(Location locationRef)     { this.locationRef = locationRef; }
 

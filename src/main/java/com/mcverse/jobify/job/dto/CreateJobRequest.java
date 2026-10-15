@@ -1,6 +1,7 @@
 package com.mcverse.jobify.job.dto;
 
 import com.mcverse.jobify.common.model.EmploymentType;
+import com.mcverse.jobify.job.model.ExperienceLevel;
 import com.mcverse.jobify.job.model.WorkMode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import com.mcverse.jobify.job.model.RateType;
@@ -78,5 +79,9 @@ public record CreateJobRequest(
         @Size(max = JobLimits.POINTS_MAX, message = "must have at most " + JobLimits.POINTS_MAX + " entries")
         List<@NotBlank(message = "must not be blank")
         @Size(max = JobLimits.POINT_MAX,
-                message = "must be at most " + JobLimits.POINT_MAX + " characters") String> requirements
+                message = "must be at most " + JobLimits.POINT_MAX + " characters") String> requirements,
+
+        @Schema(description = "INTERN, JUNIOR, MID, SENIOR or LEAD. Optional; omit on edit to leave it unchanged.",
+                example = "SENIOR", nullable = true)
+        ExperienceLevel experienceLevel
 ) {}

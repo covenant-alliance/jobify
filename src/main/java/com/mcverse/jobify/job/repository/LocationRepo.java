@@ -28,4 +28,13 @@ public interface LocationRepo extends JpaRepository<Location, String> {
             order by count(j) desc, l.displayName asc
             """)
     List<Object[]> facets(@Param("available") Boolean available, @Param("pattern") String pattern, Pageable page);
+
+    /** Countries with their number of jobs, most jobs first. {@code available} null counts every job. */
+    @Query("""
+            select l.countryCode, count(j) from JobPost j join j.locationRef l
+            where l.countryCode is not null and (:available is null or j.available = :available)
+            group by l.countryCode
+            order by count(j) desc, l.countryCode asc
+            """)
+    List<Object[]> countryFacets(@Param("available") Boolean available, Pageable page);
 }

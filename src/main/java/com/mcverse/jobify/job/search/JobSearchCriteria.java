@@ -1,6 +1,7 @@
 package com.mcverse.jobify.job.search;
 
 import com.mcverse.jobify.common.model.EmploymentType;
+import com.mcverse.jobify.job.model.ExperienceLevel;
 import com.mcverse.jobify.job.model.WorkMode;
 
 import java.util.ArrayList;
@@ -27,7 +28,9 @@ public record JobSearchCriteria(
         Sort sort,
         int page,
         int size,
-        List<String> locationIds) {
+        List<String> locationIds,
+        Set<ExperienceLevel> experienceLevels,
+        List<String> countryCodes) {
 
     public static final int DEFAULT_SIZE = 20;
     public static final int MAX_SIZE = 50;
@@ -81,6 +84,16 @@ public record JobSearchCriteria(
                                        List<EmploymentType> employmentTypes, Double minRate, Double maxRate,
                                        List<String> skills, String skillsMatch, String available, String sort,
                                        Integer page, Integer size) {
+        return of(q, location, locationIds, null, null, workModes, employmentTypes, minRate, maxRate, skills,
+                skillsMatch, available, sort, page, size);
+    }
+
+    public static JobSearchCriteria of(String q, String location, List<String> locationIds,
+                                       List<String> countryCodes, List<ExperienceLevel> experienceLevels,
+                                       List<WorkMode> workModes,
+                                       List<EmploymentType> employmentTypes, Double minRate, Double maxRate,
+                                       List<String> skills, String skillsMatch, String available, String sort,
+                                       Integer page, Integer size) {
         int pageNumber = page == null ? 0 : page;
         int pageSize = size == null ? DEFAULT_SIZE : size;
         if (pageNumber < 0) {
@@ -103,7 +116,8 @@ public record JobSearchCriteria(
                 workModes == null ? Set.of() : new LinkedHashSet<>(workModes),
                 employmentTypes == null ? Set.of() : new LinkedHashSet<>(employmentTypes),
                 minRate, maxRate, skillNames(skills), parseSkillsMatch(skillsMatch),
-                parseAvailability(available), Sort.parse(sort), pageNumber, pageSize, locationIdList(locationIds));
+                parseAvailability(available), Sort.parse(sort), pageNumber, pageSize, locationIdList(locationIds),
+                experienceLevels == null ? Set.of() : new LinkedHashSet<>(experienceLevels), countryCodeList(countryCodes));
     }
 
     /** Trims; a blank value means "no filter"; an over-long one is refused rather than silently cut. */
@@ -138,6 +152,29 @@ public record JobSearchCriteria(
         }
         if (out.size() > MAX_LOCATION_IDS) {
             throw new IllegalArgumentException("locationId must have at most " + MAX_LOCATION_IDS + " entries.");
+        }
+        return List.copyOf(out);
+    }
+
+    private static List<String> countryCodeList(List<String> codes) {
+        if (codes == null) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        for (String code : codes) {
+            if (code == null || code.isBlank()) {
+                continue;
+            }
+            String upper = code.trim().toUpperCase(Locale.ROOT);
+            if (!upper.matches("[A-Z]{2}")) {
+                throw new IllegalArgumentException("countryCode must be a two-letter ISO code such as DE.");
+            }
+            if (!out.contains(upper)) {
+                out.add(upper);
+            }
+        }
+        if (out.size() > MAX_LOCATION_IDS) {
+            throw new IllegalArgumentException("countryCode must have at most " + MAX_LOCATION_IDS + " entries.");
         }
         return List.copyOf(out);
     }

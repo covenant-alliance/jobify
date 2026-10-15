@@ -1,5 +1,6 @@
 package com.mcverse.jobify.job.service;
 
+import com.mcverse.jobify.job.dto.CountryFacet;
 import com.mcverse.jobify.job.dto.LocationFacet;
 import com.mcverse.jobify.job.location.LocationParser;
 import com.mcverse.jobify.job.location.ParsedLocation;
@@ -92,6 +93,14 @@ public class LocationService {
                     l.getCountryCode() == null ? null : Places.countryName(l.getCountryCode()), l.isRemote(),
                     (Long) row[1]);
         }).toList();
+    }
+
+    /** Countries with job counts, most jobs first. {@code available} null counts every job. */
+    @Transactional(readOnly = true)
+    public List<CountryFacet> countryFacets(Boolean available, int limit) {
+        return locations.countryFacets(available, PageRequest.of(0, limit)).stream()
+                .map(row -> new CountryFacet((String) row[0], Places.countryName((String) row[0]), (Long) row[1]))
+                .toList();
     }
 
     /** Gives every job from before places existed its place. Safe to run again: it only touches jobs without one. */

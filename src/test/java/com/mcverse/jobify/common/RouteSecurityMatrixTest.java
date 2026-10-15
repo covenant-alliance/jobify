@@ -50,6 +50,7 @@ class RouteSecurityMatrixTest {
             "GET /jobs/{id}",
             "GET /jobs/search",
             "GET /jobs/locations",
+            "GET /jobs/locations/countries",
             "GET /content",
             "GET /companies/{id}",
             "GET /companies/{id}/logo",

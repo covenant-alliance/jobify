@@ -53,7 +53,7 @@ All error responses share the same envelope:
 | `400` | Validation failure, malformed JSON body or illegal argument |
 | `401` | No valid session: no token, a malformed or expired token, a token for an account that no longer exists, or wrong login credentials |
 | `403` | Signed in but not allowed: wrong role or not the owner of the resource |
-| `404` | Resource not found, or no such route |
+| `404` | Resource not found, or no such route. The message is a plain sentence such as `We could not find that job.` (since 2026-10-15; it no longer repeats the id) |
 | `405` | The route exists but not for that HTTP method |
 | `429` | Rate limited or temporarily locked out; see the `Retry-After` header |
 | `409` | The change conflicts with existing data (rare: a concurrent duplicate) |
@@ -213,6 +213,7 @@ Returns job postings. By default returns **all** posts regardless of status, fro
 | `requirements` | string[] | What the person needs to bring, in display order; `[]` when none (since #36) |
 | `images` | string[] | Picture URLs, oldest first, at most 6, relative to the API address (e.g. `/jobs/7/images/<id>`); `[]` when none (since #35) |
 | `locationId` | string \| null | The place behind `location` (see `GET /jobs/locations`); `null` when the text names no place (since #37) |
+| `experienceLevel` | string \| null | `INTERN`, `JUNIOR`, `MID`, `SENIOR` or `LEAD`; `null` when the employer did not say (since 2026-10-15) |
 | `logoUrl` | string \| null | The company's logo URL, relative to the API address (e.g. `/companies/<id>/logo?v=1760000000000`); `null` when none (since #34) |
 
 ---
@@ -230,6 +231,12 @@ Public. The places jobs can be filtered by, with job counts: a clean value learn
 Response `200`, array of `{ id, name, city, region, countryCode, country, remote, jobs }` (`city`, `region`, `countryCode`, `country` may be `null`; `countryCode` is ISO 3166-1 alpha-2; `region` is the US state code or the text typed). Use `id` as `locationId` in `GET /jobs/search`. Errors: `400` (`limit must be between 1 and 500.`, `available must be true, false or all.`, `q must be at most 100 characters.`).
 
 How a text becomes a place: split on `, ; | / · – — ` and ` - `; `remote`, `worldwide`, `anywhere` (also as `Remote US`, `US Remote`, `(remote)`) set the remote flag; `hybrid` and `on-site` are ignored; a country is recognised by English name, common alias (`USA`, `UK`, `Deutschland`, `Holland`...) or ISO code; a US state by name or code (it also gives country `US`); the first other word group is the city, the next the region. A bare capital `CA`, `PA`, `GA`... (codes that are both a country and a US state) is read as the US state: write the country name to mean the country. A city typed without a country joins the one known country for that city if there is exactly one. Text that names no place (for example `Hybrid`) has no place and no `locationId`.
+
+---
+
+### `GET /jobs/locations/countries`
+
+Public. Countries that have jobs, most jobs first: `[{ "countryCode": "DE", "country": "Germany", "jobs": 12 }]`. A remote job tied to a country (`Remote, US`) counts there. `?available=true|false|all` (default open jobs), `?limit=` 1 to 500 (default 100). Filter jobs with `GET /jobs/search?countryCode=DE`.
 
 ---
 
@@ -949,6 +956,16 @@ interface DeletionRequestResponse {
 | `POST /admin/deletion-requests/{id}/approve` | Permanently deletes the requester's account and profile, **including their applications and saved jobs, and for an employer all their job posts**. `200` with the resolved request. `404` unknown id, `422` `This request has already been resolved.` |
 | `POST /admin/deletion-requests/{id}/reject` | Body optional: `{ "note": "..." }` (max 255). `200` with the resolved request (`resolutionNote` set). Same errors. |
 
+| `POST /admin/users/{username}/disable` | Body optional `{ "reason": "..." }` (max 500). The person can no longer sign in and their tokens stop working (`401`). Nothing is deleted. `200` `{ "username", "enabled": false }`. `422` for yourself, for administrators, or if already disabled. |
+| `POST /admin/users/{username}/enable` | Same body. `200` `{ "username", "enabled": true }`; old tokens work again. |
+| `DELETE /admin/users/{username}?reason=` | Deletes the account directly, with the same effect as approving a deletion request (a company's other people keep its jobs). `reason` is required (`400` `reason is required.`, max 500). `204`. `422` for yourself or an administrator, `404` unknown. |
+| `PATCH /admin/jobs/{id}/available` | Body `{ "available": false, "reason": "..." }`. Closing needs a reason; the owners (everyone in the company) get a `SYSTEM` notification with it. `200` `{ "postId", "available" }`. `422` `That job is already closed.` / `open.` |
+| `DELETE /admin/jobs/{id}?reason=` | Deletes any job with its applications, saved copies and pictures; the owners are notified. `reason` required. `204`. |
+
+A **disabled account** that tries to sign in gets `403` `This account has been disabled. Please contact support.` when the password is right, and the ordinary `401` `Invalid username or password` otherwise. `GET /admin/users` rows have a new boolean `enabled`.
+
+**Notification clean-up:** every night read notifications older than 90 days and any older than 365 days are deleted (`app.notifications.read-retention-days`, `app.notifications.retention-days`; 0 switches a rule off).
+
 ### `GET /admin/users`
 
 Query: `q` (text to find in the username or the profile's first or last name, contains, any case; at most 100 characters; `%` and `_` are literal), `role` (`SEEKER`, `EMPLOYER` or `ADMIN`), `sort` (`username` default, `role`, `newest`, `oldest`), `page` (from 0), `size` (1 to 100, default 20). Response `200` is the same paged envelope the search proposal uses:
@@ -1078,6 +1095,7 @@ interface JobPostResponse {
   images: string[];               // relative URLs, oldest first, max 6
   logoUrl: string | null;         // relative URL of the company logo
   locationId: string | null;      // place behind `location`, for GET /jobs/locations and ?locationId=
+  experienceLevel: "INTERN" | "JUNIOR" | "MID" | "SENIOR" | "LEAD" | null;
 }
 ```
 
@@ -1096,6 +1114,7 @@ interface CreateJobRequest {
   benefits?: string[];            // max 15, each non-blank and at most 80 chars; omit on edit = unchanged, [] = clear
   responsibilities?: string[];    // max 20, each non-blank and at most 300 chars; same omit/[] rules
   requirements?: string[];        // same as responsibilities
+  experienceLevel?: "INTERN" | "JUNIOR" | "MID" | "SENIOR" | "LEAD";   // optional; omit on edit = unchanged (it cannot be cleared once set)
 }
 ```
 

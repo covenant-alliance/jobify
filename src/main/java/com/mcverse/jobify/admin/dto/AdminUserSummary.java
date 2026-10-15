@@ -15,5 +15,6 @@ public record AdminUserSummary(
         @Schema(description = "Profile UUID, for GET /users/seekers/{id} or /users/employers/{id}", nullable = true)
         String profileId,
         @Schema(description = "When the profile was created; null for accounts without a profile (admins)", nullable = true)
-        LocalDateTime creationDate
+        LocalDateTime creationDate,
+        @Schema(description = "False when an administrator disabled the account (it cannot sign in)") boolean enabled
 ) {}
