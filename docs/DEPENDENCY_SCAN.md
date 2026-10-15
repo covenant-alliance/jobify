@@ -92,7 +92,25 @@ that climbs for many minutes, then `BUILD SUCCESS`. The data is stored in
 **Takes:** 10 to 40 minutes with a key, only the first time.
 
 **If not:**
-- `403` or `401` from the NVD: the key is wrong or not yet activated (they can take an hour). Re-check `echo $NVD_API_KEY`.
+- **`Invalid API Key: XXXXX-*****-XXXXX`** (seen on a first run, 2026-10-15): the NVD answered, so the network and the
+  plugin are fine and **only the key is refused**. Check, in this order:
+  1. *Is it the right kind of string?* An NVD key is a 36-character UUID such as `8f3c2a1e-0b4d-4c7a-9e55-1d2f6a7b8c90`.
+     Run `echo ${#NVD_API_KEY}`: it must print `36`. Anything else means you copied something else (the request id, a
+     part of the email, a key with quotes or spaces around it).
+  2. *Hidden characters:* `printf '%s' "$NVD_API_KEY" | od -c | tail -3` must show only hex digits and dashes, no `\r`
+     (Windows line ending), no spaces, no quotes. Re-set it with the key typed in single quotes:
+     `export NVD_API_KEY='the-key-here'`.
+  3. *Activated?* The NVD only accepts a key after you click the **activation link** in the email it sends (the link is
+     valid for 7 days, and requesting a key twice makes the first one invalid). If you never clicked it, do so now; if
+     the email is gone, request the key again and use only the newest one.
+  4. *Test the key without Maven:*
+     `curl -s -D - -o /dev/null -H "apiKey: $NVD_API_KEY" "https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=1" | head -5`
+     **You should see** `HTTP/2 200`. **`HTTP/2 404` with `message: Invalid apiKey.`** is how the NVD answers for a key it
+     does not know: a 36-character value of the right shape that is not (yet) a valid key. Typical reasons: the key was
+     never activated (click the link in the NVD email; the page you reach shows the real key), the UUID copied was the
+     activation link's own id and not the key, or a newer request replaced it. Fix that before running Maven again.
+  Do **not** work around it by running without a key: that works but takes hours and often fails.
+- `403` from the NVD on its own: same checks as above; if the key is fine, wait and retry (the NVD sometimes blocks a burst).
 - `429`/rate-limit messages that keep repeating: wait and run again; it resumes.
 - Certificate or proxy errors: your network blocks `services.nvd.nist.gov`; try another network.
 - `NVD API request failures`, then `BUILD FAILURE`: run the same command again before assuming anything is wrong; it
