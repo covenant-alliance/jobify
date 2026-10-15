@@ -1,6 +1,6 @@
 # Matching service: design and implementation plan
 
-**Status: plan, nothing built yet.** Replaces the in-process design for issue #12 (matching engine). Decided by the Product Owner on 2026-10-15: the matching engine is built as a **separate service that Jobify calls over gRPC**, mainly **for learning** microservices. This page says what the service is, how it works with Jobify, and in what order to build it. Items marked **Decision** need the Product Owner's answer before the story that depends on them starts.
+**Status: plan; the M1 spike (#100) is done, the rest is not built yet.** Epic: #12 (matching engine). Decided by the Product Owner on 2026-10-15: the matching engine is built as a **separate service that Jobify calls over gRPC**, mainly **for learning** microservices. This page says what the service is, how it works with Jobify, and in what order to build it. Items marked **Decision** need the Product Owner's answer before the story that depends on them starts.
 
 > Honest trade-off, so the choice is made with open eyes: for Jobify's size a package inside the monolith would be simpler, faster and cheaper to run. A separate service adds a network, a second deployment, a contract to version and new ways to fail. That cost is the point of the exercise. The design below keeps the service small and its contract narrow so the lessons (contracts, timeouts, failure handling, observability) are not buried under accidental complexity.
 
@@ -63,7 +63,14 @@ src/main/java/com/mcverse/jobify/match/   the client side inside Jobify (section
 
 The root `pom.xml` of Jobify stays a single-module build. Jobify depends on `matching-api` as a normal dependency (installed with `mvn -f services/matching/pom.xml install`, and by CI before the Jobify build).
 
-**Decision: stack of the service.** Recommended: Java 21, plain **grpc-java** (`io.grpc`, Netty) with the `protobuf-maven-plugin`, a tiny Spring Boot shell only for configuration and `/actuator` (no web MVC). Same language as Jobify, so the focus stays on gRPC and not on a second toolchain. I have **not** verified that the Spring gRPC starters work with Spring Boot 4.1; the first story (M1) checks that and picks the least surprising option. Alternative for learning more: Go or Kotlin. I advise against a new language in the same exercise.
+**Decision made (2026-10-15, answered "go with your recommendations", then checked by the M1 spike #100): Java 21, Spring Boot 4.1.1 with its built-in gRPC starters.** The spike found that Spring Boot 4.1 manages gRPC itself, so the plan's earlier "plain grpc-java" alternative is not needed:
+- `spring-boot-starter-grpc-server` (and `spring-boot-starter-grpc-client`) are in Boot 4.1's own BOM, along with `grpc-java` 1.83.1, `protobuf-java` 4.35.1 and `protobuf-maven-plugin` 5.1.8 (`io.github.ascopes`). Do not set versions for them in the `pom.xml`; Boot picks a matching set. (Setting a different protobuf version breaks compilation of the generated code, which the spike hit.)
+- Add `grpc-stub`, `grpc-protobuf` and `grpc-services` without versions. Compile `.proto` files with the `protobuf-maven-plugin`, `protocVersion` = `${protobuf-java.version}`, and the `protoc-gen-grpc-java` binary plugin at `${grpc-java.version}`.
+- A class annotated `@Service` that extends the generated `...ImplBase` is registered automatically. **gRPC health (`grpc.health.v1.Health`) and server reflection are registered by default**, so `grpcurl` works without code. Port: `spring.grpc.server.port`.
+- Older `org.springframework.grpc:spring-grpc-spring-boot-starter` (1.0.x) targets Boot 4.0; Boot 4.1 ships its own starters instead, so do not use it.
+- Verified in the spike on Spring Boot 4.1.1, Java 21: a `Ping` call from a client to the server, `grpc.health.v1.Health/Check` returning `SERVING`, and a plain grpc-java variant also working (the fallback if the starter ever gets in the way).
+- `buf` 1.57.0 works: `buf lint` (STANDARD) and `buf breaking` (FILE) both ran, and renaming a field is reported as a breaking change. **Lint rules that shape the contract:** a package `jobify.matching.v1` must live in the directory `jobify/matching/v1/`, and request/response messages must be named `<Rpc>Request` / `<Rpc>Response` (so the sketch below uses `ScoreResponse`, never `PingReply`).
+- **Not verified in the spike:** running the two services in `docker compose` and calling them with `grpcurl` (there is no Docker daemon and no `grpcurl` in this environment). Both are re-checked on your machine as part of M4 and M9; treat them as unverified until then.
 
 ## 4. The contract (`matching.v1`)
 
@@ -189,21 +196,21 @@ Sizes are estimates. Each story ends with docs updated and `mvn verify` green on
 
 | # | Story | Size | Depends on | Done when |
 |---|---|---|---|---|
-| M1 | **Spike:** gRPC on Spring Boot 4.1 (which starter or plain grpc-java), `buf`, one `Ping` call between two tiny projects, in compose | S | | the choice is written in this file, with what failed |
-| M2 | **Contract and project skeleton:** `services/matching/` multi-module, `matching-api` with the proto of section 4, `buf lint/breaking` in CI | M | M1 | stubs build; CI green; golden-pair format agreed |
-| M3 | **Scoring function** with all tests, weights from configuration | M | M2 | table of section 5 implemented, every branch covered, `ScorePart` explanation correct |
-| M4 | **gRPC server:** `Score`, `RankJobs`, `RankCandidates`, limits, status codes, health, token interceptor, Dockerfile, compose entry | M | M3 | `grpcurl` calls work locally; in-process tests green |
-| M5 | **Seeker preferences endpoint** in Jobify (`GET/PUT /users/seekers/me/preferences`), enum and country normalisation, Flyway migration, tests | M | | front end can read and save preferences; PostgreSQL suite green |
-| M6 | **Jobify client and `GET /jobs/{id}/match`:** `match` slice, adapter, deadlines, 503 behaviour, circuit breaker, `DisabledMatchEngine`, security matrix | L | M4, M5 | endpoint works against the real service and returns 503 when it is stopped; coverage floor met |
-| M7 | **`GET /jobs/recommended`:** SQL narrowing, paging, page envelope | M | M6 | returns the top jobs by score; narrowing limit enforced |
-| M8 | **`GET /jobs/{id}/candidates`:** employer/team access, applicants only (pending the decision above) | M | M6 | owner and team members only; other employers get 403 |
-| M9 | **Operations:** request-id propagation, metrics, README and `DEPLOYMENT.md` section, end-to-end script, mTLS stretch | M | M7 | the manual end-to-end of section 8 passes |
-| M10 | *(optional)* "new match" notification on job creation | S | M7 | seekers whose score is at least a threshold get one notification |
-| M11 | *(optional)* own read model in the service fed by events (outbox) instead of sending profiles per request | L | M9 | only if latency or payload size becomes a real problem; changes the ownership rule of section 2, so it needs its own design |
+| M1 (#100) | **Spike:** gRPC on Spring Boot 4.1 (which starter or plain grpc-java), `buf`, one `Ping` call between two tiny projects, in compose | S | | the choice is written in this file, with what failed. **Done 2026-10-15** (compose and `grpcurl` left to your machine) |
+| M2 (#101) | **Contract and project skeleton:** `services/matching/` multi-module, `matching-api` with the proto of section 4, `buf lint/breaking` in CI | M | M1 | stubs build; CI green; golden-pair format agreed |
+| M3 (#102) | **Scoring function** with all tests, weights from configuration | M | M2 | table of section 5 implemented, every branch covered, `ScorePart` explanation correct |
+| M4 (#103) | **gRPC server:** `Score`, `RankJobs`, `RankCandidates`, limits, status codes, health, token interceptor, Dockerfile, compose entry | M | M3 | `grpcurl` calls work locally; in-process tests green |
+| M5 (#104) | **Seeker preferences endpoint** in Jobify (`GET/PUT /users/seekers/me/preferences`), enum and country normalisation, Flyway migration, tests | M | | front end can read and save preferences; PostgreSQL suite green |
+| M6 (#105) | **Jobify client and `GET /jobs/{id}/match`:** `match` slice, adapter, deadlines, 503 behaviour, circuit breaker, `DisabledMatchEngine`, security matrix | L | M4, M5 | endpoint works against the real service and returns 503 when it is stopped; coverage floor met |
+| M7 (#106) | **`GET /jobs/recommended`:** SQL narrowing, paging, page envelope | M | M6 | returns the top jobs by score; narrowing limit enforced |
+| M8 (#107) | **`GET /jobs/{id}/candidates`:** employer/team access, applicants only (pending the decision above) | M | M6 | owner and team members only; other employers get 403 |
+| M9 (#108) | **Operations:** request-id propagation, metrics, README and `DEPLOYMENT.md` section, end-to-end script, mTLS stretch | M | M7 | the manual end-to-end of section 8 passes |
+| M10 (#109) | *(optional)* "new match" notification on job creation | S | M7 | seekers whose score is at least a threshold get one notification |
+| M11 (#110) | *(optional)* own read model in the service fed by events (outbox) instead of sending profiles per request | L | M9 | only if latency or payload size becomes a real problem; changes the ownership rule of section 2, so it needs its own design |
 
 **Front end (their session, via `docs/BACKEND_STATE.md`):** the fake `matchScore` on job cards is replaced by `score` from `/jobs/recommended` and `/jobs/{id}/match`; a preferences form; the "based on skills only" hint when `parts[].counted` is false; the 503 message shown as it comes.
 
-## 10. Decisions needed from the Product Owner
+## 10. Decisions (answered 2026-10-15: "go with your recommendations" for all seven)
 
 1. **Repository:** keep it in `services/matching/` inside this repository for now (recommended), or create a separate repository (then attach it to this session)?
 2. **Stack:** Java 21 with grpc-java (recommended), or another language?
