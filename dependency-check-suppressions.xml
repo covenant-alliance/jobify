@@ -15,4 +15,11 @@
   </suppress>
 -->
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+  <!-- Swagger UI's bundled DOMPurify (3.4.15) is affected; the fix, DOMPurify 3.4.16, is not yet in any swagger-ui webjar (5.32.14 is the latest). -->
+  <suppress until="2027-01-15Z">
+    <notes>Low severity (RetireJS, unscored). The code is Swagger UI's browser bundle, served only on the dev profile; Swagger is switched off on the postgres (production) profile, so no user content reaches it in production. Proposed by Claude from the 2026-10-15 baseline scan, to be confirmed by the Product Owner, see #81. Remove when a swagger-ui webjar bundling DOMPurify 3.4.16 or later is out.</notes>
+    <filePath regex="true">.*/swagger-ui-[\d.]+\.jar/META-INF/resources/webjars/swagger-ui/.*</filePath>
+    <cve>CVE-2026-109344</cve>
+    <cve>CVE-2026-109345</cve>
+  </suppress>
 </suppressions>
