@@ -1,0 +1,15 @@
+{
+  "match": {
+    "score": 76,
+    "matchedSkillIds": ["java", "spring"],
+    "missingSkillIds": ["kafka"],
+    "parts": [
+      {"key": "skills", "weight": 60, "value": 0.6, "counted": true},
+      {"key": "location", "weight": 10, "value": 1, "counted": true},
+      {"key": "work_mode", "weight": 8, "value": 1, "counted": true},
+      {"key": "employment_type", "weight": 7, "value": 1, "counted": true},
+      {"key": "rate", "weight": 10, "value": 1, "counted": true},
+      {"key": "experience", "weight": 5, "value": 1, "counted": true}
+    ]
+  }
+}
