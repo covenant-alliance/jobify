@@ -1,0 +1,156 @@
+syntax = "proto3";
+
+package jobify.matching.v1;
+
+option java_multiple_files = true;
+option java_package = "com.mcverse.matching.v1";
+
+// Scores how well jobs fit seekers. Stateless: everything needed is in the request.
+// Only additive changes are allowed inside v1 (see docs/MATCHING_SERVICE.md, section 4).
+service MatchService {
+  // Score one seeker against one job.
+  rpc Score(ScoreRequest) returns (ScoreResponse);
+  // Score one seeker against many jobs, best first. At most 500 jobs.
+  rpc RankJobs(RankJobsRequest) returns (RankJobsResponse);
+  // Score many seekers against one job, best first. At most 500 candidates.
+  rpc RankCandidates(RankCandidatesRequest) returns (RankCandidatesResponse);
+}
+
+enum Proficiency {
+  PROFICIENCY_UNSPECIFIED = 0;
+  PROFICIENCY_BEGINNER = 1;
+  PROFICIENCY_INTERMEDIATE = 2;
+  PROFICIENCY_ADVANCED = 3;
+  PROFICIENCY_EXPERT = 4;
+}
+
+enum WorkMode {
+  WORK_MODE_UNSPECIFIED = 0;
+  WORK_MODE_ONSITE = 1;
+  WORK_MODE_REMOTE = 2;
+  WORK_MODE_HYBRID = 3;
+}
+
+enum EmploymentType {
+  EMPLOYMENT_TYPE_UNSPECIFIED = 0;
+  EMPLOYMENT_TYPE_FULL_TIME = 1;
+  EMPLOYMENT_TYPE_PART_TIME = 2;
+  EMPLOYMENT_TYPE_CONTRACT = 3;
+  EMPLOYMENT_TYPE_INTERNSHIP = 4;
+  EMPLOYMENT_TYPE_FREELANCE = 5;
+  EMPLOYMENT_TYPE_TEMPORARY = 6;
+  EMPLOYMENT_TYPE_B2B = 7;
+}
+
+enum ExperienceLevel {
+  EXPERIENCE_LEVEL_UNSPECIFIED = 0;
+  EXPERIENCE_LEVEL_INTERN = 1;
+  EXPERIENCE_LEVEL_JUNIOR = 2;
+  EXPERIENCE_LEVEL_MID = 3;
+  EXPERIENCE_LEVEL_SENIOR = 4;
+  EXPERIENCE_LEVEL_LEAD = 5;
+}
+
+message SeekerSkill {
+  string skill_id = 1;
+  Proficiency proficiency = 2;
+  double years = 3;
+}
+
+message Preferences {
+  string preferred_title = 1;
+  // ISO 3166-1 alpha-2.
+  repeated string country_codes = 2;
+  repeated WorkMode work_modes = 3;
+  repeated EmploymentType employment_types = 4;
+  // Annual equivalents, already converted by Jobify, in one currency.
+  optional double min_annual_rate = 5;
+  optional double max_annual_rate = 6;
+  optional ExperienceLevel experience_level = 7;
+}
+
+message SeekerProfile {
+  // Jobify's UUID string, opaque to this service.
+  string seeker_id = 1;
+  repeated SeekerSkill skills = 2;
+  // Absent when the seeker has set no preferences.
+  optional Preferences preferences = 3;
+}
+
+message RequiredSkill {
+  string skill_id = 1;
+  // Only for readable output.
+  string name = 2;
+}
+
+message JobProfile {
+  // Jobify's integer postId.
+  int32 job_id = 1;
+  string title = 2;
+  repeated RequiredSkill required_skills = 3;
+  string country_code = 4;
+  WorkMode work_mode = 5;
+  EmploymentType employment_type = 6;
+  optional double annual_rate = 7;
+  optional ExperienceLevel experience_level = 8;
+  // Used only to break ties (newer first). Unix seconds, UTC; 0 = unknown.
+  int64 posted_at_epoch_seconds = 9;
+}
+
+message ScorePart {
+  // skills, location, work_mode, employment_type, rate, experience
+  string key = 1;
+  double weight = 2;
+  // 0..1; meaningless when counted is false.
+  double value = 3;
+  // false = could not be judged, its weight was dropped.
+  bool counted = 4;
+}
+
+message Match {
+  // 0..100.
+  int32 score = 1;
+  repeated string matched_skill_ids = 2;
+  repeated string missing_skill_ids = 3;
+  repeated ScorePart parts = 4;
+}
+
+message RankedJob {
+  int32 job_id = 1;
+  Match match = 2;
+}
+
+message RankedCandidate {
+  string seeker_id = 1;
+  Match match = 2;
+}
+
+message ScoreRequest {
+  SeekerProfile seeker = 1;
+  JobProfile job = 2;
+}
+
+message ScoreResponse {
+  Match match = 1;
+}
+
+message RankJobsRequest {
+  SeekerProfile seeker = 1;
+  repeated JobProfile jobs = 2;
+  // 0 = return all.
+  int32 limit = 3;
+}
+
+message RankJobsResponse {
+  repeated RankedJob jobs = 1;
+}
+
+message RankCandidatesRequest {
+  JobProfile job = 1;
+  repeated SeekerProfile candidates = 2;
+  int32 limit = 3;
+}
+
+message RankCandidatesResponse {
+  repeated RankedCandidate candidates = 1;
+}

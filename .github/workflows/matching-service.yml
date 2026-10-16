@@ -1,0 +1,52 @@
+name: Matching service
+
+# Only runs when the matching service or its contract changes. Jobify's own CI (ci.yml) is untouched.
+on:
+  push:
+    branches: [ master ]
+    paths: [ 'services/matching/**', '.github/workflows/matching-service.yml' ]
+  pull_request:
+    paths: [ 'services/matching/**', '.github/workflows/matching-service.yml' ]
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Contract (buf lint and breaking-change check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          version: '1.57.0'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Lint
+        working-directory: services/matching
+        run: buf lint
+      - name: Breaking changes against the target branch
+        # A new proto has no base to compare with: the first run on a branch that adds it passes.
+        working-directory: services/matching
+        run: |
+          BASE="${{ github.base_ref || 'master' }}"
+          git fetch --no-tags origin "$BASE"
+          if git cat-file -e "origin/$BASE:services/matching/matching-api/src/main/proto/jobify/matching/v1/matching.proto" 2>/dev/null; then
+            buf breaking --against "../../.git#branch=origin/$BASE,subdir=services/matching"
+          else
+            echo "No contract on $BASE yet; nothing to compare."
+          fi
+
+  build:
+    name: Build and test (matching-api, matching-service)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Verify
+        run: mvn -B -f services/matching/pom.xml verify

@@ -74,7 +74,7 @@ The root `pom.xml` of Jobify stays a single-module build. Jobify depends on `mat
 
 ## 4. The contract (`matching.v1`)
 
-Protobuf is the source of truth; REST/JSON stays on the browser side only. Sketch (final field numbers are fixed in story M2):
+Protobuf is the source of truth; REST/JSON stays on the browser side only. **The real contract is `services/matching/matching-api/src/main/proto/jobify/matching/v1/matching.proto`** (fixed in M2, #101). The sketch below is the idea; where they differ, the file wins. Differences settled in M2: enums are prefixed (`WORK_MODE_REMOTE`, as `buf lint` requires) and mirror Jobify's enums exactly (`Proficiency` has `EXPERT`, `ExperienceLevel` is `INTERN..LEAD`, `EmploymentType` includes `TEMPORARY` and `B2B`); `JobProfile` gained `posted_at_epoch_seconds` for the tie-break; `RankedJob` / `RankedCandidate` wrap a `Match` with its id; `RankJobs` and `RankCandidates` take a `limit`. `services/matching/golden/` holds request/response JSON shared with Jobify's tests (M2 has the request; M3 adds the response once scoring exists). Sketch:
 
 ```proto
 syntax = "proto3";
