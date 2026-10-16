@@ -63,7 +63,7 @@ services/matching/
 src/main/java/com/mcverse/jobify/match/   the client side inside Jobify (section 6)
 ```
 
-The root `pom.xml` of Jobify stays a single-module build. Jobify depends on `matching-api` as a normal dependency (installed with `mvn -f services/matching/pom.xml install`, and by CI before the Jobify build).
+The root `pom.xml` of Jobify stays a single-module build. **Decision made in M6 (#105): the contract is shared as the `.proto` file, not as a jar.** Jobify's `pom.xml` points the protobuf plugin at `services/matching/matching-api/src/main/proto` and generates its own client stubs, so neither build needs the other installed first, and when the service moves to its own repository the proto moves with it. (The earlier idea of a `matching-api` jar that Jobify depends on would have forced CI, Docker and every developer to build the service first.)
 
 **Decision made (2026-10-15, answered "go with your recommendations", then checked by the M1 spike #100): Java 21, Spring Boot 4.1.1 with its built-in gRPC starters.** The spike found that Spring Boot 4.1 manages gRPC itself, so the plan's earlier "plain grpc-java" alternative is not needed:
 - `spring-boot-starter-grpc-server` (and `spring-boot-starter-grpc-client`) are in Boot 4.1's own BOM, along with `grpc-java` 1.83.1, `protobuf-java` 4.35.1 and `protobuf-maven-plugin` 5.1.8 (`io.github.ascopes`). Do not set versions for them in the `pom.xml`; Boot picks a matching set. (Setting a different protobuf version breaks compilation of the generated code, which the spike hit.)
@@ -189,7 +189,7 @@ New or changed API (all additive; final shapes go into `api-documentation.md` an
 ### Running the service on its own (built in M4, #103)
 
 ```
-mvn -f services/matching/pom.xml install                         # builds the contract jar and runs all tests
+mvn -f services/matching/pom.xml install                         # builds the contract and runs all tests
 java -jar services/matching/matching-service/target/matching-service-0.1.0-SNAPSHOT.jar
 curl localhost:9091/actuator/health                              # {"status":"UP"}
 grpcurl -plaintext localhost:9090 list                           # dev only: reflection is on
@@ -201,6 +201,7 @@ grpcurl -plaintext -H 'authorization: Bearer dev-matching-token' \
 - **Calls without a valid `authorization: Bearer ...`** get `UNAUTHENTICATED`; `grpc.health.v1.Health` is exempt so probes need no secret.
 - **Limits and codes:** more than 500 jobs or candidates is `RESOURCE_EXHAUSTED`; a missing seeker or job, blank seeker id, non-positive job id or negative limit is `INVALID_ARGUMENT`; unknown skill ids simply never match; anything unexpected is `INTERNAL` with no detail (the cause is only in the log).
 - **Ports:** gRPC `9090` (`MATCHING_GRPC_PORT`), HTTP `9091` (`MATCHING_MANAGEMENT_PORT`) serving only `/actuator/health`.
+- **End to end (M9):** `scripts/e2e-matching.sh` runs both services as jars and checks the endpoints, the request id, the metrics, the 503s and the recovery. It passed here. Operations notes are in `docs/DEPLOYMENT.md`, "The matching service".
 - **Docker:** `docker compose --profile matching up -d --build` (opt-in; Jobify does not call the service until M6). The Dockerfile is in `services/matching/`. **Not verified by the author: no Docker daemon was available.** The `image` job in `.github/workflows/matching-service.yml` builds the image, checks it refuses to start without a token, and checks it reports healthy; its first run on GitHub is the first real test. `grpcurl` was not available either, so the example above is untested; the same calls are tested in `MatchingServerTest` with a real gRPC client.
 
 ## 8. Testing strategy

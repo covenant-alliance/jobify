@@ -30,6 +30,7 @@ mvn spring-boot:run         # then http://localhost:9080
 fuser -k 9080/tcp           # free the port if a stale run is holding it
 scripts/test-postgres.sh    # whole suite against an EMPTY PostgreSQL (TEST_DB_URL/_USER/_PASSWORD), Flyway + validate
 scripts/db-copy.sh          # copy all rows from one database to another (docs/DATABASE_MIGRATION.md)
+scripts/e2e-matching.sh      # builds and runs Jobify + the matching service, checks the match endpoints and the 503 behaviour (docs/MATCHING_SERVICE.md)
 ```
 Seeded accounts (all password `password`): `admin`, `alice_s`/`bob_s`/`carol_s` (SEEKER), `techcorp`/`startupxyz`/`financegroup` (EMPLOYER). See `demo-users.md`. Seeding runs in `config/DataInitializer` and `SeedService` only when the DB is empty. `cms/ContentSeeder` runs every boot and only inserts missing keys.
 Smoke test: `curl -s -X POST localhost:9080/auth/login -H 'Content-Type: application/json' -d '{"username":"techcorp","password":"password"}'`

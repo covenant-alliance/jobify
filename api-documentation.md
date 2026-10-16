@@ -449,6 +449,81 @@ Deleting an account deletes its preferences.
 
 ---
 
+## Matching (since #105)
+
+### `GET /jobs/{id}/match`
+
+How well one **open** job fits the signed-in seeker, with the reasons. **SEEKER only** (employer or admin `403`, no token `401`). Unknown or closed job: `404`.
+
+```json
+{
+  "jobId": 3,
+  "score": 76,
+  "matchedSkills": [{ "id": "…", "name": "Java" }],
+  "missingSkills": [{ "id": "…", "name": "Kafka" }],
+  "parts": [
+    { "key": "skills",   "weight": 60.0, "value": 0.6, "counted": true },
+    { "key": "location", "weight": 10.0, "value": 1.0, "counted": true },
+    { "key": "rate",     "weight": 10.0, "value": 0.0, "counted": false }
+  ]
+}
+```
+
+- `score` is 0 to 100. `parts` are always in the order `skills`, `location`, `work_mode`, `employment_type`, `rate`, `experience`.
+- A part with `counted: false` could not be judged (the seeker saved no preference for it, or the job leaves that field empty). It is **left out of the score**, which is then based on the counted parts only. Show "based on skills only" when only `skills` is counted. A seeker with no skills and no preferences gets `0`.
+- It uses the skills on the seeker's profile and the saved preferences (`/users/seekers/me/preferences`). A job rate of type `CONTRACT_TOTAL` is not compared.
+- **`503`** with the usual envelope and `"message": "Job matching is temporarily unavailable. Please try again in a moment."` when the matching service is stopped, too slow (over 800 ms), failing repeatedly (circuit breaker open), or switched off (`matching.enabled=false`, the default). Show the message as it comes. Nothing else in the API is affected.
+
+### `GET /jobs/recommended` (since #106)
+
+A page of **open jobs ranked for the signed-in seeker**, best fit first. **SEEKER only** (employer or admin `403`, no token `401`).
+
+Query: `page` (from 0, default 0), `size` (1 to 50, default 20); anything else is `400` with a readable message. Response `200`, the usual page envelope:
+
+```json
+{
+  "content": [
+    {
+      "job": { "postId": 3, "jobTitle": "…", "companyName": "…", "…": "same shape as GET /jobs" },
+      "score": 76,
+      "matchedSkills": ["Java"],
+      "missingSkills": ["Kafka"]
+    }
+  ],
+  "page": 0, "size": 20, "totalElements": 42, "totalPages": 3, "last": false
+}
+```
+
+- **Which jobs are ranked:** open jobs the seeker has **not applied to**, that are **remote or in one of the countries saved in the preferences** (every country when none are saved), newest first, **at most 200** of them (setting `matching.max-candidates`). Jobify narrows in SQL and sends only those to the matching service, so `totalElements` is at most 200.
+- A seeker with no skills and no preferences still gets a list (all scores `0`, newest first).
+- **`503`** with `"Job matching is temporarily unavailable. Please try again in a moment."` when the matching service is stopped, too slow (over 2 s), failing repeatedly or switched off. There is **no fallback list**: showing newest jobs as "recommended" would hide the outage.
+
+### `GET /jobs/{id}/candidates` (since #107)
+
+The **applicants of a job ranked by how well they fit it**, best first. **EMPLOYER only**: the employer who posted the job, or anyone in the same company (the same rule as the applicants list). Another company's employer `403`, a seeker or admin `403`, no token `401`, unknown job `404`.
+
+Query: `page` (from 0), `size` (1 to 50, default 20); out of range is `400`.
+
+```json
+{
+  "content": [
+    {
+      "applicationId": "…", "status": "APPLIED", "appliedAt": "2026-10-16T09:00:00",
+      "applicant": { "seekerId": "…", "username": "alice_s", "name": "Alice", "lastName": "S", "hasCv": true },
+      "score": 76, "matchedSkills": ["Java"], "missingSkills": ["Kafka"]
+    }
+  ],
+  "page": 0, "size": 20, "totalElements": 12, "totalPages": 1, "last": true
+}
+```
+
+- **Only seekers who applied** (and have not withdrawn) are ranked; there is no search across all seekers. Rejected applicants stay in the list (`status` says so).
+- At most `matching.max-applicants` (500) of the **newest** applications are ranked, then paged.
+- The matching service is sent only ids, skills and saved preferences, never names, emails or CV text. The `applicant` block shows what the employer already sees on `GET /jobs/{id}/applications`.
+- `503` with the usual friendly message while matching is unavailable or off.
+
+---
+
 ## Employer statistics
 
 ### `GET /employers/me/stats`
@@ -553,7 +628,7 @@ A new or withdrawn application notifies **every member of the job's company** (t
 
 ```ts
 interface PreferencesResponse {
-  notifications: { INTERVIEW: boolean; APPLICATION: boolean; SYSTEM: boolean; HIRING: boolean; ACCOUNT: boolean };
+  notifications: { INTERVIEW: boolean; APPLICATION: boolean; SYSTEM: boolean; HIRING: boolean; ACCOUNT: boolean; MATCH: boolean };
   accentColor: string | null;     // "#rrggbb", lower case
 }
 interface UpdatePreferencesRequest {   // every field optional; only what is sent changes
@@ -563,7 +638,7 @@ interface UpdatePreferencesRequest {   // every field optional; only what is sen
 ```
 
 - `GET` returns the defaults for a user who never saved anything: every type `true`, `accentColor` `null`.
-- `PUT` returns the full settings after the change. Errors `400` (nothing is changed): `Unknown notification type 'X'. Use one of: INTERVIEW, APPLICATION, SYSTEM, HIRING, ACCOUNT.`, `ACCOUNT notifications cannot be turned off: ...`, `notifications.X must be true or false.`, `accentColor must look like #1a73e8, or be empty to clear it.`, a missing or malformed body. `401` without a valid token.
+- `PUT` returns the full settings after the change. Errors `400` (nothing is changed): `Unknown notification type 'X'. Use one of: INTERVIEW, APPLICATION, SYSTEM, HIRING, ACCOUNT, MATCH.`, `ACCOUNT notifications cannot be turned off: ...`, `notifications.X must be true or false.`, `accentColor must look like #1a73e8, or be empty to clear it.`, a missing or malformed body. `401` without a valid token.
 - **Effect:** a type switched off is no longer delivered to that user: no row is stored, the bell badge does not count it, and switching it back on does not bring back what was dropped. `ACCOUNT` (password changed, deletion decisions) always arrives.
 - Design notes and the RabbitMQ question: `docs/NOTIFICATIONS.md`.
 
@@ -576,7 +651,7 @@ interface UpdatePreferencesRequest {   // every field optional; only what is sen
 ```ts
 interface NotificationResponse {
   id: string;                     // UUID
-  type: "INTERVIEW" | "APPLICATION" | "SYSTEM" | "HIRING" | "ACCOUNT";
+  type: "INTERVIEW" | "APPLICATION" | "SYSTEM" | "HIRING" | "ACCOUNT" | "MATCH";
   title: string;                  // plain text
   body: string;                   // plain text, show it as text, never as HTML
   read: boolean;
@@ -603,6 +678,7 @@ interface NotificationResponse {
 | ... to `INTERVIEW` | the seeker | `INTERVIEW` | `You have reached the interview stage` |
 | ... to `OFFER` | the seeker | `HIRING` | `You have an offer` |
 | ... to `REJECTED` | the seeker | `APPLICATION` | `Application update` |
+| A new job fits a seeker well (only when `matching.alerts.enabled=true`, off by default) | each seeker whose score is at least `matching.alerts.threshold` (75) | `MATCH` | `A new job fits you: <job title>` |
 | The user changes their password | that user | `ACCOUNT` | `Your password was changed` |
 | An admin declines their deletion request | that user | `ACCOUNT` | `Account deletion request declined` (the admin's note is included) |
 

@@ -195,6 +195,38 @@ other actuator endpoint (env, beans, heap dump, metrics...) is exposed.
 curl -s localhost:9080/actuator/health -H "Authorization: Bearer $ADMIN_TOKEN" | jq .components
 ```
 
+## The matching service (optional)
+
+The job-matching engine runs as a **separate gRPC service** (`services/matching/`, design in `docs/MATCHING_SERVICE.md`, how it works in `docs/MATCHING_ARCHITECTURE.md`). Jobify runs and works without it: only `GET /jobs/{id}/match`, `GET /jobs/recommended` and `GET /jobs/{id}/candidates` depend on it, and they answer `503` with a friendly message while it is off or down.
+
+**Turn it on**
+1. `openssl rand -base64 32` and put it in `.env` as `MATCHING_TOKEN` (both sides use the same value).
+2. Set `MATCHING_ENABLED=true` in `.env`.
+3. `docker compose --profile matching up -d --build`. Without `--profile matching` the service does not start.
+
+| Setting | Where | Meaning |
+|---|---|---|
+| `MATCHING_ENABLED` | Jobify (`app`) | `true` makes Jobify call the service. Default `false`. |
+| `MATCHING_TARGET` | Jobify | gRPC address, default `matching:9090` in compose, `localhost:9090` otherwise. |
+| `MATCHING_TOKEN` | Jobify and the service | Shared secret, sent as `authorization: Bearer ...`. The service **refuses to start without it** outside the `dev` profile; Jobify refuses to start with `MATCHING_ENABLED=true` and no token. |
+| `matching.deadline`, `matching.rank-deadline` | Jobify | How long one call may take (default 800 ms for one job, 2 s for ranking). Settable as `MATCHING_DEADLINE` and `MATCHING_RANK_DEADLINE`. |
+| `matching.max-candidates`, `matching.max-applicants` | Jobify | Most jobs (200) or applicants (500) sent for one ranking. |
+| `matching.alerts.enabled`, `.threshold`, `.max-seekers` | Jobify | Optional "a new job fits you" notifications (`MATCH`): off by default; at or above this score (75) are told; at most 200 seekers scored per new job. Env: `MATCHING_ALERTS_ENABLED` etc. |
+| `matching.weights.*` | the service | Weight of each part of the score (skills 60, location 10, work mode 8, employment type 7, rate 10, experience 5). |
+| `MATCHING_GRPC_PORT`, `MATCHING_MANAGEMENT_PORT` | the service | 9090 (gRPC) and 9091 (HTTP). |
+
+**Ports.** gRPC `9090` and HTTP `9091` of the service are reachable **only inside the compose network**: never publish them. `9091` serves `/actuator/health`, `/actuator/metrics` and `/actuator/prometheus` and nothing else.
+
+**Health.** `curl http://matching:9091/actuator/health` (or the standard `grpc.health.v1.Health/Check` on 9090, which needs no token). The image has a Docker health check.
+
+**What to watch** (Prometheus names on `9091/actuator/prometheus`): `matching_requests_total{rpc,outcome}` (count per call and result: a rising `UNAUTHENTICATED` means the tokens differ, `INTERNAL` means a bug), `matching_request_duration_seconds` (latency per call), `matching_score` (how scores are spread, in buckets of ten). On Jobify's side a run of 503s with the log line "Matching call refused: circuit breaker is open" means the breaker has opened; it tries again after 10 seconds.
+
+**Following one request across both logs.** Jobify sends the caller's `X-Request-Id` as gRPC metadata `x-request-id`; the service puts it in square brackets on every log line of that call (`INFO [req-123] ...`). Search both logs for the id.
+
+**Checking it works.** `scripts/e2e-matching.sh` starts both services (as jars, no Docker needed), registers a seeker, posts a job, calls the three endpoints, checks the request id and the metrics, stops the matching service and checks the `503`s while the rest of Jobify keeps working, then starts it again and checks recovery. Run it before a release that touches matching. It also runs in CI (`matching-service.yml`, job `end-to-end`).
+
+**Not verified:** `docker compose --profile matching up` with both containers talking to each other (the CI job builds the matching image and checks it starts and is healthy, but never runs the pair in compose); `grpcurl` against the running service; mutual TLS between the two (a stretch goal, not built: the channel is plaintext inside the private network).
+
 ## CI
 
 `.github/workflows/ci.yml` runs the suite twice on every pull request: on H2 (the default) and on a PostgreSQL 18

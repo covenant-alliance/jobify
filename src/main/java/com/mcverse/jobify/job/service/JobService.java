@@ -31,6 +31,9 @@ public class JobService {
     private JobRepo repo;
 
     @Autowired
+    private org.springframework.context.ApplicationEventPublisher events;
+
+    @Autowired
     private EmployerRepository employerRepo;
 
     @Autowired
@@ -86,6 +89,7 @@ public class JobService {
         JobPost saved = repo.save(job);
         activity.record(employer.getCompany(), employerUsername, ActivityType.JOB_POSTED,
                 employerUsername + " posted \"" + saved.getJobTitle() + "\"", saved.getPostId(), null);
+        events.publishEvent(new com.mcverse.jobify.job.event.JobPostedEvent(saved.getPostId()));
         return mapper.toResponse(saved);
     }
 
