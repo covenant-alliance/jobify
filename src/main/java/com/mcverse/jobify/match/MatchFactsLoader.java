@@ -1,6 +1,8 @@
 package com.mcverse.jobify.match;
 
+import com.mcverse.jobify.job.dto.JobPostResponse;
 import com.mcverse.jobify.job.model.JobPost;
+import com.mcverse.jobify.job.service.JobResponseMapper;
 import com.mcverse.jobify.job.model.RateType;
 import com.mcverse.jobify.job.model.SeekerJobPreferences;
 import com.mcverse.jobify.job.repository.SeekerJobPreferencesRepository;
@@ -15,7 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.List;
 
 /**
  * Turns entities into {@link MatchFacts} inside a short read-only transaction. It is a separate bean on purpose: the
@@ -24,12 +28,42 @@ import java.util.Comparator;
 @Service
 public class MatchFactsLoader {
 
+    /** A job as the matching service sees it, next to how the API shows it. */
+    public record JobWithFacts(JobFacts facts, JobPostResponse response) {}
+
     private final SeekerSkillRepository seekerSkills;
     private final SeekerJobPreferencesRepository preferences;
+    private final MatchCandidateRepository candidates;
+    private final JobResponseMapper mapper;
 
-    public MatchFactsLoader(SeekerSkillRepository seekerSkills, SeekerJobPreferencesRepository preferences) {
+    public MatchFactsLoader(SeekerSkillRepository seekerSkills, SeekerJobPreferencesRepository preferences,
+                            MatchCandidateRepository candidates, JobResponseMapper mapper) {
         this.seekerSkills = seekerSkills;
         this.preferences = preferences;
+        this.candidates = candidates;
+        this.mapper = mapper;
+    }
+
+    /** Preferred countries of the seeker, or an empty list when none are saved (then no country filter applies). */
+    @Transactional(readOnly = true)
+    public List<String> preferredCountries(Seeker seeker) {
+        return preferences.findById(seeker.getId()).map(p -> p.getCountryCodes().stream().sorted().toList())
+                .orElse(List.of());
+    }
+
+    /** Ids of the jobs worth ranking for this seeker, newest first, at most {@code limit}. */
+    @Transactional(readOnly = true)
+    public List<Integer> narrow(String username, List<String> countries, int limit) {
+        boolean anyCountry = countries.isEmpty();
+        return candidates.narrowForSeeker(username, anyCountry, anyCountry ? List.of("") : countries,
+                org.springframework.data.domain.PageRequest.of(0, limit));
+    }
+
+    @Transactional(readOnly = true)
+    public List<JobWithFacts> jobs(Collection<Integer> ids) {
+        return candidates.findAllByPostIdIn(ids).stream()
+                .map(job -> new JobWithFacts(job(job), mapper.toResponse(job)))
+                .toList();
     }
 
     @Transactional(readOnly = true)

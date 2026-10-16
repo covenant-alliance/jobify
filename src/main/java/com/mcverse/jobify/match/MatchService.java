@@ -6,7 +6,11 @@ import com.mcverse.jobify.common.exception.ResourceNotFoundException;
 import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.job.repository.JobRepo;
 import com.mcverse.jobify.match.MatchFacts.JobFacts;
+import com.mcverse.jobify.common.response.PagedResponse;
 import com.mcverse.jobify.match.MatchFacts.MatchResult;
+import com.mcverse.jobify.match.MatchFacts.RankedJob;
+import com.mcverse.jobify.match.MatchFactsLoader.JobWithFacts;
+import com.mcverse.jobify.match.dto.RecommendedJobResponse;
 import com.mcverse.jobify.match.MatchFacts.SeekerFacts;
 import com.mcverse.jobify.match.MatchFacts.SkillRef;
 import com.mcverse.jobify.match.dto.JobMatchResponse;
@@ -16,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -35,9 +40,13 @@ public class MatchService {
     private final MatchFactsLoader facts;
     private final MatchEngine engine;
     private final AuditLog auditLog;
+    private final MatchProperties properties;
+
+    public static final int MAX_PAGE_SIZE = 50;
 
     public MatchService(SeekerRepository seekerRepo, JobRepo jobRepo, MatchFactsLoader facts, MatchEngine engine,
-                        AuditLog auditLog) {
+                        AuditLog auditLog, MatchProperties properties) {
+        this.properties = properties;
         this.seekerRepo = seekerRepo;
         this.jobRepo = jobRepo;
         this.facts = facts;
@@ -47,11 +56,7 @@ public class MatchService {
 
     /** The signed-in seeker's match with one open job. */
     public JobMatchResponse matchFor(String username, int jobId) {
-        Seeker seeker = seekerRepo.findByUsername(username).orElseThrow(() -> {
-            log.warn("Denied: user '{}' asked for a match score without the SEEKER role", username);
-            auditLog.event(username, "ACCESS_DENIED", "action='see match scores' reason=not a seeker");
-            return new LicenseValidationException("Only job seekers can see match scores.");
-        });
+        Seeker seeker = requireSeeker(username, "see match scores");
         JobPost job = jobRepo.findById(jobId).filter(JobPost::isAvailable)
                 .orElseThrow(() -> new ResourceNotFoundException("JobPost", Integer.toString(jobId)));
 
@@ -60,6 +65,63 @@ public class MatchService {
 
         MatchResult result = engine.score(seekerFacts, jobFacts);
         return toResponse(jobFacts, result);
+    }
+
+    /**
+     * A page of open jobs ranked for the signed-in seeker. SQL first narrows to jobs the seeker has not applied to that
+     * are remote or in a preferred country (newest first, at most {@code matching.max-candidates}); only those are sent
+     * to the engine, best first. A seeker with no skills and no preferences still gets an answer.
+     */
+    public PagedResponse<RecommendedJobResponse> recommend(String username, Integer page, Integer size) {
+        int pageNumber = page == null ? 0 : page;
+        int pageSize = size == null ? 20 : size;
+        if (pageNumber < 0) {
+            throw new IllegalArgumentException("page must be 0 or more.");
+        }
+        if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("size must be between 1 and " + MAX_PAGE_SIZE + ".");
+        }
+        Seeker seeker = requireSeeker(username, "see recommended jobs");
+
+        List<Integer> ids = facts.narrow(username, facts.preferredCountries(seeker), properties.maxCandidates());
+        if (ids.isEmpty()) {
+            return PagedResponse.of(List.of(), pageNumber, pageSize, 0);
+        }
+        List<JobWithFacts> candidates = facts.jobs(ids);
+        SeekerFacts seekerFacts = facts.seeker(seeker);
+
+        // the remote call: no transaction is open here
+        List<RankedJob> ranked = engine.rankJobs(seekerFacts, candidates.stream().map(JobWithFacts::facts).toList());
+
+        Map<Integer, JobWithFacts> byId = new HashMap<>();
+        candidates.forEach(c -> byId.put(c.facts().jobId(), c));
+        List<RecommendedJobResponse> all = ranked.stream()
+                .filter(r -> byId.containsKey(r.jobId()))
+                .map(r -> toRecommended(byId.get(r.jobId()), r.result()))
+                .toList();
+
+        int from = (int) Math.min((long) pageNumber * pageSize, all.size());
+        int to = Math.min(from + pageSize, all.size());
+        return PagedResponse.of(all.subList(from, to), pageNumber, pageSize, all.size());
+    }
+
+    private static RecommendedJobResponse toRecommended(JobWithFacts job, MatchResult result) {
+        Map<String, SkillRef> byId = job.facts().requiredSkills().stream()
+                .collect(Collectors.toMap(SkillRef::id, Function.identity(), (a, b) -> a));
+        return new RecommendedJobResponse(job.response(), result.score(),
+                names(result.matchedSkillIds(), byId), names(result.missingSkillIds(), byId));
+    }
+
+    private static List<String> names(List<String> ids, Map<String, SkillRef> byId) {
+        return ids.stream().map(id -> byId.containsKey(id) ? byId.get(id).name() : id).toList();
+    }
+
+    private Seeker requireSeeker(String username, String action) {
+        return seekerRepo.findByUsername(username).orElseThrow(() -> {
+            log.warn("Denied: user '{}' tried to {} without the SEEKER role", username, action);
+            auditLog.event(username, "ACCESS_DENIED", "action='" + action + "' reason=not a seeker");
+            return new LicenseValidationException("Only job seekers can " + action + ".");
+        });
     }
 
     private static JobMatchResponse toResponse(JobFacts job, MatchResult result) {

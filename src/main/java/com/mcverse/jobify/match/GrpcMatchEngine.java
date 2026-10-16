@@ -6,6 +6,7 @@ import com.mcverse.jobify.match.MatchFacts.JobFacts;
 import com.mcverse.jobify.match.MatchFacts.MatchResult;
 import com.mcverse.jobify.match.MatchFacts.PartFact;
 import com.mcverse.jobify.match.MatchFacts.PreferenceFacts;
+import com.mcverse.jobify.match.MatchFacts.RankedJob;
 import com.mcverse.jobify.match.MatchFacts.SeekerFacts;
 import com.mcverse.matching.v1.EmploymentType;
 import com.mcverse.matching.v1.ExperienceLevel;
@@ -13,6 +14,7 @@ import com.mcverse.matching.v1.JobProfile;
 import com.mcverse.matching.v1.Match;
 import com.mcverse.matching.v1.MatchServiceGrpc;
 import com.mcverse.matching.v1.Preferences;
+import com.mcverse.matching.v1.RankJobsRequest;
 import com.mcverse.matching.v1.Proficiency;
 import com.mcverse.matching.v1.RequiredSkill;
 import com.mcverse.matching.v1.ScorePart;
@@ -38,7 +40,10 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.util.List;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * The adapter between Jobify and the matching service. It translates Jobify's facts to the contract's messages (and
@@ -84,8 +89,26 @@ public class GrpcMatchEngine implements MatchEngine {
     @Override
     public MatchResult score(SeekerFacts seeker, JobFacts job) {
         ScoreRequest request = ScoreRequest.newBuilder().setSeeker(toProto(seeker)).setJob(toProto(job)).build();
+        return guarded(() -> fromProto(withOneRetry(properties.deadline(),
+                stub -> stub.score(request)).getMatch()));
+    }
+
+    @Override
+    public List<RankedJob> rankJobs(SeekerFacts seeker, List<JobFacts> jobs) {
+        if (jobs.isEmpty()) {
+            return List.of();
+        }
+        RankJobsRequest.Builder request = RankJobsRequest.newBuilder().setSeeker(toProto(seeker));
+        jobs.forEach(job -> request.addJobs(toProto(job)));
+        RankJobsRequest built = request.build();
+        return guarded(() -> withOneRetry(properties.rankDeadline(), stub -> stub.rankJobs(built)).getJobsList().stream()
+                .map(r -> new RankedJob(r.getJobId(), fromProto(r.getMatch()))).toList());
+    }
+
+    /** Every failure, however it happens, is the same answer to the caller: unavailable. */
+    private <T> T guarded(Supplier<T> call) {
         try {
-            return breaker.executeSupplier(() -> fromProto(callWithOneRetry(request)));
+            return breaker.executeSupplier(call);
         } catch (CallNotPermittedException e) {
             log.warn("Matching call refused: circuit breaker is open");
             throw new ServiceUnavailableException(UNAVAILABLE_MESSAGE, e);
@@ -96,21 +119,16 @@ public class GrpcMatchEngine implements MatchEngine {
     }
 
     /** The calls are read-only, so repeating one is harmless. Only a refused connection is retried, never a timeout. */
-    private Match callWithOneRetry(ScoreRequest request) {
+    private <T> T withOneRetry(Duration deadline, Function<MatchServiceGrpc.MatchServiceBlockingStub, T> call) {
         try {
-            return attempt(request);
+            return call.apply(stub.withDeadlineAfter(deadline.toMillis(), TimeUnit.MILLISECONDS));
         } catch (StatusRuntimeException e) {
             if (e.getStatus().getCode() != Status.Code.UNAVAILABLE) {
                 throw e;
             }
             log.info("Matching service unavailable, retrying once");
-            return attempt(request);
+            return call.apply(stub.withDeadlineAfter(deadline.toMillis(), TimeUnit.MILLISECONDS));
         }
-    }
-
-    private Match attempt(ScoreRequest request) {
-        return stub.withDeadlineAfter(properties.deadline().toMillis(), TimeUnit.MILLISECONDS)
-                .score(request).getMatch();
     }
 
     /** Adds the shared secret and the request id of the user's request, so one action can be followed in both logs. */

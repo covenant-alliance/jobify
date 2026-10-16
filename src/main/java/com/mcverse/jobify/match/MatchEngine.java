@@ -2,7 +2,10 @@ package com.mcverse.jobify.match;
 
 import com.mcverse.jobify.match.MatchFacts.JobFacts;
 import com.mcverse.jobify.match.MatchFacts.MatchResult;
+import com.mcverse.jobify.match.MatchFacts.RankedJob;
 import com.mcverse.jobify.match.MatchFacts.SeekerFacts;
+
+import java.util.List;
 
 /**
  * The port: what the rest of Jobify knows about matching. Only {@link GrpcMatchEngine} knows there is a network.
@@ -12,4 +15,7 @@ import com.mcverse.jobify.match.MatchFacts.SeekerFacts;
 public interface MatchEngine {
 
     MatchResult score(SeekerFacts seeker, JobFacts job);
+
+    /** The given jobs scored for one seeker, best first. At most 500 jobs per call (the contract's limit). */
+    List<RankedJob> rankJobs(SeekerFacts seeker, List<JobFacts> jobs);
 }

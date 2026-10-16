@@ -35,4 +35,7 @@ public final class MatchFacts {
 
     public record MatchResult(int score, List<String> matchedSkillIds, List<String> missingSkillIds,
                               List<PartFact> parts) {}
+
+    /** One job of a ranking, best first. */
+    public record RankedJob(int jobId, MatchResult result) {}
 }

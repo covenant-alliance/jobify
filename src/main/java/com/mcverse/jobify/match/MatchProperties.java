@@ -18,6 +18,8 @@ public record MatchProperties(
         @DefaultValue("800ms") Duration deadline,
         /* How long a ranking call (many jobs or candidates) may take. */
         @DefaultValue("2s") Duration rankDeadline,
+        /* Most jobs narrowed in SQL and sent for one ranking. The contract allows 500. */
+        @DefaultValue("200") int maxCandidates,
         Breaker breaker) {
 
     public MatchProperties {

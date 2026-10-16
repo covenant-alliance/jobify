@@ -474,6 +474,30 @@ How well one **open** job fits the signed-in seeker, with the reasons. **SEEKER 
 - It uses the skills on the seeker's profile and the saved preferences (`/users/seekers/me/preferences`). A job rate of type `CONTRACT_TOTAL` is not compared.
 - **`503`** with the usual envelope and `"message": "Job matching is temporarily unavailable. Please try again in a moment."` when the matching service is stopped, too slow (over 800 ms), failing repeatedly (circuit breaker open), or switched off (`matching.enabled=false`, the default). Show the message as it comes. Nothing else in the API is affected.
 
+### `GET /jobs/recommended` (since #106)
+
+A page of **open jobs ranked for the signed-in seeker**, best fit first. **SEEKER only** (employer or admin `403`, no token `401`).
+
+Query: `page` (from 0, default 0), `size` (1 to 50, default 20); anything else is `400` with a readable message. Response `200`, the usual page envelope:
+
+```json
+{
+  "content": [
+    {
+      "job": { "postId": 3, "jobTitle": "…", "companyName": "…", "…": "same shape as GET /jobs" },
+      "score": 76,
+      "matchedSkills": ["Java"],
+      "missingSkills": ["Kafka"]
+    }
+  ],
+  "page": 0, "size": 20, "totalElements": 42, "totalPages": 3, "last": false
+}
+```
+
+- **Which jobs are ranked:** open jobs the seeker has **not applied to**, that are **remote or in one of the countries saved in the preferences** (every country when none are saved), newest first, **at most 200** of them (setting `matching.max-candidates`). Jobify narrows in SQL and sends only those to the matching service, so `totalElements` is at most 200.
+- A seeker with no skills and no preferences still gets a list (all scores `0`, newest first).
+- **`503`** with `"Job matching is temporarily unavailable. Please try again in a moment."` when the matching service is stopped, too slow (over 2 s), failing repeatedly or switched off. There is **no fallback list**: showing newest jobs as "recommended" would hide the outage.
+
 ---
 
 ## Employer statistics

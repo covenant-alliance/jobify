@@ -19,6 +19,7 @@ import com.mcverse.jobify.common.exception.ServiceUnavailableException;
 import com.mcverse.jobify.match.MatchFacts.JobFacts;
 import com.mcverse.jobify.match.MatchFacts.MatchResult;
 import com.mcverse.jobify.match.MatchFacts.PartFact;
+import com.mcverse.jobify.match.MatchFacts.RankedJob;
 import com.mcverse.jobify.match.MatchFacts.SeekerFacts;
 import com.mcverse.jobify.user.model.ProficiencyLevel;
 import java.util.List;
@@ -44,6 +45,7 @@ class MatchEndpointTest {
     static class FakeEngine implements MatchEngine {
         volatile SeekerFacts seeker;
         volatile JobFacts job;
+        volatile List<JobFacts> sent;
         volatile boolean down;
         final AtomicReference<MatchResult> answer = new AtomicReference<>();
 
@@ -55,6 +57,23 @@ class MatchEndpointTest {
                 throw new ServiceUnavailableException(GrpcMatchEngine.UNAVAILABLE_MESSAGE);
             }
             return answer.get() != null ? answer.get() : new MatchResult(0, List.of(), List.of(), List.of());
+        }
+
+        @Override
+        public List<RankedJob> rankJobs(SeekerFacts seeker, List<JobFacts> jobs) {
+            this.seeker = seeker;
+            this.sent = jobs;
+            if (down) {
+                throw new ServiceUnavailableException(GrpcMatchEngine.UNAVAILABLE_MESSAGE);
+            }
+            // a test scores a job by its title ("Rank 80 ..."); everything else scores 0; best first, then newest id
+            return jobs.stream()
+                    .map(j -> new RankedJob(j.jobId(), new MatchResult(
+                            j.title().startsWith("Rank ") ? Integer.parseInt(j.title().split(" ")[1]) : 0,
+                            List.of(), j.requiredSkills().stream().map(MatchFacts.SkillRef::id).toList(), List.of())))
+                    .sorted(java.util.Comparator.comparingInt((RankedJob r) -> r.result().score()).reversed()
+                            .thenComparing(java.util.Comparator.comparingInt(RankedJob::jobId).reversed()))
+                    .toList();
         }
     }
 
@@ -81,6 +100,7 @@ class MatchEndpointTest {
         engine.answer.set(null);
         engine.seeker = null;
         engine.job = null;
+        engine.sent = null;
     }
 
     private int createJob(String body) throws Exception {
