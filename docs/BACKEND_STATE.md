@@ -67,6 +67,15 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 
 ## Change log (newest first)
 
+### Matching operations (#108, matching story M9) — 2026-10-16
+
+**No API change; nothing for the front end to do.** Settings, metrics and an end-to-end script for the matching service. Details: `docs/DEPLOYMENT.md`, "The matching service".
+- The caller's `X-Request-Id` now reaches the matching service and is on every log line of that call there.
+- The service exposes request counts and latency per rpc and the distribution of scores on its internal port (`/actuator/prometheus`).
+- `scripts/e2e-matching.sh` runs both services and checks the three endpoints, the 503 behaviour when the service is stopped, and recovery. **It passed** when run here (jars on localhost, not Docker).
+- Still switched off by default (`MATCHING_ENABLED=false`): the three match routes answer 503 until it is switched on.
+- Issue: #108 (epic #12).
+
 ### Ranked applicants, `GET /jobs/{id}/candidates` (#107, matching story M8) — 2026-10-16
 
 **New route, nothing existing changes.** EMPLOYER only: the employer who posted the job or anyone in the same company; another company's employer, a seeker or an admin gets `403`; unknown job `404`. Shape and rules: `api-documentation.md`, "Matching".

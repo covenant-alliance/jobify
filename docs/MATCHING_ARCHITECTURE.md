@@ -17,11 +17,12 @@ Keep this table in mind: the diagrams show the **target**. Not all of it is buil
 | Scoring function and ranking | built, merged (M3, #102) | `services/matching/matching-service/.../score/` |
 | gRPC server: the three calls, limits, status codes, token check, health, reflection in dev | built (M4, #103); tested over a real socket | `matching-service/.../grpc/` |
 | Dockerfile and compose entry (`--profile matching`) | written; **never built or run by the author** (no Docker here). A CI job builds and starts the image: check its first run | `services/matching/Dockerfile`, `docker-compose.yml`, `matching-service.yml` |
-| Jobify side: `match/` slice, gRPC client, deadline, one retry, circuit breaker, 503, `GET /jobs/{id}/match` | built (M6, #105); tested against an in-process fake service. **Not yet run against the real service over a network** (that is the M9 end-to-end script) | `src/main/java/com/mcverse/jobify/match/` |
+| Jobify side: `match/` slice, gRPC client, deadline, one retry, circuit breaker, 503, `GET /jobs/{id}/match` | built (M6, #105); tested against an in-process fake service, and run against the real service over a localhost network by `scripts/e2e-matching.sh` (M9) | `src/main/java/com/mcverse/jobify/match/` |
 | Preferences endpoint | built, merged (M5, #104) | `job/service/SeekerPreferencesService` |
 | `GET /jobs/recommended` (SQL narrowing to 200, `RankJobs`, paging) | built (M7, #106) | `MatchService.recommend`, `MatchCandidateRepository` |
 | `GET /jobs/{id}/candidates` (applicants only, company access, `RankCandidates`) | built (M8, #107) | `MatchService.candidatesFor`, `MatchJobAccess` |
-| Running both in docker compose, calling with `grpcurl` | **never verified** (no Docker in the build environment) | |
+| Request id in both logs, metrics, end-to-end script (M9, #108) | built; `scripts/e2e-matching.sh` passes against both real services as jars | `RequestIdInterceptor`, `MatchGrpcService` meters, `scripts/e2e-matching.sh` |
+| Running both in docker compose, calling with `grpcurl`, mutual TLS | **never verified / not built** (no Docker daemon or `grpcurl` where this was built) | |
 
 ---
 
@@ -127,7 +128,7 @@ The rung people miss is **number 3**. A *design pattern* (rung 4) is about class
 | 3 Integration | **Anti-corruption layer** | Jobify's entities are never sent over the wire. A mapper translates Jobify's model to the contract's messages, so neither side's internals leak into the other. | built, M6: `MatchFacts` (plain records) and the mapping in `GrpcMatchEngine` |
 | 3 Integration | **Health check / readiness** | The platform asks "are you alive?" without calling real business endpoints. | built, M4: `grpc.health.v1` on 9090 (no token needed) and `/actuator/health` on 9091 |
 | 3 Integration | **Shared-secret service authentication** | The service is internal, but it still checks who calls it. | built, M4: `TokenAuthInterceptor`; mutual TLS is a stretch goal |
-| 3 Integration | **Correlation id** | One id (`x-request-id`) follows a user action through both services' logs. | half built: Jobify sends it from M6 (taken from the request's `X-Request-Id`); the service logs it in M9 |
+| 3 Integration | **Correlation id** | One id (`x-request-id`) follows a user action through both services' logs. | built (M6 and M9): Jobify sends the request's `X-Request-Id`; the service logs it on every line of that call |
 | 4 Design | **Pure function ("functional core")** | The score is computed with no I/O, clock or randomness, so it is trivial to test. | `score/Scorer.java` |
 | 4 Design | **Port and adapter (hexagonal)** | Jobify depends on a small interface `MatchEngine`; `GrpcMatchEngine` is one adapter for it. | built, M6 |
 | 4 Design | **Null Object** | `DisabledMatchEngine` answers "unavailable" so the rest of the code never checks for null or a feature flag. | built, M6: chosen by `matching.enabled` in `MatchConfig` |

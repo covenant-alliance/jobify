@@ -201,6 +201,7 @@ grpcurl -plaintext -H 'authorization: Bearer dev-matching-token' \
 - **Calls without a valid `authorization: Bearer ...`** get `UNAUTHENTICATED`; `grpc.health.v1.Health` is exempt so probes need no secret.
 - **Limits and codes:** more than 500 jobs or candidates is `RESOURCE_EXHAUSTED`; a missing seeker or job, blank seeker id, non-positive job id or negative limit is `INVALID_ARGUMENT`; unknown skill ids simply never match; anything unexpected is `INTERNAL` with no detail (the cause is only in the log).
 - **Ports:** gRPC `9090` (`MATCHING_GRPC_PORT`), HTTP `9091` (`MATCHING_MANAGEMENT_PORT`) serving only `/actuator/health`.
+- **End to end (M9):** `scripts/e2e-matching.sh` runs both services as jars and checks the endpoints, the request id, the metrics, the 503s and the recovery. It passed here. Operations notes are in `docs/DEPLOYMENT.md`, "The matching service".
 - **Docker:** `docker compose --profile matching up -d --build` (opt-in; Jobify does not call the service until M6). The Dockerfile is in `services/matching/`. **Not verified by the author: no Docker daemon was available.** The `image` job in `.github/workflows/matching-service.yml` builds the image, checks it refuses to start without a token, and checks it reports healthy; its first run on GitHub is the first real test. `grpcurl` was not available either, so the example above is untested; the same calls are tested in `MatchingServerTest` with a real gRPC client.
 
 ## 8. Testing strategy
