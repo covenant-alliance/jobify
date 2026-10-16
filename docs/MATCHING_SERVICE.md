@@ -1,5 +1,7 @@
 # Matching service: design and implementation plan
 
+> **Learning guide with diagrams:** `docs/MATCHING_ARCHITECTURE.md` explains why the service is shaped this way, what makes it a microservice, and how to change it. This page is the plan and the story list.
+
 **Status: plan; the M1 spike (#100) is done, the rest is not built yet.** Epic: #12 (matching engine). Decided by the Product Owner on 2026-10-15: the matching engine is built as a **separate service that Jobify calls over gRPC**, mainly **for learning** microservices. This page says what the service is, how it works with Jobify, and in what order to build it. Items marked **Decision** need the Product Owner's answer before the story that depends on them starts.
 
 > Honest trade-off, so the choice is made with open eyes: for Jobify's size a package inside the monolith would be simpler, faster and cheaper to run. A separate service adds a network, a second deployment, a contract to version and new ways to fail. That cost is the point of the exercise. The design below keeps the service small and its contract narrow so the lessons (contracts, timeouts, failure handling, observability) are not buried under accidental complexity.
@@ -183,6 +185,23 @@ New or changed API (all additive; final shapes go into `api-documentation.md` an
 - **Observability:** every Jobify request id goes into gRPC metadata (`x-request-id`) and into both services' logs, so one user action can be followed across both. Metrics: request count and latency per method, score distribution. Logs in the same JSON format as Jobify.
 - **Local without Docker:** `mvn -f services/matching/pom.xml -pl matching-service spring-boot:run`, then Jobify with `MATCHING_ENABLED=true MATCHING_TARGET=localhost:9090`.
 - **CI:** a workflow `matching-service.yml` (runs on changes under `services/matching/`): proto lint and breaking check, unit tests, in-process gRPC tests. The Jobify workflows build `matching-api` first. As with the Docker files so far, anything not built or run in this environment is marked unverified in the docs until you have run it.
+
+### Running the service on its own (built in M4, #103)
+
+```
+mvn -f services/matching/pom.xml install                         # builds the contract jar and runs all tests
+java -jar services/matching/matching-service/target/matching-service-0.1.0-SNAPSHOT.jar
+curl localhost:9091/actuator/health                              # {"status":"UP"}
+grpcurl -plaintext localhost:9090 list                           # dev only: reflection is on
+grpcurl -plaintext -H 'authorization: Bearer dev-matching-token' \
+        -d '{"seeker":{"seekerId":"s"},"job":{"jobId":1}}' localhost:9090 jobify.matching.v1.MatchService/Score
+```
+
+- **Profiles:** `dev` is the default and uses the public token `dev-matching-token`. Any other profile (the Docker image uses `prod`) **refuses to start without `MATCHING_TOKEN`**, and refuses the placeholder. Checked by a test and by running the packaged jar.
+- **Calls without a valid `authorization: Bearer ...`** get `UNAUTHENTICATED`; `grpc.health.v1.Health` is exempt so probes need no secret.
+- **Limits and codes:** more than 500 jobs or candidates is `RESOURCE_EXHAUSTED`; a missing seeker or job, blank seeker id, non-positive job id or negative limit is `INVALID_ARGUMENT`; unknown skill ids simply never match; anything unexpected is `INTERNAL` with no detail (the cause is only in the log).
+- **Ports:** gRPC `9090` (`MATCHING_GRPC_PORT`), HTTP `9091` (`MATCHING_MANAGEMENT_PORT`) serving only `/actuator/health`.
+- **Docker:** `docker compose --profile matching up -d --build` (opt-in; Jobify does not call the service until M6). The Dockerfile is in `services/matching/`. **Not verified by the author: no Docker daemon was available.** The `image` job in `.github/workflows/matching-service.yml` builds the image, checks it refuses to start without a token, and checks it reports healthy; its first run on GitHub is the first real test. `grpcurl` was not available either, so the example above is untested; the same calls are tested in `MatchingServerTest` with a real gRPC client.
 
 ## 8. Testing strategy
 

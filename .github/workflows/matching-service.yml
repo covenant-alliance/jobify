@@ -50,3 +50,35 @@ jobs:
           cache: maven
       - name: Verify
         run: mvn -B -f services/matching/pom.xml verify
+
+  image:
+    name: Docker image builds and starts
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose file is valid
+        env:
+          POSTGRES_PASSWORD: ci-only
+          JWT_SECRET: ci-only-ci-only-ci-only-ci-only-ci-only
+        run: docker compose --profile matching config --quiet
+      - name: Build the image
+        run: docker build -t jobify-matching services/matching
+      - name: Refuses to start without a token
+        run: |
+          if docker run --rm -e MATCHING_TOKEN= jobify-matching 2>&1 | grep -q "MATCHING_TOKEN is not set"; then
+            echo "refused as expected"
+          else
+            echo "the container started or failed for another reason"; exit 1
+          fi
+      - name: Starts with a token and reports healthy
+        run: |
+          docker run -d --name matching -e MATCHING_TOKEN=ci-secret-ci-secret jobify-matching
+          for i in $(seq 1 40); do
+            if docker exec matching curl -fsS http://localhost:9091/actuator/health | grep -q '"UP"'; then
+              echo "healthy after ${i} checks"; exit 0
+            fi
+            sleep 3
+          done
+          docker logs matching
+          exit 1

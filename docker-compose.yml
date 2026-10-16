@@ -47,6 +47,21 @@ services:
     volumes:
       - jobify-uploads:/data/uploads
 
+  # Matching engine (gRPC microservice, docs/MATCHING_SERVICE.md). Opt-in: docker compose --profile matching up -d --build
+  # Jobify does not call it yet (story M6), so nothing changes for a normal "docker compose up".
+  matching:
+    profiles: ["matching"]
+    build: ./services/matching
+    image: jobify-matching
+    restart: unless-stopped
+    environment:
+      # Shared secret Jobify sends as "authorization: Bearer ...". Empty = the service refuses to start.
+      MATCHING_TOKEN: ${MATCHING_TOKEN:-}
+    # gRPC (9090) is reachable by other containers only; health (9091) likewise. No "ports:" on purpose.
+    expose:
+      - "9090"
+      - "9091"
+
 volumes:
   jobify-db:
   jobify-uploads:
