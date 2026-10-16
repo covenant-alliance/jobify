@@ -186,6 +186,23 @@ New or changed API (all additive; final shapes go into `api-documentation.md` an
 - **Local without Docker:** `mvn -f services/matching/pom.xml -pl matching-service spring-boot:run`, then Jobify with `MATCHING_ENABLED=true MATCHING_TARGET=localhost:9090`.
 - **CI:** a workflow `matching-service.yml` (runs on changes under `services/matching/`): proto lint and breaking check, unit tests, in-process gRPC tests. The Jobify workflows build `matching-api` first. As with the Docker files so far, anything not built or run in this environment is marked unverified in the docs until you have run it.
 
+### Running the service on its own (built in M4, #103)
+
+```
+mvn -f services/matching/pom.xml install                         # builds the contract jar and runs all tests
+java -jar services/matching/matching-service/target/matching-service-0.1.0-SNAPSHOT.jar
+curl localhost:9091/actuator/health                              # {"status":"UP"}
+grpcurl -plaintext localhost:9090 list                           # dev only: reflection is on
+grpcurl -plaintext -H 'authorization: Bearer dev-matching-token' \
+        -d '{"seeker":{"seekerId":"s"},"job":{"jobId":1}}' localhost:9090 jobify.matching.v1.MatchService/Score
+```
+
+- **Profiles:** `dev` is the default and uses the public token `dev-matching-token`. Any other profile (the Docker image uses `prod`) **refuses to start without `MATCHING_TOKEN`**, and refuses the placeholder. Checked by a test and by running the packaged jar.
+- **Calls without a valid `authorization: Bearer ...`** get `UNAUTHENTICATED`; `grpc.health.v1.Health` is exempt so probes need no secret.
+- **Limits and codes:** more than 500 jobs or candidates is `RESOURCE_EXHAUSTED`; a missing seeker or job, blank seeker id, non-positive job id or negative limit is `INVALID_ARGUMENT`; unknown skill ids simply never match; anything unexpected is `INTERNAL` with no detail (the cause is only in the log).
+- **Ports:** gRPC `9090` (`MATCHING_GRPC_PORT`), HTTP `9091` (`MATCHING_MANAGEMENT_PORT`) serving only `/actuator/health`.
+- **Docker:** `docker compose --profile matching up -d --build` (opt-in; Jobify does not call the service until M6). The Dockerfile is in `services/matching/`. **Not verified by the author: no Docker daemon was available.** The `image` job in `.github/workflows/matching-service.yml` builds the image, checks it refuses to start without a token, and checks it reports healthy; its first run on GitHub is the first real test. `grpcurl` was not available either, so the example above is untested; the same calls are tested in `MatchingServerTest` with a real gRPC client.
+
 ## 8. Testing strategy
 
 1. **Scoring function** (service): table-driven unit tests per part and per edge case (no skills, no preferences, unknown enum, empty job, ties, rate boundaries). This is where most tests live. Target: every branch covered.

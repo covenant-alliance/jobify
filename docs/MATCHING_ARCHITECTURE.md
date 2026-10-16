@@ -15,7 +15,8 @@ Keep this table in mind: the diagrams show the **target**. Not all of it is buil
 | Contract `jobify.matching.v1` (protobuf) | built, merged (M2, #101) | `services/matching/matching-api/src/main/proto/...` |
 | `buf` lint and breaking-change checks in CI | built; the breaking comparison has not yet run against a real change | `.github/workflows/matching-service.yml` |
 | Scoring function and ranking | built, merged (M3, #102) | `services/matching/matching-service/.../score/` |
-| gRPC server (the three calls, health, token check, Docker) | **not built** (M4, #103) | |
+| gRPC server: the three calls, limits, status codes, token check, health, reflection in dev | built (M4, #103); tested over a real socket | `matching-service/.../grpc/` |
+| Dockerfile and compose entry (`--profile matching`) | written; **never built or run by the author** (no Docker here). A CI job builds and starts the image: check its first run | `services/matching/Dockerfile`, `docker-compose.yml`, `matching-service.yml` |
 | Jobify side: `match/` slice, client, 503 handling, circuit breaker | **not built** (M6, #105) | |
 | Preferences endpoint | **not built** (M5, #104) | |
 | `/jobs/recommended`, `/jobs/{id}/candidates` | **not built** (M7, M8) | |
@@ -39,7 +40,7 @@ flowchart LR
     end
     subgraph M["Matching service  (Spring Boot, separate deployable, port 9090)"]
         direction TB
-        MG["gRPC adapter<br/>(M4, planned)"]
+        MG["gRPC adapter<br/>(built, M4)"]
         MS["Ranker and Scorer<br/>pure functions"]
         MG --> MS
     end
@@ -123,13 +124,13 @@ The rung people miss is **number 3**. A *design pattern* (rung 4) is about class
 | 3 Integration | **Circuit breaker** | After repeated failures stop calling for a while, so a dead service does not make every request wait out its deadline. | planned, M6 (Resilience4j) |
 | 3 Integration | **Graceful degradation** | When matching is down, only matching features fail, with a readable 503, never a silent wrong answer. | planned, M6 |
 | 3 Integration | **Anti-corruption layer** | Jobify's entities are never sent over the wire. A mapper translates Jobify's model to the contract's messages, so neither side's internals leak into the other. | planned, `GrpcMatchEngine` (M6) |
-| 3 Integration | **Health check / readiness** | The platform asks "are you alive?" without calling real business endpoints. | planned, M4 (`grpc.health.v1`) |
-| 3 Integration | **Shared-secret service authentication** | The service is internal, but it still checks who calls it. | planned, M4 (token interceptor); mutual TLS is a stretch goal |
+| 3 Integration | **Health check / readiness** | The platform asks "are you alive?" without calling real business endpoints. | built, M4: `grpc.health.v1` on 9090 (no token needed) and `/actuator/health` on 9091 |
+| 3 Integration | **Shared-secret service authentication** | The service is internal, but it still checks who calls it. | built, M4: `TokenAuthInterceptor`; mutual TLS is a stretch goal |
 | 3 Integration | **Correlation id** | One id (`x-request-id`) follows a user action through both services' logs. | planned, M9 |
 | 4 Design | **Pure function ("functional core")** | The score is computed with no I/O, clock or randomness, so it is trivial to test. | `score/Scorer.java` |
 | 4 Design | **Port and adapter (hexagonal)** | Jobify depends on a small interface `MatchEngine`; `GrpcMatchEngine` is one adapter for it. | planned, M6 |
 | 4 Design | **Null Object** | `DisabledMatchEngine` answers "unavailable" so the rest of the code never checks for null or a feature flag. | planned, M6 |
-| 4 Design | **Interceptor (chain of responsibility)** | The token check wraps every call without being written into each rpc. | planned, M4 |
+| 4 Design | **Interceptor (chain of responsibility)** | The token check wraps every call without being written into each rpc. | built, M4: `TokenAuthInterceptor`, registered with `@GlobalServerInterceptor` |
 | 4 Design | **Builder, immutable messages** | Protobuf generates them; you cannot change a message after building it. | everywhere in `score/` |
 | 4 Design | **Dependency injection, constructor style** | `Scorer` gets its weights from outside, so tests pass different ones. | `Scorer`, `ScoringConfig` |
 | 4 Design | **Configuration object** | The weights are a typed record bound from `matching.weights.*`. | `ScoringWeights` |
@@ -284,7 +285,7 @@ Decisions behind it (all recorded in the plan):
 
 ```mermaid
 flowchart TB
-    subgraph ADAPTER["Adapter layer (M4, planned)"]
+    subgraph ADAPTER["Adapter layer (built, M4)"]
         direction LR
         INT["Token interceptor"] --> IMPL["MatchGrpcService<br/>implements the generated base class<br/>validates sizes, maps errors to status codes"]
     end
@@ -403,7 +404,7 @@ Logs contain ids and request ids only, never names, emails or CV text.
 |---|---|
 | Jobify | port 9080 (unchanged) |
 | Matching gRPC | port 9090, **not published to the host**, reachable only inside the compose network |
-| Matching management | port 9091 (health, later metrics) |
+| Matching HTTP | port 9091: `/actuator/health` only (later metrics). It is the service's only HTTP port |
 | Settings on Jobify | `MATCHING_ENABLED`, `MATCHING_TARGET` (for example `matching:9090`), `MATCHING_TOKEN` |
 | Setting on the service | `MATCHING_TOKEN`, `matching.weights.*` |
 
@@ -433,11 +434,15 @@ services/matching/                          independent Maven project (Jobify's 
     src/test/.../GoldenContractTest         parses the golden requests, round-trips the wire format
   matching-service/                         THE SERVER
     .../MatchingApplication                 Spring Boot entry point
+    .../grpc/MatchGrpcService               the adapter: validation, limits (500), status codes
+    .../grpc/TokenAuthInterceptor           Bearer token check; health stays open; refuses to start without a token outside dev
     .../score/Scorer                        the pure function
     .../score/Ranker                        ordering, tie-breaks, limit
     .../score/ScoringWeights                typed configuration (matching.weights.*)
     .../score/ScoringConfig                 creates the beans
     src/test/.../score/*Test                scorer, ranker, config binding, golden score
+    src/test/.../grpc/*Test                 adapter (direct), token rules, MatchingServerTest (real server over a socket)
+  Dockerfile                                image build (context: services/matching)
 .github/workflows/matching-service.yml      path-filtered CI: buf lint/breaking, then mvn verify
 docs/MATCHING_SERVICE.md                    the plan, the stories, the decisions
 docs/MATCHING_ARCHITECTURE.md               this guide
@@ -451,7 +456,7 @@ docs/MATCHING_ARCHITECTURE.md               this guide
 flowchart BT
     T1["Unit: Scorer and Ranker<br/>tables of cases, ties, boundaries, unknown enums<br/>(built, milliseconds)"]
     T2["Contract: golden files, buf lint and breaking<br/>(built)"]
-    T3["Adapter: in-process gRPC server and client<br/>status codes, limits, token (M4)"]
+    T3["Adapter: direct calls plus a real server over a socket<br/>status codes, limits, token (built, M4)"]
     T4["Jobify client: fake server that is slow or failing<br/>deadline, 503, breaker (M6)"]
     T5["End to end: script brings up both, stops the service,<br/>checks the 503 and that /jobs still works (M9)"]
     T1 --> T2 --> T3 --> T4 --> T5
