@@ -19,6 +19,7 @@ import com.mcverse.jobify.common.exception.ServiceUnavailableException;
 import com.mcverse.jobify.match.MatchFacts.JobFacts;
 import com.mcverse.jobify.match.MatchFacts.MatchResult;
 import com.mcverse.jobify.match.MatchFacts.PartFact;
+import com.mcverse.jobify.match.MatchFacts.RankedCandidate;
 import com.mcverse.jobify.match.MatchFacts.RankedJob;
 import com.mcverse.jobify.match.MatchFacts.SeekerFacts;
 import com.mcverse.jobify.user.model.ProficiencyLevel;
@@ -46,6 +47,7 @@ class MatchEndpointTest {
         volatile SeekerFacts seeker;
         volatile JobFacts job;
         volatile List<JobFacts> sent;
+        volatile List<SeekerFacts> sentCandidates;
         volatile boolean down;
         final AtomicReference<MatchResult> answer = new AtomicReference<>();
 
@@ -57,6 +59,22 @@ class MatchEndpointTest {
                 throw new ServiceUnavailableException(GrpcMatchEngine.UNAVAILABLE_MESSAGE);
             }
             return answer.get() != null ? answer.get() : new MatchResult(0, List.of(), List.of(), List.of());
+        }
+
+        @Override
+        public List<RankedCandidate> rankCandidates(JobFacts job, List<SeekerFacts> candidates) {
+            this.job = job;
+            this.sentCandidates = candidates;
+            if (down) {
+                throw new ServiceUnavailableException(GrpcMatchEngine.UNAVAILABLE_MESSAGE);
+            }
+            // a candidate scores 10 per skill on the profile; all missing skills of the job are reported missing
+            return candidates.stream()
+                    .map(c -> new RankedCandidate(c.seekerId(), new MatchResult(c.skills().size() * 10, List.of(),
+                            job.requiredSkills().stream().map(MatchFacts.SkillRef::id).toList(), List.of())))
+                    .sorted(java.util.Comparator.comparingInt((RankedCandidate r) -> r.result().score()).reversed()
+                            .thenComparing(RankedCandidate::seekerId))
+                    .toList();
         }
 
         @Override
@@ -101,6 +119,7 @@ class MatchEndpointTest {
         engine.seeker = null;
         engine.job = null;
         engine.sent = null;
+        engine.sentCandidates = null;
     }
 
     private int createJob(String body) throws Exception {

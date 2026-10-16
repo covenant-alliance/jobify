@@ -20,7 +20,7 @@ Keep this table in mind: the diagrams show the **target**. Not all of it is buil
 | Jobify side: `match/` slice, gRPC client, deadline, one retry, circuit breaker, 503, `GET /jobs/{id}/match` | built (M6, #105); tested against an in-process fake service. **Not yet run against the real service over a network** (that is the M9 end-to-end script) | `src/main/java/com/mcverse/jobify/match/` |
 | Preferences endpoint | built, merged (M5, #104) | `job/service/SeekerPreferencesService` |
 | `GET /jobs/recommended` (SQL narrowing to 200, `RankJobs`, paging) | built (M7, #106) | `MatchService.recommend`, `MatchCandidateRepository` |
-| `GET /jobs/{id}/candidates` | **not built** (M8); `RankCandidates` exists in the service but Jobify does not call it yet | |
+| `GET /jobs/{id}/candidates` (applicants only, company access, `RankCandidates`) | built (M8, #107) | `MatchService.candidatesFor`, `MatchJobAccess` |
 | Running both in docker compose, calling with `grpcurl` | **never verified** (no Docker in the build environment) | |
 
 ---

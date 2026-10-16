@@ -47,6 +47,7 @@ class MatchRecommendedTest {
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         engine.down = false;
         engine.sent = null;
+        engine.sentCandidates = null;
     }
 
     private int createJob(String title, String location, String workMode) throws Exception {

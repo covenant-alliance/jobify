@@ -20,6 +20,8 @@ public record MatchProperties(
         @DefaultValue("2s") Duration rankDeadline,
         /* Most jobs narrowed in SQL and sent for one ranking. The contract allows 500. */
         @DefaultValue("200") int maxCandidates,
+        /* Most applicants of one job ranked in one call (newest applications first). The contract allows 500. */
+        @DefaultValue("500") int maxApplicants,
         Breaker breaker) {
 
     public MatchProperties {

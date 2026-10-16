@@ -6,6 +6,7 @@ import com.mcverse.jobify.match.MatchFacts.JobFacts;
 import com.mcverse.jobify.match.MatchFacts.MatchResult;
 import com.mcverse.jobify.match.MatchFacts.PartFact;
 import com.mcverse.jobify.match.MatchFacts.PreferenceFacts;
+import com.mcverse.jobify.match.MatchFacts.RankedCandidate;
 import com.mcverse.jobify.match.MatchFacts.RankedJob;
 import com.mcverse.jobify.match.MatchFacts.SeekerFacts;
 import com.mcverse.matching.v1.EmploymentType;
@@ -14,6 +15,7 @@ import com.mcverse.matching.v1.JobProfile;
 import com.mcverse.matching.v1.Match;
 import com.mcverse.matching.v1.MatchServiceGrpc;
 import com.mcverse.matching.v1.Preferences;
+import com.mcverse.matching.v1.RankCandidatesRequest;
 import com.mcverse.matching.v1.RankJobsRequest;
 import com.mcverse.matching.v1.Proficiency;
 import com.mcverse.matching.v1.RequiredSkill;
@@ -103,6 +105,19 @@ public class GrpcMatchEngine implements MatchEngine {
         RankJobsRequest built = request.build();
         return guarded(() -> withOneRetry(properties.rankDeadline(), stub -> stub.rankJobs(built)).getJobsList().stream()
                 .map(r -> new RankedJob(r.getJobId(), fromProto(r.getMatch()))).toList());
+    }
+
+    @Override
+    public List<RankedCandidate> rankCandidates(JobFacts job, List<SeekerFacts> candidates) {
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+        RankCandidatesRequest.Builder request = RankCandidatesRequest.newBuilder().setJob(toProto(job));
+        candidates.forEach(c -> request.addCandidates(toProto(c)));
+        RankCandidatesRequest built = request.build();
+        return guarded(() -> withOneRetry(properties.rankDeadline(), stub -> stub.rankCandidates(built))
+                .getCandidatesList().stream()
+                .map(r -> new RankedCandidate(r.getSeekerId(), fromProto(r.getMatch()))).toList());
     }
 
     /** Every failure, however it happens, is the same answer to the caller: unavailable. */

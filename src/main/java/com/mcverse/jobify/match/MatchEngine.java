@@ -2,6 +2,7 @@ package com.mcverse.jobify.match;
 
 import com.mcverse.jobify.match.MatchFacts.JobFacts;
 import com.mcverse.jobify.match.MatchFacts.MatchResult;
+import com.mcverse.jobify.match.MatchFacts.RankedCandidate;
 import com.mcverse.jobify.match.MatchFacts.RankedJob;
 import com.mcverse.jobify.match.MatchFacts.SeekerFacts;
 
@@ -18,4 +19,7 @@ public interface MatchEngine {
 
     /** The given jobs scored for one seeker, best first. At most 500 jobs per call (the contract's limit). */
     List<RankedJob> rankJobs(SeekerFacts seeker, List<JobFacts> jobs);
+
+    /** The given candidates scored for one job, best first. At most 500 per call (the contract's limit). */
+    List<RankedCandidate> rankCandidates(JobFacts job, List<SeekerFacts> candidates);
 }

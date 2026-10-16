@@ -498,6 +498,30 @@ Query: `page` (from 0, default 0), `size` (1 to 50, default 20); anything else i
 - A seeker with no skills and no preferences still gets a list (all scores `0`, newest first).
 - **`503`** with `"Job matching is temporarily unavailable. Please try again in a moment."` when the matching service is stopped, too slow (over 2 s), failing repeatedly or switched off. There is **no fallback list**: showing newest jobs as "recommended" would hide the outage.
 
+### `GET /jobs/{id}/candidates` (since #107)
+
+The **applicants of a job ranked by how well they fit it**, best first. **EMPLOYER only**: the employer who posted the job, or anyone in the same company (the same rule as the applicants list). Another company's employer `403`, a seeker or admin `403`, no token `401`, unknown job `404`.
+
+Query: `page` (from 0), `size` (1 to 50, default 20); out of range is `400`.
+
+```json
+{
+  "content": [
+    {
+      "applicationId": "…", "status": "APPLIED", "appliedAt": "2026-10-16T09:00:00",
+      "applicant": { "seekerId": "…", "username": "alice_s", "name": "Alice", "lastName": "S", "hasCv": true },
+      "score": 76, "matchedSkills": ["Java"], "missingSkills": ["Kafka"]
+    }
+  ],
+  "page": 0, "size": 20, "totalElements": 12, "totalPages": 1, "last": true
+}
+```
+
+- **Only seekers who applied** (and have not withdrawn) are ranked; there is no search across all seekers. Rejected applicants stay in the list (`status` says so).
+- At most `matching.max-applicants` (500) of the **newest** applications are ranked, then paged.
+- The matching service is sent only ids, skills and saved preferences, never names, emails or CV text. The `applicant` block shows what the employer already sees on `GET /jobs/{id}/applications`.
+- `503` with the usual friendly message while matching is unavailable or off.
+
 ---
 
 ## Employer statistics

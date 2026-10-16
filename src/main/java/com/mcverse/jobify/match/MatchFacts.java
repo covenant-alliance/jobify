@@ -38,4 +38,7 @@ public final class MatchFacts {
 
     /** One job of a ranking, best first. */
     public record RankedJob(int jobId, MatchResult result) {}
+
+    /** One applicant of a ranking, best first. */
+    public record RankedCandidate(String seekerId, MatchResult result) {}
 }

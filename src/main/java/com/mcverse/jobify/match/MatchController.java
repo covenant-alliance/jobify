@@ -1,6 +1,7 @@
 package com.mcverse.jobify.match;
 
 import com.mcverse.jobify.common.response.PagedResponse;
+import com.mcverse.jobify.match.dto.CandidateResponse;
 import com.mcverse.jobify.match.dto.JobMatchResponse;
 import com.mcverse.jobify.match.dto.RecommendedJobResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -62,5 +63,27 @@ public class MatchController {
             @Parameter(description = "Page number, starting at 0", example = "0") @RequestParam(required = false) Integer page,
             @Parameter(description = "Page size, 1 to 50 (default 20)", example = "20") @RequestParam(required = false) Integer size) {
         return matchService.recommend(principal.getUsername(), page, size);
+    }
+
+    @Operation(summary = "Applicants of my job, best fit first",
+            description = "EMPLOYER only: the employer who posted the job, or anyone in the same company. Ranks the "
+                    + "seekers who applied (not withdrawn); it is not a search across all seekers. Only skills and "
+                    + "saved preferences are sent to the matching service, never names or CV text. Answers 503 with a "
+                    + "readable message while the matching service is unavailable.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "One page, best score first (possibly empty)"),
+            @ApiResponse(responseCode = "400", description = "page or size out of range"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Not an employer of the company that posted the job"),
+            @ApiResponse(responseCode = "404", description = "Job not found"),
+            @ApiResponse(responseCode = "503", description = "The matching service is unavailable"),
+    })
+    @GetMapping("/jobs/{id}/candidates")
+    public PagedResponse<CandidateResponse> candidates(
+            @AuthenticationPrincipal UserDetails principal,
+            @Parameter(description = "Job post ID", example = "3") @PathVariable Integer id,
+            @Parameter(description = "Page number, starting at 0", example = "0") @RequestParam(required = false) Integer page,
+            @Parameter(description = "Page size, 1 to 50 (default 20)", example = "20") @RequestParam(required = false) Integer size) {
+        return matchService.candidatesFor(principal.getUsername(), id, page, size);
     }
 }

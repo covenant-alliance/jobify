@@ -8,7 +8,10 @@ import com.mcverse.jobify.job.repository.JobRepo;
 import com.mcverse.jobify.match.MatchFacts.JobFacts;
 import com.mcverse.jobify.common.response.PagedResponse;
 import com.mcverse.jobify.match.MatchFacts.MatchResult;
+import com.mcverse.jobify.match.MatchFacts.RankedCandidate;
 import com.mcverse.jobify.match.MatchFacts.RankedJob;
+import com.mcverse.jobify.match.MatchFactsLoader.ApplicantWithFacts;
+import com.mcverse.jobify.match.dto.CandidateResponse;
 import com.mcverse.jobify.match.MatchFactsLoader.JobWithFacts;
 import com.mcverse.jobify.match.dto.RecommendedJobResponse;
 import com.mcverse.jobify.match.MatchFacts.SeekerFacts;
@@ -41,12 +44,14 @@ public class MatchService {
     private final MatchEngine engine;
     private final AuditLog auditLog;
     private final MatchProperties properties;
+    private final MatchJobAccess jobAccess;
 
     public static final int MAX_PAGE_SIZE = 50;
 
     public MatchService(SeekerRepository seekerRepo, JobRepo jobRepo, MatchFactsLoader facts, MatchEngine engine,
-                        AuditLog auditLog, MatchProperties properties) {
+                        AuditLog auditLog, MatchProperties properties, MatchJobAccess jobAccess) {
         this.properties = properties;
+        this.jobAccess = jobAccess;
         this.seekerRepo = seekerRepo;
         this.jobRepo = jobRepo;
         this.facts = facts;
@@ -98,6 +103,49 @@ public class MatchService {
         List<RecommendedJobResponse> all = ranked.stream()
                 .filter(r -> byId.containsKey(r.jobId()))
                 .map(r -> toRecommended(byId.get(r.jobId()), r.result()))
+                .toList();
+
+        int from = (int) Math.min((long) pageNumber * pageSize, all.size());
+        int to = Math.min(from + pageSize, all.size());
+        return PagedResponse.of(all.subList(from, to), pageNumber, pageSize, all.size());
+    }
+
+    /**
+     * The applicants of a job, best fit first, for the company that posted it. Only seekers who applied (and have not
+     * withdrawn) are ever ranked; there is no search across all seekers. The newest {@code matching.max-applicants}
+     * applications are ranked and then paged.
+     */
+    public PagedResponse<CandidateResponse> candidatesFor(String username, int jobId, Integer page, Integer size) {
+        int pageNumber = page == null ? 0 : page;
+        int pageSize = size == null ? 20 : size;
+        if (pageNumber < 0) {
+            throw new IllegalArgumentException("page must be 0 or more.");
+        }
+        if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("size must be between 1 and " + MAX_PAGE_SIZE + ".");
+        }
+        JobFacts job = jobAccess.managedJob(username, jobId);
+        List<ApplicantWithFacts> applicants = facts.applicants(jobId, properties.maxApplicants());
+        if (applicants.isEmpty()) {
+            return PagedResponse.of(List.of(), pageNumber, pageSize, 0);
+        }
+
+        // the remote call: no transaction is open here
+        List<RankedCandidate> ranked = engine.rankCandidates(job, applicants.stream().map(ApplicantWithFacts::facts).toList());
+
+        Map<String, ApplicantWithFacts> bySeeker = new HashMap<>();
+        applicants.forEach(a -> bySeeker.put(a.seekerId(), a));
+        Map<String, SkillRef> skillsById = job.requiredSkills().stream()
+                .collect(Collectors.toMap(SkillRef::id, Function.identity(), (x, y) -> x));
+        List<CandidateResponse> all = ranked.stream()
+                .filter(r -> bySeeker.containsKey(r.seekerId()))
+                .map(r -> {
+                    ApplicantWithFacts a = bySeeker.get(r.seekerId());
+                    return new CandidateResponse(a.applicationId(), a.status(), a.appliedAt(),
+                            new CandidateResponse.Applicant(a.seekerId(), a.username(), a.name(), a.lastName(), a.hasCv()),
+                            r.result().score(), names(r.result().matchedSkillIds(), skillsById),
+                            names(r.result().missingSkillIds(), skillsById));
+                })
                 .toList();
 
         int from = (int) Math.min((long) pageNumber * pageSize, all.size());

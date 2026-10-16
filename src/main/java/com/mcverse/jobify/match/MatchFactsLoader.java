@@ -1,5 +1,7 @@
 package com.mcverse.jobify.match;
 
+import com.mcverse.jobify.application.model.Application;
+import com.mcverse.jobify.application.model.ApplicationStatus;
 import com.mcverse.jobify.job.dto.JobPostResponse;
 import com.mcverse.jobify.job.model.JobPost;
 import com.mcverse.jobify.job.service.JobResponseMapper;
@@ -12,12 +14,16 @@ import com.mcverse.jobify.match.MatchFacts.SeekerFacts;
 import com.mcverse.jobify.match.MatchFacts.SeekerSkillFact;
 import com.mcverse.jobify.match.MatchFacts.SkillRef;
 import com.mcverse.jobify.user.model.Seeker;
+import com.mcverse.jobify.user.model.SeekerSkill;
 import com.mcverse.jobify.user.repository.SeekerSkillRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneOffset;
+import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Comparator;
 import java.util.List;
 
@@ -31,13 +37,21 @@ public class MatchFactsLoader {
     /** A job as the matching service sees it, next to how the API shows it. */
     public record JobWithFacts(JobFacts facts, JobPostResponse response) {}
 
+    /** An application, who applied, and what the matching service is told about them (no names: those stay here). */
+    public record ApplicantWithFacts(String applicationId, ApplicationStatus status, LocalDateTime appliedAt,
+                                     String seekerId, String username, String name, String lastName, boolean hasCv,
+                                     SeekerFacts facts) {}
+
+    private final MatchApplicantRepository applicants;
     private final SeekerSkillRepository seekerSkills;
     private final SeekerJobPreferencesRepository preferences;
     private final MatchCandidateRepository candidates;
     private final JobResponseMapper mapper;
 
-    public MatchFactsLoader(SeekerSkillRepository seekerSkills, SeekerJobPreferencesRepository preferences,
-                            MatchCandidateRepository candidates, JobResponseMapper mapper) {
+    public MatchFactsLoader(MatchApplicantRepository applicants, SeekerSkillRepository seekerSkills,
+                            SeekerJobPreferencesRepository preferences, MatchCandidateRepository candidates,
+                            JobResponseMapper mapper) {
+        this.applicants = applicants;
         this.seekerSkills = seekerSkills;
         this.preferences = preferences;
         this.candidates = candidates;
@@ -68,12 +82,31 @@ public class MatchFactsLoader {
 
     @Transactional(readOnly = true)
     public SeekerFacts seeker(Seeker seeker) {
-        var skills = seekerSkills.findBySeekerId(seeker.getId()).stream()
-                .map(s -> new SeekerSkillFact(s.getSkill().getId(), s.getProficiencyLevel(),
-                        s.getYearsOfExperience() == null ? 0 : s.getYearsOfExperience()))
-                .toList();
+        var skills = seekerSkills.findBySeekerId(seeker.getId()).stream().map(MatchFactsLoader::toFact).toList();
         PreferenceFacts prefs = preferences.findById(seeker.getId()).map(MatchFactsLoader::toFacts).orElse(null);
         return new SeekerFacts(seeker.getId(), skills, prefs);
+    }
+
+    /** The newest {@code limit} live applications of a job, each with the facts about the applicant. Three queries in all. */
+    @Transactional(readOnly = true)
+    public List<ApplicantWithFacts> applicants(int jobId, int limit) {
+        List<Application> applications = applicants.activeForJob(jobId, org.springframework.data.domain.PageRequest.of(0, limit));
+        if (applications.isEmpty()) {
+            return List.of();
+        }
+        List<String> seekerIds = applications.stream().map(a -> a.getSeeker().getId()).toList();
+        Map<String, List<SeekerSkill>> skillsBySeeker = new HashMap<>();
+        applicants.skillsOf(seekerIds).forEach(s -> skillsBySeeker.computeIfAbsent(s.getSeeker().getId(), k -> new java.util.ArrayList<>()).add(s));
+        Map<String, PreferenceFacts> prefsBySeeker = new HashMap<>();
+        preferences.findAllById(seekerIds).forEach(p -> prefsBySeeker.put(p.getSeekerId(), toFacts(p)));
+
+        return applications.stream().map(a -> {
+            Seeker seeker = a.getSeeker();
+            var skills = skillsBySeeker.getOrDefault(seeker.getId(), List.of()).stream().map(MatchFactsLoader::toFact).toList();
+            return new ApplicantWithFacts(a.getId(), a.getStatus(), a.getCreatedAt(), seeker.getId(), seeker.getUsername(),
+                    seeker.getName(), seeker.getLastName(), seeker.getCv() != null,
+                    new SeekerFacts(seeker.getId(), skills, prefsBySeeker.get(seeker.getId())));
+        }).toList();
     }
 
     @Transactional(readOnly = true)
@@ -87,6 +120,11 @@ public class MatchFactsLoader {
         long posted = job.getCreatedAt() == null ? 0 : job.getCreatedAt().toEpochSecond(ZoneOffset.UTC);
         return new JobFacts(job.getPostId(), job.getJobTitle(), skills, country, job.getWorkMode(),
                 job.getEmploymentType(), annual, job.getExperienceLevel(), posted);
+    }
+
+    private static SeekerSkillFact toFact(SeekerSkill s) {
+        return new SeekerSkillFact(s.getSkill().getId(), s.getProficiencyLevel(),
+                s.getYearsOfExperience() == null ? 0 : s.getYearsOfExperience());
     }
 
     private static PreferenceFacts toFacts(SeekerJobPreferences p) {

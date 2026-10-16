@@ -19,6 +19,9 @@ import com.mcverse.jobify.user.model.ProficiencyLevel;
 import com.mcverse.matching.v1.Match;
 import com.mcverse.matching.v1.MatchServiceGrpc;
 import com.mcverse.matching.v1.Proficiency;
+import com.mcverse.matching.v1.RankCandidatesRequest;
+import com.mcverse.matching.v1.RankCandidatesResponse;
+import com.mcverse.matching.v1.RankedCandidate;
 import com.mcverse.matching.v1.RankJobsRequest;
 import com.mcverse.matching.v1.RankJobsResponse;
 import com.mcverse.matching.v1.RankedJob;
@@ -68,6 +71,7 @@ class GrpcMatchEngineTest {
     private final AtomicReference<Metadata> headers = new AtomicReference<>();
     private volatile Behaviour behaviour = (request, out) -> ok(out, 76);
     private final AtomicInteger rankCalls = new AtomicInteger();
+    private final AtomicReference<RankCandidatesRequest> candidatesReceived = new AtomicReference<>();
     private final AtomicReference<RankJobsRequest> rankReceived = new AtomicReference<>();
     private volatile Consumer<StreamObserver<RankJobsResponse>> rankBehaviour = out -> {
         out.onNext(RankJobsResponse.newBuilder()
@@ -92,6 +96,16 @@ class GrpcMatchEngineTest {
     void start() throws Exception {
         String name = "matching-" + UUID.randomUUID();
         MatchServiceGrpc.MatchServiceImplBase fake = new MatchServiceGrpc.MatchServiceImplBase() {
+            @Override
+            public void rankCandidates(RankCandidatesRequest request, StreamObserver<RankCandidatesResponse> out) {
+                candidatesReceived.set(request);
+                out.onNext(RankCandidatesResponse.newBuilder()
+                        .addCandidates(RankedCandidate.newBuilder().setSeekerId("b").setMatch(Match.newBuilder().setScore(80)))
+                        .addCandidates(RankedCandidate.newBuilder().setSeekerId("a").setMatch(Match.newBuilder().setScore(20)
+                                .addMissingSkillIds("kafka"))).build());
+                out.onCompleted();
+            }
+
             @Override
             public void rankJobs(RankJobsRequest request, StreamObserver<RankJobsResponse> out) {
                 rankCalls.incrementAndGet();
@@ -140,7 +154,7 @@ class GrpcMatchEngineTest {
 
     private GrpcMatchEngine engine(Duration deadline, int window, int minimum, Duration openFor) {
         return new GrpcMatchEngine(channel, new MatchProperties(true, "unused", "secret-token", deadline,
-                Duration.ofSeconds(2), 200, new MatchProperties.Breaker(window, minimum, 50, openFor)));
+                Duration.ofSeconds(2), 200, 500, new MatchProperties.Breaker(window, minimum, 50, openFor)));
     }
 
     private GrpcMatchEngine engine() {
@@ -389,7 +403,7 @@ class GrpcMatchEngineTest {
             }
         };
         GrpcMatchEngine engine = new GrpcMatchEngine(channel, new MatchProperties(true, "u", "t",
-                Duration.ofSeconds(2), Duration.ofMillis(100), 200, new MatchProperties.Breaker(10, 5, 50, Duration.ofSeconds(30))));
+                Duration.ofSeconds(2), Duration.ofMillis(100), 200, 500, new MatchProperties.Breaker(10, 5, 50, Duration.ofSeconds(30))));
 
         assertThrows(ServiceUnavailableException.class, () -> engine.rankJobs(seeker(), List.of(jobWithId(1))));
     }
@@ -422,5 +436,27 @@ class GrpcMatchEngineTest {
 
         assertEquals(List.of(), engine().rankJobs(seeker(), List.of(jobWithId(1))));
         assertEquals(2, rankCalls.get());
+    }
+
+    @Test
+    void ranking_candidates_sends_the_job_and_all_candidates_and_returns_the_service_order() {
+        SeekerFacts a = new SeekerFacts("a", List.of(), null);
+        SeekerFacts b = new SeekerFacts("b", List.of(new SeekerSkillFact("java", ProficiencyLevel.ADVANCED, 2)), null);
+
+        List<MatchFacts.RankedCandidate> ranked = engine().rankCandidates(jobWithId(7), List.of(a, b));
+
+        RankCandidatesRequest sent = candidatesReceived.get();
+        assertEquals(7, sent.getJob().getJobId());
+        assertEquals(List.of("a", "b"), sent.getCandidatesList().stream().map(c -> c.getSeekerId()).toList());
+        assertEquals(0, sent.getLimit());
+        assertEquals(List.of("b", "a"), ranked.stream().map(MatchFacts.RankedCandidate::seekerId).toList());
+        assertEquals(80, ranked.get(0).result().score());
+        assertEquals(List.of("kafka"), ranked.get(1).result().missingSkillIds());
+    }
+
+    @Test
+    void ranking_no_candidates_does_not_call_the_service() {
+        assertEquals(List.of(), engine().rankCandidates(jobWithId(7), List.of()));
+        assertEquals(null, candidatesReceived.get());
     }
 }

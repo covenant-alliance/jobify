@@ -38,7 +38,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
-- [ ] **Optional, match score (#105):** replace the fake `matchScore` on a job with `GET /jobs/{id}/match` for signed-in seekers (`score`, `matchedSkills`, `missingSkills`, `parts`). Handle `503` by showing its `message` and keeping the page usable; it will be a 503 until the Product Owner switches the matching service on (`MATCHING_ENABLED`). Show "based on skills only" when `parts` has only `skills` counted, and point the seeker to the preferences form (#104) to improve it. **Also (#106):** a "Recommended for you" list from `GET /jobs/recommended?page=&size=` for signed-in seekers (same 503 handling; no fallback to `GET /jobs`).
+- [ ] **Optional, match score (#105):** replace the fake `matchScore` on a job with `GET /jobs/{id}/match` for signed-in seekers (`score`, `matchedSkills`, `missingSkills`, `parts`). Handle `503` by showing its `message` and keeping the page usable; it will be a 503 until the Product Owner switches the matching service on (`MATCHING_ENABLED`). Show "based on skills only" when `parts` has only `skills` counted, and point the seeker to the preferences form (#104) to improve it. **Also (#106):** a "Recommended for you" list from `GET /jobs/recommended?page=&size=` for signed-in seekers (same 503 handling; no fallback to `GET /jobs`). **Employers (#107):** on the applicants screen, an optional "Best match first" order from `GET /jobs/{id}/candidates` (score, matched and missing skills); same 503 handling.
 - [ ] **Optional, preferences form (#104):** a "What I am looking for" form for seekers, loaded with `GET /users/seekers/me/preferences` and saved with `PUT` (whole-object replace). Nothing breaks until you build it; recommendations (`/jobs/recommended`, a real match score instead of the fake `matchScore`) arrive with the later matching stories and will need it filled in to be useful.
 - [ ] **Refresh tokens (#95):** store `refreshToken` from login/register, and add the refresh step to the axios interceptor as described in the 2026-10-15 refresh-token entry (one shared refresh call, store both new tokens, repeat the failed request, sign out if refresh answers 401); call `/auth/logout` when the user signs out. Tell me when it is live and I switch the access token to 15 minutes. Nothing breaks until then.
 - [ ] **Optional, new in 2026-10-15:** experience level on the Post-a-Job form and in search (`experienceLevel`), a country facet (`/jobs/locations/countries`, `countryCode`), and on the admin users table an `enabled` badge with disable, enable and delete actions (`/admin/users/{username}/disable|enable`, `DELETE /admin/users/{username}?reason=`). Plain 404 wording: if you match on the old message text, update it. Nothing breaks until then.
@@ -66,6 +66,15 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Ranked applicants, `GET /jobs/{id}/candidates` (#107, matching story M8) — 2026-10-16
+
+**New route, nothing existing changes.** EMPLOYER only: the employer who posted the job or anyone in the same company; another company's employer, a seeker or an admin gets `403`; unknown job `404`. Shape and rules: `api-documentation.md`, "Matching".
+- `GET /jobs/{id}/candidates?page=&size=`: the standard page envelope; each item `{ applicationId, status, appliedAt, applicant{seekerId, username, name, lastName, hasCv}, score, matchedSkills[], missingSkills[] }`, best score first.
+- **Only people who applied** (withdrawn ones excluded) are ranked, the newest 500 applications at most. No talent search over all seekers (privacy decision from the plan).
+- The matching service receives skills and preferences only, never names or CV text.
+- **`503`** while matching is unavailable or off (the default), same message as the other match routes.
+- Nothing in the database changes. Issue: #107 (epic #12).
 
 ### Recommended jobs, `GET /jobs/recommended` (#106, matching story M7) — 2026-10-16
 
