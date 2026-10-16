@@ -1,5 +1,7 @@
 # Matching service: design and implementation plan
 
+> **Learning guide with diagrams:** `docs/MATCHING_ARCHITECTURE.md` explains why the service is shaped this way, what makes it a microservice, and how to change it. This page is the plan and the story list.
+
 **Status: plan; the M1 spike (#100) is done, the rest is not built yet.** Epic: #12 (matching engine). Decided by the Product Owner on 2026-10-15: the matching engine is built as a **separate service that Jobify calls over gRPC**, mainly **for learning** microservices. This page says what the service is, how it works with Jobify, and in what order to build it. Items marked **Decision** need the Product Owner's answer before the story that depends on them starts.
 
 > Honest trade-off, so the choice is made with open eyes: for Jobify's size a package inside the monolith would be simpler, faster and cheaper to run. A separate service adds a network, a second deployment, a contract to version and new ways to fail. That cost is the point of the exercise. The design below keeps the service small and its contract narrow so the lessons (contracts, timeouts, failure handling, observability) are not buried under accidental complexity.
