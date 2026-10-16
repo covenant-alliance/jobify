@@ -303,8 +303,7 @@ Fill this in and send it (or paste it into the issue):
 
 ## Response policy (story T9.8, #85)
 
-> **Status: proposed.** These are my recommended answers; the Product Owner confirms or changes them on issue #85.
-> Until then they are the working rule.
+> **Status: confirmed by the Product Owner on 2026-10-15** (issue #85). These are the working rule.
 
 | CVSS score | Meaning | Decide within | Fix or suppress within | Who |
 |---|---|---|---|---|

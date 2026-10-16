@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- Independent of Jobify's root pom. Boot manages grpc-java, protobuf-java and the
+       protobuf-maven-plugin versions: do not pin them here (docs/MATCHING_SERVICE.md, section 3). -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.1</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.mcverse.matching</groupId>
+  <artifactId>matching-parent</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <properties>
+    <java.version>21</java.version>
+  </properties>
+
+  <modules>
+    <module>matching-api</module>
+    <module>matching-service</module>
+  </modules>
+</project>

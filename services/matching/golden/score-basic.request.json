@@ -1,0 +1,32 @@
+{
+  "seeker": {
+    "seekerId": "11111111-1111-1111-1111-111111111111",
+    "skills": [
+      {"skillId": "java", "proficiency": "PROFICIENCY_ADVANCED", "years": 4},
+      {"skillId": "spring", "proficiency": "PROFICIENCY_INTERMEDIATE", "years": 1}
+    ],
+    "preferences": {
+      "countryCodes": ["DE"],
+      "workModes": ["WORK_MODE_REMOTE"],
+      "employmentTypes": ["EMPLOYMENT_TYPE_FULL_TIME"],
+      "minAnnualRate": 60000,
+      "maxAnnualRate": 80000,
+      "experienceLevel": "EXPERIENCE_LEVEL_MID"
+    }
+  },
+  "job": {
+    "jobId": 42,
+    "title": "Backend Engineer",
+    "requiredSkills": [
+      {"skillId": "java", "name": "Java"},
+      {"skillId": "spring", "name": "Spring"},
+      {"skillId": "kafka", "name": "Kafka"}
+    ],
+    "countryCode": "DE",
+    "workMode": "WORK_MODE_REMOTE",
+    "employmentType": "EMPLOYMENT_TYPE_FULL_TIME",
+    "annualRate": 70000,
+    "experienceLevel": "EXPERIENCE_LEVEL_MID",
+    "postedAtEpochSeconds": "1760000000"
+  }
+}
