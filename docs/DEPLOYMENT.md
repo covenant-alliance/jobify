@@ -211,6 +211,7 @@ The job-matching engine runs as a **separate gRPC service** (`services/matching/
 | `MATCHING_TOKEN` | Jobify and the service | Shared secret, sent as `authorization: Bearer ...`. The service **refuses to start without it** outside the `dev` profile; Jobify refuses to start with `MATCHING_ENABLED=true` and no token. |
 | `matching.deadline`, `matching.rank-deadline` | Jobify | How long one call may take (default 800 ms for one job, 2 s for ranking). Settable as `MATCHING_DEADLINE` and `MATCHING_RANK_DEADLINE`. |
 | `matching.max-candidates`, `matching.max-applicants` | Jobify | Most jobs (200) or applicants (500) sent for one ranking. |
+| `matching.alerts.enabled`, `.threshold`, `.max-seekers` | Jobify | Optional "a new job fits you" notifications (`MATCH`): off by default; at or above this score (75) are told; at most 200 seekers scored per new job. Env: `MATCHING_ALERTS_ENABLED` etc. |
 | `matching.weights.*` | the service | Weight of each part of the score (skills 60, location 10, work mode 8, employment type 7, rate 10, experience 5). |
 | `MATCHING_GRPC_PORT`, `MATCHING_MANAGEMENT_PORT` | the service | 9090 (gRPC) and 9091 (HTTP). |
 

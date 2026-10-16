@@ -50,3 +50,13 @@ Rule of thumb: the broker becomes useful when **someone other than this one proc
 `PUT` changes only what is sent. Only deviations are stored (`user_preferences`, `user_disabled_notifications`), so a
 new notification type is on for everyone without a migration. A switched-off type is **not stored at all**, so it is
 not counted in the badge and cannot be seen later by switching the toggle back on.
+
+## New-match alerts (matching story M10, #109)
+
+A seventh kind, `MATCH`, tells a seeker that a **newly posted job fits them well**. How it works:
+- `JobService` publishes a `JobPostedEvent` when a job is saved. `MatchNotifier` listens **after the commit** and on its own thread pool, so posting a job is never slower or failed by it (the pool is small; when it is backed up the alert for that job is dropped with a warning).
+- It scores only seekers who share at least one required skill with the job, have not applied to it, and either saved no country preference, or the job is remote, or the job's country is one of theirs; at most `matching.alerts.max-seekers` (200). Those go to the matching service's `RankCandidates`.
+- Seekers at or above `matching.alerts.threshold` (default 75) get **one** notification for that job. A seeker who switched `MATCH` off gets none (the normal `NotificationGate`).
+- If the matching service is down or off, **nobody is told and nothing else happens**: the job is already saved.
+- **Off by default** (`matching.alerts.enabled=false`), because it spends matching calls on every new job and needs matching itself switched on.
+- Adding the value `MATCH` made `GET /users/me/preferences` return a sixth switch; see `docs/BACKEND_STATE.md`.

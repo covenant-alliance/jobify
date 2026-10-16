@@ -628,7 +628,7 @@ A new or withdrawn application notifies **every member of the job's company** (t
 
 ```ts
 interface PreferencesResponse {
-  notifications: { INTERVIEW: boolean; APPLICATION: boolean; SYSTEM: boolean; HIRING: boolean; ACCOUNT: boolean };
+  notifications: { INTERVIEW: boolean; APPLICATION: boolean; SYSTEM: boolean; HIRING: boolean; ACCOUNT: boolean; MATCH: boolean };
   accentColor: string | null;     // "#rrggbb", lower case
 }
 interface UpdatePreferencesRequest {   // every field optional; only what is sent changes
@@ -638,7 +638,7 @@ interface UpdatePreferencesRequest {   // every field optional; only what is sen
 ```
 
 - `GET` returns the defaults for a user who never saved anything: every type `true`, `accentColor` `null`.
-- `PUT` returns the full settings after the change. Errors `400` (nothing is changed): `Unknown notification type 'X'. Use one of: INTERVIEW, APPLICATION, SYSTEM, HIRING, ACCOUNT.`, `ACCOUNT notifications cannot be turned off: ...`, `notifications.X must be true or false.`, `accentColor must look like #1a73e8, or be empty to clear it.`, a missing or malformed body. `401` without a valid token.
+- `PUT` returns the full settings after the change. Errors `400` (nothing is changed): `Unknown notification type 'X'. Use one of: INTERVIEW, APPLICATION, SYSTEM, HIRING, ACCOUNT, MATCH.`, `ACCOUNT notifications cannot be turned off: ...`, `notifications.X must be true or false.`, `accentColor must look like #1a73e8, or be empty to clear it.`, a missing or malformed body. `401` without a valid token.
 - **Effect:** a type switched off is no longer delivered to that user: no row is stored, the bell badge does not count it, and switching it back on does not bring back what was dropped. `ACCOUNT` (password changed, deletion decisions) always arrives.
 - Design notes and the RabbitMQ question: `docs/NOTIFICATIONS.md`.
 
@@ -651,7 +651,7 @@ interface UpdatePreferencesRequest {   // every field optional; only what is sen
 ```ts
 interface NotificationResponse {
   id: string;                     // UUID
-  type: "INTERVIEW" | "APPLICATION" | "SYSTEM" | "HIRING" | "ACCOUNT";
+  type: "INTERVIEW" | "APPLICATION" | "SYSTEM" | "HIRING" | "ACCOUNT" | "MATCH";
   title: string;                  // plain text
   body: string;                   // plain text, show it as text, never as HTML
   read: boolean;
@@ -678,6 +678,7 @@ interface NotificationResponse {
 | ... to `INTERVIEW` | the seeker | `INTERVIEW` | `You have reached the interview stage` |
 | ... to `OFFER` | the seeker | `HIRING` | `You have an offer` |
 | ... to `REJECTED` | the seeker | `APPLICATION` | `Application update` |
+| A new job fits a seeker well (only when `matching.alerts.enabled=true`, off by default) | each seeker whose score is at least `matching.alerts.threshold` (75) | `MATCH` | `A new job fits you: <job title>` |
 | The user changes their password | that user | `ACCOUNT` | `Your password was changed` |
 | An admin declines their deletion request | that user | `ACCOUNT` | `Account deletion request declined` (the admin's note is included) |
 

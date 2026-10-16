@@ -22,11 +22,15 @@ public record MatchProperties(
         @DefaultValue("200") int maxCandidates,
         /* Most applicants of one job ranked in one call (newest applications first). The contract allows 500. */
         @DefaultValue("500") int maxApplicants,
-        Breaker breaker) {
+        Breaker breaker,
+        Alerts alerts) {
 
     public MatchProperties {
         if (breaker == null) {
             breaker = new Breaker(10, 5, 50, Duration.ofSeconds(10));
+        }
+        if (alerts == null) {
+            alerts = new Alerts(false, 75, 200);
         }
     }
 
@@ -36,4 +40,12 @@ public record MatchProperties(
             @DefaultValue("5") int minimumCalls,
             @DefaultValue("50") int failureRatePercent,
             @DefaultValue("10s") Duration openFor) {}
+
+    /** "A new job fits you" notifications (story M10). Off by default: it spends matching calls on every new job. */
+    public record Alerts(
+            @DefaultValue("false") boolean enabled,
+            /* A seeker is told when the score of a new job for them is at least this (0 to 100). */
+            @DefaultValue("75") int threshold,
+            /* Most seekers scored for one new job. The contract allows 500. */
+            @DefaultValue("200") int maxSeekers) {}
 }

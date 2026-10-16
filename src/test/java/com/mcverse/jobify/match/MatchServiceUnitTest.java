@@ -39,7 +39,7 @@ class MatchServiceUnitTest {
 
     @BeforeEach
     void setUp() {
-        MatchProperties props = new MatchProperties(true, "t", "t", Duration.ofMillis(800), Duration.ofSeconds(2), 200, 500, null);
+        MatchProperties props = new MatchProperties(true, "t", "t", Duration.ofMillis(800), Duration.ofSeconds(2), 200, 500, null, null);
         service = new MatchService(seekers, mock(JobRepo.class), facts, engine, mock(AuditLog.class), props, mock(MatchJobAccess.class));
         when(seekers.findByUsername("sam")).thenReturn(Optional.of(seeker));
         when(seeker.getId()).thenReturn("sid");

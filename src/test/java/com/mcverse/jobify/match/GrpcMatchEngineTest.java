@@ -154,7 +154,7 @@ class GrpcMatchEngineTest {
 
     private GrpcMatchEngine engine(Duration deadline, int window, int minimum, Duration openFor) {
         return new GrpcMatchEngine(channel, new MatchProperties(true, "unused", "secret-token", deadline,
-                Duration.ofSeconds(2), 200, 500, new MatchProperties.Breaker(window, minimum, 50, openFor)));
+                Duration.ofSeconds(2), 200, 500, new MatchProperties.Breaker(window, minimum, 50, openFor), null));
     }
 
     private GrpcMatchEngine engine() {
@@ -403,7 +403,7 @@ class GrpcMatchEngineTest {
             }
         };
         GrpcMatchEngine engine = new GrpcMatchEngine(channel, new MatchProperties(true, "u", "t",
-                Duration.ofSeconds(2), Duration.ofMillis(100), 200, 500, new MatchProperties.Breaker(10, 5, 50, Duration.ofSeconds(30))));
+                Duration.ofSeconds(2), Duration.ofMillis(100), 200, 500, new MatchProperties.Breaker(10, 5, 50, Duration.ofSeconds(30)), null));
 
         assertThrows(ServiceUnavailableException.class, () -> engine.rankJobs(seeker(), List.of(jobWithId(1))));
     }

@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Comparator;
 import java.util.List;
 
@@ -42,6 +43,11 @@ public class MatchFactsLoader {
                                      String seekerId, String username, String name, String lastName, boolean hasCv,
                                      SeekerFacts facts) {}
 
+    /** A seeker's username (to notify them) next to what the matching service is told about them. */
+    public record SeekerWithFacts(String username, SeekerFacts facts) {}
+
+    private final MatchSeekerRepository seekerIds;
+    private final com.mcverse.jobify.job.repository.JobRepo jobs;
     private final MatchApplicantRepository applicants;
     private final SeekerSkillRepository seekerSkills;
     private final SeekerJobPreferencesRepository preferences;
@@ -50,7 +56,10 @@ public class MatchFactsLoader {
 
     public MatchFactsLoader(MatchApplicantRepository applicants, SeekerSkillRepository seekerSkills,
                             SeekerJobPreferencesRepository preferences, MatchCandidateRepository candidates,
-                            JobResponseMapper mapper) {
+                            JobResponseMapper mapper, MatchSeekerRepository seekerIds,
+                            com.mcverse.jobify.job.repository.JobRepo jobs) {
+        this.seekerIds = seekerIds;
+        this.jobs = jobs;
         this.applicants = applicants;
         this.seekerSkills = seekerSkills;
         this.preferences = preferences;
@@ -85,6 +94,36 @@ public class MatchFactsLoader {
         var skills = seekerSkills.findBySeekerId(seeker.getId()).stream().map(MatchFactsLoader::toFact).toList();
         PreferenceFacts prefs = preferences.findById(seeker.getId()).map(MatchFactsLoader::toFacts).orElse(null);
         return new SeekerFacts(seeker.getId(), skills, prefs);
+    }
+
+    /** The job as the matching service sees it, only while it is open (a closed or deleted job is nobody's match). */
+    @Transactional(readOnly = true)
+    public Optional<JobFacts> openJob(int jobId) {
+        return jobs.findById(jobId).filter(JobPost::isAvailable).map(this::job);
+    }
+
+    /** Seekers worth scoring for a new job (see {@link MatchSeekerRepository#interestedIn}), with their facts. */
+    @Transactional(readOnly = true)
+    public List<SeekerWithFacts> seekersInterestedIn(JobFacts job, int limit) {
+        List<String> skillIds = job.requiredSkills().stream().map(SkillRef::id).toList();
+        if (skillIds.isEmpty()) {
+            return List.of();
+        }
+        boolean remote = job.workMode() == com.mcverse.jobify.job.model.WorkMode.REMOTE;
+        String country = job.countryCode() == null ? "" : job.countryCode();
+        List<String> ids = seekerIds.interestedIn(job.jobId(), skillIds, remote, country,
+                org.springframework.data.domain.PageRequest.of(0, limit));
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        Map<String, List<SeekerSkill>> skillsBySeeker = new HashMap<>();
+        applicants.skillsOf(ids).forEach(s -> skillsBySeeker.computeIfAbsent(s.getSeeker().getId(), k -> new java.util.ArrayList<>()).add(s));
+        Map<String, PreferenceFacts> prefsBySeeker = new HashMap<>();
+        preferences.findAllById(ids).forEach(p -> prefsBySeeker.put(p.getSeekerId(), toFacts(p)));
+        return seekerIds.findAllByIds(ids).stream().map(seeker -> new SeekerWithFacts(seeker.getUsername(),
+                new SeekerFacts(seeker.getId(),
+                        skillsBySeeker.getOrDefault(seeker.getId(), List.of()).stream().map(MatchFactsLoader::toFact).toList(),
+                        prefsBySeeker.get(seeker.getId())))).toList();
     }
 
     /** The newest {@code limit} live applications of a job, each with the facts about the applicant. Three queries in all. */
