@@ -81,7 +81,7 @@ public final class Places {
 
     private static final Set<String> COUNTRY_CODES = Set.of(Locale.getISOCountries());
 
-    static boolean isCountryCode(String twoLetters) {
+    public static boolean isCountryCode(String twoLetters) {
         return COUNTRY_CODES.contains(twoLetters);
     }
 

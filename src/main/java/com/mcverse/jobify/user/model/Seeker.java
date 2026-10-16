@@ -12,10 +12,6 @@ public class Seeker extends User {
     private boolean isIndependent;
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JoinColumn(name = "job_preferences_id")
-    private JobPreferences jobPreferences;
-
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "cv_id")
     private Cv cv;
 
@@ -39,7 +35,6 @@ public class Seeker extends User {
     }
 
     public boolean isIndependent()             { return isIndependent; }
-    public JobPreferences getJobPreferences()  { return jobPreferences; }
     public Cv getCv()                          { return cv; }
     public List<Education> getEducations()                           { return educations; }
     public List<Certification> getCertifications()                   { return certifications; }
@@ -47,6 +42,5 @@ public class Seeker extends User {
     public List<SeekerSkill> getSeekerSkills()                        { return seekerSkills; }
 
     public void setIndependent(boolean isIndependent)              { this.isIndependent = isIndependent; }
-    public void setJobPreferences(JobPreferences jobPreferences)   { this.jobPreferences = jobPreferences; }
     public void setCv(Cv cv)                                       { this.cv = cv; }
 }

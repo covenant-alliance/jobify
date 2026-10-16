@@ -38,6 +38,7 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
+- [ ] **Optional, preferences form (#104):** a "What I am looking for" form for seekers, loaded with `GET /users/seekers/me/preferences` and saved with `PUT` (whole-object replace). Nothing breaks until you build it; recommendations (`/jobs/recommended`, a real match score instead of the fake `matchScore`) arrive with the later matching stories and will need it filled in to be useful.
 - [ ] **Refresh tokens (#95):** store `refreshToken` from login/register, and add the refresh step to the axios interceptor as described in the 2026-10-15 refresh-token entry (one shared refresh call, store both new tokens, repeat the failed request, sign out if refresh answers 401); call `/auth/logout` when the user signs out. Tell me when it is live and I switch the access token to 15 minutes. Nothing breaks until then.
 - [ ] **Optional, new in 2026-10-15:** experience level on the Post-a-Job form and in search (`experienceLevel`), a country facet (`/jobs/locations/countries`, `countryCode`), and on the admin users table an `enabled` badge with disable, enable and delete actions (`/admin/users/{username}/disable|enable`, `DELETE /admin/users/{username}?reason=`). Plain 404 wording: if you match on the old message text, update it. Nothing breaks until then.
 - [x] *(DONE by you, per your 2026-10-07 update; invitations between two accounts and image/logo uploads not yet clicked through in a browser)* **Company teams (#26, stories #72 to #74):** replace the mock "Employee Preview" with the real thing. (1) Company page for owners: members list (`GET /companies/{id}/members`), invite form (`POST /companies/{id}/invitations` with a username), pending invitations with cancel, remove member, change role. (2) For any employer: `GET /invitations/me` (show a badge or banner when not empty, with accept and decline), "Leave company" (`DELETE /companies/me/membership`), and show the role from `GET /users/employers/me` (`companyRole`); hide owner-only controls from managers. (3) Dashboard: use `GET /companies/{id}/stats` (or `/employers/me/stats`, same numbers) and render the activity feed from `GET /companies/{id}/activity` (summaries are plain text). (4) Notifications: team events arrive with type `SYSTEM`.
@@ -64,6 +65,18 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### Seeker job preferences, `GET/PUT /users/seekers/me/preferences` (#104, matching story M5) — 2026-10-16
+
+**New routes, nothing existing changes.** SEEKER only (employer or admin `403`, no token `401`). Full shape and rules: `api-documentation.md`, "Seeker job preferences".
+- `GET` returns the saved preferences, or empty arrays and nulls (`updatedAt: null`) if none: never a 404.
+- `PUT` replaces everything as a whole; a field left out becomes empty. Fields: `preferredJobTitle`, `countryCodes[]` (ISO alpha-2, stored upper case), `workModes[]` (`REMOTE`, `HYBRID`, `ONSITE`), `employmentTypes[]`, `minRate`, `maxRate`, `rateType` (`HOURLY`, `MONTHLY`, `YEARLY`), `experienceLevel` (`INTERN` to `LEAD`).
+- `400` with a readable `message`: min above max, a rate without `rateType`, `CONTRACT_TOTAL`, an unknown country code (named), negative rate, title over 100 characters, unknown enum value (the usual "malformed" message).
+- **Database:** Flyway `V14` adds `seeker_job_preferences` and three small tables for the lists. It **drops** the old `job_preferences` table and `seekers.job_preferences_id`: nothing ever read or wrote them through the API (free-text location, no unit on the salary, free-text experience level), so no data worth keeping. On a dev H2 database `ddl-auto=update` leaves the old column in place, unused and harmless.
+- **Country codes** are checked against the ISO 3166-1 list, not against the locations catalogue (the issue said catalogue): a seeker can name a country that has no jobs yet.
+- Deleting an account removes its preferences.
+- Not used by anything yet: `/jobs/recommended` and the match score come in later matching stories (M6, M7).
+- Issue: #104 (epic #12).
 
 ### Security patch from the baseline scan (#80, #81) — 2026-10-15
 

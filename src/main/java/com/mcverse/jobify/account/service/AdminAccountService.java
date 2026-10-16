@@ -31,6 +31,7 @@ public class AdminAccountService {
     @Autowired private AccountService accountService;
     @Autowired private ApplicationRepository applicationRepo;
     @Autowired private SavedJobRepository savedJobRepo;
+    @Autowired private com.mcverse.jobify.job.repository.SeekerJobPreferencesRepository seekerPreferencesRepo;
     @Autowired private NotificationService notifications;
     @Autowired private AuditLog auditLog;
     @Autowired private com.mcverse.jobify.auth.service.RefreshTokenService refreshTokens;
@@ -69,7 +70,11 @@ public class AdminAccountService {
             case SEEKER -> {
                 applicationRepo.deleteBySeekerUsername(username);
                 savedJobRepo.deleteBySeekerUsername(username);
-                seekerRepo.findByUsername(username).ifPresent(seekerRepo::delete);
+                seekerRepo.findByUsername(username).ifPresent(seeker -> {
+                    seekerPreferencesRepo.deleteById(seeker.getId());
+                    seekerPreferencesRepo.flush();
+                    seekerRepo.delete(seeker);
+                });
             }
             case EMPLOYER -> {
                 // a company with other people keeps its jobs, applications and logo: they pass to a colleague
