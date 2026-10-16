@@ -49,3 +49,10 @@ jobs:
           TEST_DB_USER: jobify
           TEST_DB_PASSWORD: jobify
         run: scripts/test-postgres.sh
+
+  docker-image:
+    name: Docker image builds (includes the matching contract)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t jobify-backend .

@@ -17,9 +17,9 @@ Keep this table in mind: the diagrams show the **target**. Not all of it is buil
 | Scoring function and ranking | built, merged (M3, #102) | `services/matching/matching-service/.../score/` |
 | gRPC server: the three calls, limits, status codes, token check, health, reflection in dev | built (M4, #103); tested over a real socket | `matching-service/.../grpc/` |
 | Dockerfile and compose entry (`--profile matching`) | written; **never built or run by the author** (no Docker here). A CI job builds and starts the image: check its first run | `services/matching/Dockerfile`, `docker-compose.yml`, `matching-service.yml` |
-| Jobify side: `match/` slice, client, 503 handling, circuit breaker | **not built** (M6, #105) | |
-| Preferences endpoint | **not built** (M5, #104) | |
-| `/jobs/recommended`, `/jobs/{id}/candidates` | **not built** (M7, M8) | |
+| Jobify side: `match/` slice, gRPC client, deadline, one retry, circuit breaker, 503, `GET /jobs/{id}/match` | built (M6, #105); tested against an in-process fake service. **Not yet run against the real service over a network** (that is the M9 end-to-end script) | `src/main/java/com/mcverse/jobify/match/` |
+| Preferences endpoint | built, merged (M5, #104) | `job/service/SeekerPreferencesService` |
+| `/jobs/recommended`, `/jobs/{id}/candidates` | **not built** (M7, M8); `RankJobs` and `RankCandidates` exist in the service but Jobify does not call them yet | |
 | Running both in docker compose, calling with `grpcurl` | **never verified** (no Docker in the build environment) | |
 
 ---
@@ -46,9 +46,9 @@ flowchart LR
     end
     B -- "HTTPS + JSON + JWT" --> JC
     JM -- "gRPC (HTTP/2, protobuf)<br/>internal network only" --> MG
-    CONTRACT[["matching-api<br/>the .proto contract<br/>(shared library)"]]
-    JM -. "compiled against" .-> CONTRACT
-    MG -. "compiled against" .-> CONTRACT
+    CONTRACT[["matching.proto<br/>the contract<br/>(shared as a FILE)"]]
+    JM -. "client code generated from" .-> CONTRACT
+    MG -. "server code generated from" .-> CONTRACT
 ```
 
 Read it left to right:
@@ -56,7 +56,7 @@ Read it left to right:
 - The **browser** only ever talks to Jobify, in JSON, exactly as before. It never learns that a second service exists.
 - **Jobify** is the system of record. It owns the database, the login, and every "may this person do this?" decision.
 - The **matching service** owns one capability: *how well does this seeker fit this job?* It has **no database** and no idea who is logged in. Everything it needs arrives in the request.
-- The **contract** (`matching-api`) is the only thing both sides share. They share a *description of messages*, not code or tables.
+- The **contract** (`matching.proto`) is the only thing both sides share. They share a *description of messages*, not code, a jar or tables. Each build generates its own stubs from the file: the service in `matching-api`, Jobify in its own `pom.xml` (it points the protobuf plugin at `services/matching/matching-api/src/main/proto`). That keeps the two builds independent: neither needs the other installed first. When the service moves to its own repository, the proto goes with it and Jobify takes a copy or a registry.
 
 ---
 
@@ -71,7 +71,7 @@ Read it left to right:
 | **Talks only over the network, through a contract** | No shared memory, no calling each other's classes. | **Yes.** gRPC and protobuf. The only shared artifact is the contract jar. |
 | **Owns its own data** | No other service reads or writes its tables. | **Yes, trivially**: it has *no* data. It is stateless. The rule that matters is the reverse: the service never reads Jobify's database. |
 | **Independently scalable** | You can run 5 copies of it without touching Jobify. | **Yes in principle**: it is stateless, so copies are interchangeable. Not tried. |
-| **Fails independently** | When it is down, the rest of the system keeps working. | **Designed, not built yet** (M6). Only the three match endpoints may fail, with a 503 and a clear message. |
+| **Fails independently** | When it is down, the rest of the system keeps working. | **Built (M6) for the one endpoint that exists, and proven against a fake service.** Only the match endpoints may fail, with a 503 and a clear message. Not yet shown against the real service on a network (M9). |
 | **Technology freedom** | It could be written in another language. | **Yes by design**: the contract is language-neutral. We chose Java anyway. |
 | **Independent team and release cadence** | Different teams ship on different days. | **No.** One repository, one person, one pull request at a time. |
 
@@ -119,17 +119,17 @@ The rung people miss is **number 3**. A *design pattern* (rung 4) is about class
 | 2 Style | Synchronous request/response over RPC (gRPC). | Scoring is a question with an immediate answer; nothing needs to be queued. | |
 | 3 Integration | **Contract-first** | The `.proto` is written before any code, and tooling (`buf`) checks that changes do not break the other side. | `matching.proto`, `buf.yaml`, `matching-service.yml` |
 | 3 Integration | **Stateless service** | No database means any copy can answer any request, and a crash loses nothing. | `matching-service` has no persistence dependency |
-| 3 Integration | **Deadline (timeout)** | An unbounded wait lets one slow service freeze the caller. | planned, M6: 800 ms for one job, 2 s for ranking |
-| 3 Integration | **Retry, once, only when safe** | Only on `UNAVAILABLE`; the calls are read-only so repeating them is harmless (idempotent). | planned, M6 |
-| 3 Integration | **Circuit breaker** | After repeated failures stop calling for a while, so a dead service does not make every request wait out its deadline. | planned, M6 (Resilience4j) |
-| 3 Integration | **Graceful degradation** | When matching is down, only matching features fail, with a readable 503, never a silent wrong answer. | planned, M6 |
-| 3 Integration | **Anti-corruption layer** | Jobify's entities are never sent over the wire. A mapper translates Jobify's model to the contract's messages, so neither side's internals leak into the other. | planned, `GrpcMatchEngine` (M6) |
+| 3 Integration | **Deadline (timeout)** | An unbounded wait lets one slow service freeze the caller. | built, M6: 800 ms per attempt for one job (`matching.deadline`); the 2 s ranking deadline is configured and used from M7 |
+| 3 Integration | **Retry, once, only when safe** | Only on `UNAVAILABLE`; the calls are read-only so repeating them is harmless (idempotent). | built, M6: `GrpcMatchEngine.callWithOneRetry` |
+| 3 Integration | **Circuit breaker** | After repeated failures stop calling for a while, so a dead service does not make every request wait out its deadline. | built, M6 (Resilience4j, `GrpcMatchEngine`) |
+| 3 Integration | **Graceful degradation** | When matching is down, only matching features fail, with a readable 503, never a silent wrong answer. | built, M6: `ServiceUnavailableException`, mapped to 503 by `GlobalExceptionHandler` |
+| 3 Integration | **Anti-corruption layer** | Jobify's entities are never sent over the wire. A mapper translates Jobify's model to the contract's messages, so neither side's internals leak into the other. | built, M6: `MatchFacts` (plain records) and the mapping in `GrpcMatchEngine` |
 | 3 Integration | **Health check / readiness** | The platform asks "are you alive?" without calling real business endpoints. | built, M4: `grpc.health.v1` on 9090 (no token needed) and `/actuator/health` on 9091 |
 | 3 Integration | **Shared-secret service authentication** | The service is internal, but it still checks who calls it. | built, M4: `TokenAuthInterceptor`; mutual TLS is a stretch goal |
-| 3 Integration | **Correlation id** | One id (`x-request-id`) follows a user action through both services' logs. | planned, M9 |
+| 3 Integration | **Correlation id** | One id (`x-request-id`) follows a user action through both services' logs. | half built: Jobify sends it from M6 (taken from the request's `X-Request-Id`); the service logs it in M9 |
 | 4 Design | **Pure function ("functional core")** | The score is computed with no I/O, clock or randomness, so it is trivial to test. | `score/Scorer.java` |
-| 4 Design | **Port and adapter (hexagonal)** | Jobify depends on a small interface `MatchEngine`; `GrpcMatchEngine` is one adapter for it. | planned, M6 |
-| 4 Design | **Null Object** | `DisabledMatchEngine` answers "unavailable" so the rest of the code never checks for null or a feature flag. | planned, M6 |
+| 4 Design | **Port and adapter (hexagonal)** | Jobify depends on a small interface `MatchEngine`; `GrpcMatchEngine` is one adapter for it. | built, M6 |
+| 4 Design | **Null Object** | `DisabledMatchEngine` answers "unavailable" so the rest of the code never checks for null or a feature flag. | built, M6: chosen by `matching.enabled` in `MatchConfig` |
 | 4 Design | **Interceptor (chain of responsibility)** | The token check wraps every call without being written into each rpc. | built, M4: `TokenAuthInterceptor`, registered with `@GlobalServerInterceptor` |
 | 4 Design | **Builder, immutable messages** | Protobuf generates them; you cannot change a message after building it. | everywhere in `score/` |
 | 4 Design | **Dependency injection, constructor style** | `Scorer` gets its weights from outside, so tests pass different ones. | `Scorer`, `ScoringConfig` |
@@ -351,7 +351,7 @@ Skill credit: BEGINNER 0.5, INTERMEDIATE 0.8, ADVANCED or EXPERT 1.0, plus 0.1 f
 
 ---
 
-## 7. Inside Jobify (the planned `match/` slice)
+## 7. Inside Jobify (the `match/` slice, built in M6; M7 and M8 extend it)
 
 ```mermaid
 flowchart TB
@@ -457,7 +457,7 @@ flowchart BT
     T1["Unit: Scorer and Ranker<br/>tables of cases, ties, boundaries, unknown enums<br/>(built, milliseconds)"]
     T2["Contract: golden files, buf lint and breaking<br/>(built)"]
     T3["Adapter: direct calls plus a real server over a socket<br/>status codes, limits, token (built, M4)"]
-    T4["Jobify client: fake server that is slow or failing<br/>deadline, 503, breaker (M6)"]
+    T4["Jobify client: fake server that is slow or failing<br/>deadline, 503, breaker (built, M6)"]
     T5["End to end: script brings up both, stops the service,<br/>checks the 503 and that /jobs still works (M9)"]
     T1 --> T2 --> T3 --> T4 --> T5
 ```

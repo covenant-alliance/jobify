@@ -23,4 +23,16 @@ class RateTypeTest {
     void aContractTotalCannotBeComparedSoItIsZero() {
         assertEquals(0.0, RateType.CONTRACT_TOTAL.toHourly(20000));
     }
+
+    @Test
+    void convertsEachUnitToAYearlyAmountForTheMatchingService() {
+        assertEquals(104000.0, RateType.HOURLY.toAnnual(50));
+        assertEquals(60000.0, RateType.MONTHLY.toAnnual(5000));
+        assertEquals(80000.0, RateType.YEARLY.toAnnual(80000));
+    }
+
+    @Test
+    void aContractTotalHasNoYearlyAmount() {
+        org.junit.jupiter.api.Assertions.assertNull(RateType.CONTRACT_TOTAL.toAnnual(20000));
+    }
 }

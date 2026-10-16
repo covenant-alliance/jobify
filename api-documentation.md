@@ -449,6 +449,33 @@ Deleting an account deletes its preferences.
 
 ---
 
+## Matching (since #105)
+
+### `GET /jobs/{id}/match`
+
+How well one **open** job fits the signed-in seeker, with the reasons. **SEEKER only** (employer or admin `403`, no token `401`). Unknown or closed job: `404`.
+
+```json
+{
+  "jobId": 3,
+  "score": 76,
+  "matchedSkills": [{ "id": "…", "name": "Java" }],
+  "missingSkills": [{ "id": "…", "name": "Kafka" }],
+  "parts": [
+    { "key": "skills",   "weight": 60.0, "value": 0.6, "counted": true },
+    { "key": "location", "weight": 10.0, "value": 1.0, "counted": true },
+    { "key": "rate",     "weight": 10.0, "value": 0.0, "counted": false }
+  ]
+}
+```
+
+- `score` is 0 to 100. `parts` are always in the order `skills`, `location`, `work_mode`, `employment_type`, `rate`, `experience`.
+- A part with `counted: false` could not be judged (the seeker saved no preference for it, or the job leaves that field empty). It is **left out of the score**, which is then based on the counted parts only. Show "based on skills only" when only `skills` is counted. A seeker with no skills and no preferences gets `0`.
+- It uses the skills on the seeker's profile and the saved preferences (`/users/seekers/me/preferences`). A job rate of type `CONTRACT_TOTAL` is not compared.
+- **`503`** with the usual envelope and `"message": "Job matching is temporarily unavailable. Please try again in a moment."` when the matching service is stopped, too slow (over 800 ms), failing repeatedly (circuit breaker open), or switched off (`matching.enabled=false`, the default). Show the message as it comes. Nothing else in the API is affected.
+
+---
+
 ## Employer statistics
 
 ### `GET /employers/me/stats`
