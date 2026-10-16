@@ -407,6 +407,48 @@ Deleting an account (admin-approved) also deletes its saved jobs, and bookmarks 
 
 ---
 
+## Seeker job preferences (since #104)
+
+What a seeker is looking for. Used by the matching engine (`docs/MATCHING_SERVICE.md`); nothing ranks by it yet. Both routes are **SEEKER only**: an employer or admin gets `403`, no token `401`.
+
+### `GET /users/seekers/me/preferences`
+
+`200` with the saved preferences. Before anything is saved: empty arrays and nulls, `updatedAt: null` (never a 404).
+
+```json
+{
+  "preferredJobTitle": "Backend developer",
+  "countryCodes": ["DE", "NL"],
+  "workModes": ["REMOTE", "HYBRID"],
+  "employmentTypes": ["FULL_TIME", "CONTRACT"],
+  "minRate": 60000.0,
+  "maxRate": 80000.0,
+  "rateType": "YEARLY",
+  "experienceLevel": "MID",
+  "updatedAt": "2026-10-16T12:00:00"
+}
+```
+
+### `PUT /users/seekers/me/preferences`
+
+Replaces the saved preferences **as a whole**: a field left out becomes empty or null. Same body and response shape as above (no `updatedAt` in the request).
+
+| Field | Rule |
+|---|---|
+| `preferredJobTitle` | optional, at most 100 characters, blank is stored as null |
+| `countryCodes` | optional, at most 30 ISO 3166-1 alpha-2 codes, any case; stored upper case, de-duplicated, returned alphabetical. An unknown code is `400` and named in the message |
+| `workModes` | `REMOTE`, `HYBRID`, `ONSITE`; returned in that order |
+| `employmentTypes` | `FULL_TIME`, `PART_TIME`, `CONTRACT`, `TEMPORARY`, `INTERNSHIP`, `FREELANCE`, `B2B`; returned in that order |
+| `minRate`, `maxRate` | optional, not negative; either may be given alone |
+| `rateType` | `HOURLY`, `MONTHLY` or `YEARLY`; **required when a rate is given**; `CONTRACT_TOTAL` is refused; ignored (stored as null) when no rate is given |
+| `experienceLevel` | `INTERN`, `JUNIOR`, `MID`, `SENIOR`, `LEAD` |
+
+Errors (`400`, standard envelope, readable `message`): `minRate must not be greater than maxRate`; `rateType is required when minRate or maxRate is given`; `rateType must be HOURLY, MONTHLY or YEARLY for a preference`; `countryCodes contains an unknown country code: XX`; field-level messages such as `minRate must not be negative`; `The request body is missing or malformed.` for an unknown enum value.
+
+Deleting an account deletes its preferences.
+
+---
+
 ## Employer statistics
 
 ### `GET /employers/me/stats`

@@ -56,6 +56,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/jobs/mine").hasRole("EMPLOYER")
                         .requestMatchers(HttpMethod.GET, "/jobs/saved").hasRole("SEEKER")
+                        .requestMatchers("/users/seekers/me/preferences").hasRole("SEEKER")
                         .requestMatchers(HttpMethod.GET, "/companies/*", "/companies/*/logo").permitAll()
                         .requestMatchers(HttpMethod.GET, "/jobs/*/images/*", "/jobs/locations/countries").permitAll()
                         .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/*").permitAll()
