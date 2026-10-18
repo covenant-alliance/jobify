@@ -17,11 +17,15 @@ import io.grpc.health.v1.HealthCheckRequest;
 import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.health.v1.HealthGrpc;
 import io.grpc.stub.MetadataUtils;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.slf4j.LoggerFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -112,5 +116,60 @@ class MatchingServerTest {
                 .withDeadlineAfter(10, TimeUnit.SECONDS)
                 .check(HealthCheckRequest.getDefaultInstance());
         assertEquals(HealthCheckResponse.ServingStatus.SERVING, response.getStatus());
+    }
+
+    // ---- request id ----
+
+    private static ListAppender<ILoggingEvent> capture(Class<?> logger) {
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        ((Logger) LoggerFactory.getLogger(logger)).addAppender(appender);
+        return appender;
+    }
+
+    private static MatchServiceGrpc.MatchServiceBlockingStub withRequestId(String token, String requestId) {
+        Metadata headers = new Metadata();
+        headers.put(Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER), token);
+        headers.put(Metadata.Key.of("x-request-id", Metadata.ASCII_STRING_MARSHALLER), requestId);
+        return MatchServiceGrpc.newBlockingStub(channel).withDeadlineAfter(10, TimeUnit.SECONDS)
+                .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(headers));
+    }
+
+    @Test
+    void theCallersRequestIdIsOnTheLogLinesOfThatCall() {
+        ListAppender<ILoggingEvent> lines = capture(MatchGrpcService.class);
+
+        withRequestId("Bearer test-token", "req-abc.123").score(request());
+
+        assertEquals("req-abc.123", lines.list.get(lines.list.size() - 1).getMDCPropertyMap().get("requestId"));
+    }
+
+    @Test
+    void aRejectedCallIsLoggedWithItsRequestIdToo() {
+        ListAppender<ILoggingEvent> lines = capture(TokenAuthInterceptor.class);
+
+        org.junit.jupiter.api.Assertions.assertThrows(StatusRuntimeException.class,
+                () -> withRequestId("Bearer wrong", "req-rejected-1").score(request()));
+
+        assertEquals("req-rejected-1", lines.list.get(lines.list.size() - 1).getMDCPropertyMap().get("requestId"));
+    }
+
+    @Test
+    void anUnsafeRequestIdIsIgnoredNotLogged() {
+        ListAppender<ILoggingEvent> lines = capture(MatchGrpcService.class);
+
+        withRequestId("Bearer test-token", "bad id with spaces\tand more").score(request());
+
+        assertEquals(null, lines.list.get(lines.list.size() - 1).getMDCPropertyMap().get("requestId"));
+    }
+
+    @Test
+    void theIdDoesNotLeakIntoTheNextCall() {
+        ListAppender<ILoggingEvent> lines = capture(MatchGrpcService.class);
+
+        withRequestId("Bearer test-token", "req-first").score(request());
+        stub("Bearer test-token").score(request());
+
+        assertEquals(null, lines.list.get(lines.list.size() - 1).getMDCPropertyMap().get("requestId"));
     }
 }

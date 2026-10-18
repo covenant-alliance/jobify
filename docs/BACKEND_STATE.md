@@ -38,6 +38,8 @@ Updated 2026-10-04 after reading your snapshot of the same day. Everything on th
 Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #17, #21, with #39 to be decided. **Sprint 3** = #13 search, #23 rate limit and password rules. **Sprint 4** = #14, #15, #16, #38.
 
 ## Open requests for the front end
+- [ ] **New notification type `MATCH` (#109):** add `"MATCH"` to the notification `type` union and to the settings screen's switches (`GET /users/me/preferences` now returns it). Alerts are off until the Product Owner sets `MATCHING_ALERTS_ENABLED=true` (with matching switched on).
+- [ ] **Optional, match score (#105):** replace the fake `matchScore` on a job with `GET /jobs/{id}/match` for signed-in seekers (`score`, `matchedSkills`, `missingSkills`, `parts`). Handle `503` by showing its `message` and keeping the page usable; it will be a 503 until the Product Owner switches the matching service on (`MATCHING_ENABLED`). Show "based on skills only" when `parts` has only `skills` counted, and point the seeker to the preferences form (#104) to improve it. **Also (#106):** a "Recommended for you" list from `GET /jobs/recommended?page=&size=` for signed-in seekers (same 503 handling; no fallback to `GET /jobs`). **Employers (#107):** on the applicants screen, an optional "Best match first" order from `GET /jobs/{id}/candidates` (score, matched and missing skills); same 503 handling.
 - [ ] **Optional, preferences form (#104):** a "What I am looking for" form for seekers, loaded with `GET /users/seekers/me/preferences` and saved with `PUT` (whole-object replace). Nothing breaks until you build it; recommendations (`/jobs/recommended`, a real match score instead of the fake `matchScore`) arrive with the later matching stories and will need it filled in to be useful.
 - [ ] **Refresh tokens (#95):** store `refreshToken` from login/register, and add the refresh step to the axios interceptor as described in the 2026-10-15 refresh-token entry (one shared refresh call, store both new tokens, repeat the failed request, sign out if refresh answers 401); call `/auth/logout` when the user signs out. Tell me when it is live and I switch the access token to 15 minutes. Nothing breaks until then.
 - [ ] **Optional, new in 2026-10-15:** experience level on the Post-a-Job form and in search (`experienceLevel`), a country facet (`/jobs/locations/countries`, `countryCode`), and on the admin users table an `enabled` badge with disable, enable and delete actions (`/admin/users/{username}/disable|enable`, `DELETE /admin/users/{username}?reason=`). Plain 404 wording: if you match on the old message text, update it. Nothing breaks until then.
@@ -65,6 +67,52 @@ Sprint plan after this update: **sprint 2** = #28, #9 (#30 to #33), #10, #11, #1
 **Parked / waiting on a decision:** match score (#12, parked as you asked); dropping your `location` / `workMode` / `employmentType` fallbacks waits on the Product Owner's decision in #39, so keep them for now.
 
 ## Change log (newest first)
+
+### "A new job fits you" notifications, new type `MATCH` (#109, matching story M10) — 2026-10-16
+
+**Optional and off by default (`matching.alerts.enabled=false`).** Nothing changes for the front end until the Product Owner switches it on, except one new enum value:
+- **New notification type `MATCH`.** `GET /users/me/preferences` now returns `notifications.MATCH` (default `true`) and accepts it in `PUT`; the unknown-type error message lists it. Notification `type` values in `GET /notifications` can now be `MATCH`. **The front end's TypeScript union must add `"MATCH"`** (otherwise a MATCH notification may not render an icon, and the settings screen will not show its switch).
+- A MATCH notification: title `A new job fits you: <job title>`, `jobId` set, body says how good the match is. At most one per seeker per new job; only seekers who share a required skill, have not applied, and are in the job's country (or it is remote, or they chose no country) are scored; threshold 75 by default.
+- Posting a job is never slower or failed by it (runs after the commit on its own thread); if matching is down nobody is told.
+- Details: `docs/NOTIFICATIONS.md`, "New-match alerts". No database change. Issue: #109 (epic #12).
+
+### Matching operations (#108, matching story M9) — 2026-10-16
+
+**No API change; nothing for the front end to do.** Settings, metrics and an end-to-end script for the matching service. Details: `docs/DEPLOYMENT.md`, "The matching service".
+- The caller's `X-Request-Id` now reaches the matching service and is on every log line of that call there.
+- The service exposes request counts and latency per rpc and the distribution of scores on its internal port (`/actuator/prometheus`).
+- `scripts/e2e-matching.sh` runs both services and checks the three endpoints, the 503 behaviour when the service is stopped, and recovery. **It passed** when run here (jars on localhost, not Docker).
+- Still switched off by default (`MATCHING_ENABLED=false`): the three match routes answer 503 until it is switched on.
+- Issue: #108 (epic #12).
+
+### Ranked applicants, `GET /jobs/{id}/candidates` (#107, matching story M8) — 2026-10-16
+
+**New route, nothing existing changes.** EMPLOYER only: the employer who posted the job or anyone in the same company; another company's employer, a seeker or an admin gets `403`; unknown job `404`. Shape and rules: `api-documentation.md`, "Matching".
+- `GET /jobs/{id}/candidates?page=&size=`: the standard page envelope; each item `{ applicationId, status, appliedAt, applicant{seekerId, username, name, lastName, hasCv}, score, matchedSkills[], missingSkills[] }`, best score first.
+- **Only people who applied** (withdrawn ones excluded) are ranked, the newest 500 applications at most. No talent search over all seekers (privacy decision from the plan).
+- The matching service receives skills and preferences only, never names or CV text.
+- **`503`** while matching is unavailable or off (the default), same message as the other match routes.
+- Nothing in the database changes. Issue: #107 (epic #12).
+
+### Recommended jobs, `GET /jobs/recommended` (#106, matching story M7) — 2026-10-16
+
+**New route, nothing existing changes.** SEEKER only. Shape and rules: `api-documentation.md`, "Matching".
+- `GET /jobs/recommended?page=&size=`: the standard page envelope (`content`, `page`, `size`, `totalElements`, `totalPages`, `last`); each item is `{ job (same shape as GET /jobs), score 0..100, matchedSkills[names], missingSkills[names] }`, best score first.
+- Only open jobs the seeker has not applied to that are remote or in a saved preferred country (all countries if none saved), newest 200 at most, are ranked; so `totalElements` never exceeds 200. `size` 1 to 50, default 20; out of range is `400`.
+- **`503`** (same message as `/jobs/{id}/match`) while matching is unavailable or off (the default). **No fallback list on purpose.** Show the message; do not substitute `GET /jobs`.
+- Nothing in the database changes.
+- Issue: #106 (epic #12).
+
+### Match score, `GET /jobs/{id}/match` (#105, matching story M6) — 2026-10-16
+
+**New route, nothing existing changes.** SEEKER only; `404` for an unknown or closed job. Shape and rules: `api-documentation.md`, "Matching".
+- Returns `{ jobId, score (0..100), matchedSkills[{id,name}], missingSkills[{id,name}], parts[{key,weight,value,counted}] }`. A part with `counted: false` is left out of the score (no data), so a seeker with few preferences is judged on skills alone: show "based on skills only" when only `skills` is counted.
+- **New status code `503`** (standard envelope): `"Job matching is temporarily unavailable. Please try again in a moment."` Show `message` as it comes. It means the matching service is stopped, slow, failing repeatedly or switched off. **It is switched off by default** (`MATCHING_ENABLED=false`), so until it is switched on every call answers 503; keep your own placeholder until then.
+- The score comes from a separate gRPC service (`docs/MATCHING_SERVICE.md`, `docs/MATCHING_ARCHITECTURE.md`). The browser never calls it. Jobify has a deadline of 800 ms, one retry only when the connection is refused, and a circuit breaker; nothing else in the API depends on it.
+- Nothing new in the database. New settings: `MATCHING_ENABLED`, `MATCHING_TARGET`, `MATCHING_TOKEN` (see `docs/DEPLOYMENT.md` later, M9).
+- Build note: Jobify now generates its gRPC client from `services/matching/matching-api/src/main/proto` (the contract is shared as a file, not a jar), so `mvn` needs to download `protoc` once.
+- Still to come: `/jobs/recommended` (M7) and `/jobs/{id}/candidates` (M8).
+- Issue: #105 (epic #12).
 
 ### Seeker job preferences, `GET/PUT /users/seekers/me/preferences` (#104, matching story M5) — 2026-10-16
 

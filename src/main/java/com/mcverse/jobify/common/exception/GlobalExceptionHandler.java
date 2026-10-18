@@ -38,6 +38,12 @@ public class GlobalExceptionHandler {
         return ApiResponse.error(ex.getMessage(), HttpStatus.UNPROCESSABLE_ENTITY.value());
     }
 
+    @ExceptionHandler(ServiceUnavailableException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiResponse<Void> handleServiceUnavailable(ServiceUnavailableException ex) {
+        return ApiResponse.error(ex.getMessage(), HttpStatus.SERVICE_UNAVAILABLE.value());
+    }
+
     @ExceptionHandler(LicenseValidationException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ApiResponse<Void> handleLicenseValidation(LicenseValidationException ex) {

@@ -42,6 +42,11 @@ services:
       LOG_FORMAT: ${LOG_FORMAT:-logstash}
       BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      # Matching engine: off unless you run the "matching" profile and switch it on (docs/MATCHING_SERVICE.md).
+      # Jobify starts and works either way; only the match endpoints depend on it.
+      MATCHING_ENABLED: ${MATCHING_ENABLED:-false}
+      MATCHING_TARGET: ${MATCHING_TARGET:-matching:9090}
+      MATCHING_TOKEN: ${MATCHING_TOKEN:-}
     ports:
       - "${APP_PORT:-9080}:9080"
     volumes:

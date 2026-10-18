@@ -13,6 +13,19 @@ public enum RateType {
     public static final double HOURS_PER_YEAR = 2080.0;
 
     /**
+     * The rate expressed per year, or {@code null} when it cannot be compared ({@link #CONTRACT_TOTAL}). Used to hand
+     * every pay figure to the matching service in one unit.
+     */
+    public Double toAnnual(double rate) {
+        return switch (this) {
+            case HOURLY -> rate * HOURS_PER_YEAR;
+            case MONTHLY -> rate * 12;
+            case YEARLY -> rate;
+            case CONTRACT_TOTAL -> null;
+        };
+    }
+
+    /**
      * The rate expressed per hour, rounded to cents, or {@code 0} when it cannot be compared
      * ({@link #CONTRACT_TOTAL}).
      */

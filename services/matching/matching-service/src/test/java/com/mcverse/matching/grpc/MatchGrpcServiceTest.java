@@ -18,6 +18,7 @@ import com.mcverse.matching.v1.ScoreResponse;
 import com.mcverse.matching.v1.SeekerProfile;
 import com.mcverse.matching.v1.SeekerSkill;
 import io.grpc.Status;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
@@ -27,8 +28,9 @@ import org.junit.jupiter.api.Test;
 /** Calls the adapter directly: status codes, limits and ordering, with no network. */
 class MatchGrpcServiceTest {
 
+    private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final MatchGrpcService service = new MatchGrpcService(
-            new Scorer(ScoringWeights.defaults()), new Ranker(new Scorer(ScoringWeights.defaults())));
+            new Scorer(ScoringWeights.defaults()), new Ranker(new Scorer(ScoringWeights.defaults())), meters);
 
     /** Collects what the service sends back. */
     private static final class Capture<T> implements StreamObserver<T> {
@@ -192,11 +194,52 @@ class MatchGrpcServiceTest {
     @Test
     void anUnexpectedExceptionBecomesInternalWithoutLeakingDetails() {
         // A ranker with no scorer fails with a NullPointerException, standing in for any bug.
-        MatchGrpcService failing = new MatchGrpcService(new Scorer(ScoringWeights.defaults()), new Ranker(null));
+        MatchGrpcService failing = new MatchGrpcService(new Scorer(ScoringWeights.defaults()), new Ranker(null), meters);
         Capture<RankJobsResponse> out = new Capture<>();
         failing.rankJobs(RankJobsRequest.newBuilder().setSeeker(seeker("s")).addJobs(job(1)).build(), out);
 
         assertEquals(Status.Code.INTERNAL, out.code());
         assertEquals("Internal error", ((StatusRuntimeException) out.error).getStatus().getDescription());
+    }
+
+    // ---- metrics ----
+
+    private double count(String rpc, String outcome) {
+        var counter = meters.find("matching.requests").tags("rpc", rpc, "outcome", outcome).counter();
+        return counter == null ? 0 : counter.count();
+    }
+
+    @Test
+    void everyRpcIsCountedByOutcomeAndTimed() {
+        service.score(ScoreRequest.newBuilder().setSeeker(seeker("s", "a")).setJob(job(1, "a")).build(), new Capture<>());
+        service.score(ScoreRequest.getDefaultInstance(), new Capture<>());
+        service.rankJobs(RankJobsRequest.newBuilder().setSeeker(seeker("s")).addAllJobs(jobs(501)).build(), new Capture<>());
+        service.rankCandidates(RankCandidatesRequest.newBuilder().setJob(job(1)).addCandidates(seeker("x")).build(), new Capture<>());
+
+        assertEquals(1, count("Score", "OK"));
+        assertEquals(1, count("Score", "INVALID_ARGUMENT"));
+        assertEquals(1, count("RankJobs", "RESOURCE_EXHAUSTED"));
+        assertEquals(1, count("RankCandidates", "OK"));
+        assertEquals(2, meters.find("matching.request.duration").tag("rpc", "Score").timer().count());
+    }
+
+    @Test
+    void anInternalErrorIsCountedAsInternal() {
+        new MatchGrpcService(new Scorer(ScoringWeights.defaults()), new Ranker(null), meters)
+                .rankJobs(RankJobsRequest.newBuilder().setSeeker(seeker("s")).addJobs(job(1)).build(), new Capture<>());
+        assertEquals(1, count("RankJobs", "INTERNAL"));
+    }
+
+    @Test
+    void theScoreDistributionRecordsEveryScoreHandedOut() {
+        service.score(ScoreRequest.newBuilder().setSeeker(seeker("s", "a")).setJob(job(1, "a")).build(), new Capture<>()); // 100
+        service.rankJobs(RankJobsRequest.newBuilder().setSeeker(seeker("s", "a"))
+                .addJobs(job(1, "a")).addJobs(job(2, "b")).build(), new Capture<>()); // 100 and 0
+        service.rankCandidates(RankCandidatesRequest.newBuilder().setJob(job(1, "a"))
+                .addCandidates(seeker("p", "a")).build(), new Capture<>()); // 100
+
+        var summary = meters.find("matching.score").summary();
+        assertEquals(4, summary.count());
+        assertEquals(300.0, summary.totalAmount());
     }
 }

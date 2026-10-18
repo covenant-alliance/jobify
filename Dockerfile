@@ -8,6 +8,8 @@ WORKDIR /build
 # Resolve dependencies first so this layer is cached until the pom changes.
 COPY pom.xml ./
 RUN mvn -B -q dependency:go-offline
+# The matching contract: Jobify generates its gRPC client from the same .proto the service builds from.
+COPY services/matching/matching-api/src/main/proto services/matching/matching-api/src/main/proto
 COPY src ./src
 # Tests run in CI (see .github/workflows/ci.yml); the image build only packages.
 RUN mvn -B -q -DskipTests package && cp target/jobify-*.jar /build/app.jar

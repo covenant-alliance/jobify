@@ -327,11 +327,13 @@ class JobEndpointsIntegrationTest {
 
     @Test
     void seededJobsExposeRateAndHaveNoJobRating() throws Exception {
+        // The list has no fixed order and other tests add jobs in other units, so check the whole list, never "[0]".
         mvc.perform(get("/jobs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].rate").isNumber())
-                .andExpect(jsonPath("$[0].rateType").value("HOURLY"))
-                .andExpect(jsonPath("$[0].jobRating").doesNotExist());
+                .andExpect(jsonPath("$[*].rate").value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.isA(Number.class))))
+                .andExpect(jsonPath("$[*].rateType").value(org.hamcrest.Matchers.hasItem("HOURLY")))
+                .andExpect(jsonPath("$[*].rateType").value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.notNullValue())))
+                .andExpect(jsonPath("$[*].jobRating").isEmpty());
     }
 
     // ── #39: location, workMode and employmentType are required ───────────────
