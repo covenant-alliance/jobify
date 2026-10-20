@@ -40,7 +40,7 @@ jobs:
 
       # The vulnerability database is large: restore the newest copy, and save the updated one under a new key.
       - name: Cache the vulnerability database
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           key: odc-data-${{ github.run_id }}
